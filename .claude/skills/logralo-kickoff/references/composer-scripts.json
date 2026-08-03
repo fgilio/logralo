@@ -1,0 +1,36 @@
+{
+    "setup": [
+        "composer install",
+        "@php -r \"file_exists('.env') || copy('.env.example', '.env');\"",
+        "@php artisan key:generate --ansi",
+        "@php -r \"file_exists('database/database.sqlite') || touch('database/database.sqlite');\"",
+        "@php artisan migrate --force",
+        "npm install",
+        "npm run build"
+    ],
+    "dev": [
+        "Composer\\Config::disableProcessTimeout",
+        "npx concurrently -c \"#93c5fd,#c4b5fd,#fb7185,#fdba74\" \"php artisan serve\" \"php artisan queue:listen --tries=1 --timeout=0\" \"php artisan pail --timeout=0\" \"npm run dev\" --names=server,queue,logs,vite --kill-others"
+    ],
+    "lint": [
+        "vendor/bin/rector process",
+        "vendor/bin/pint --parallel",
+        "npm run lint"
+    ],
+    "test:lint": [
+        "vendor/bin/pint --parallel --test",
+        "vendor/bin/rector process --dry-run",
+        "npm run test:lint"
+    ],
+    "test:types": "vendor/bin/phpstan analyse --memory-limit=2G",
+    "test:type-coverage": "php -d memory_limit=1G vendor/bin/pest --type-coverage --min=100",
+    "test:unit": "vendor/bin/pest --parallel --exclude-group=browser",
+    "test:browser": "vendor/bin/pest --group=browser",
+    "test": [
+        "@test:type-coverage",
+        "@test:types",
+        "@test:lint",
+        "@test:unit",
+        "@test:browser"
+    ]
+}

@@ -44,7 +44,3 @@ Kickoff meeting notes — 2026-08-03.
 
 - **Build first version of Logralo as a web app**
 - **Check domain availability for Logralo**
-
----
-
-

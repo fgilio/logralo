@@ -1,0 +1,21 @@
+{
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "vite build",
+    "dev": "vite",
+    "lint": "prettier --write .",
+    "test:lint": "prettier --check ."
+  },
+  "devDependencies": {
+    "@tailwindcss/vite": "^4.x",
+    "concurrently": "^9.x",
+    "laravel-vite-plugin": "^3.x",
+    "lefthook": "^1.x",
+    "prettier": "^3.x",
+    "prettier-plugin-organize-imports": "^4.x",
+    "prettier-plugin-tailwindcss": "^0.7.x",
+    "tailwindcss": "^4.x",
+    "vite": "^8.x"
+  }
+}

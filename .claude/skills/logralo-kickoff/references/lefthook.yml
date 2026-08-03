@@ -1,0 +1,35 @@
+min_version: 2.1.9
+glob_matcher: doublestar
+
+pre-commit:
+  parallel: true
+  jobs:
+    - name: fix:php
+      group:
+        piped: true
+        jobs:
+          - name: fix:php-refactors
+            run: ./vendor/bin/rector process --no-progress-bar {staged_files}
+            glob: '**/*.php'
+            stage_fixed: true
+          - name: fix:php-format
+            run: ./vendor/bin/pint --dirty
+            glob: '**/*.php'
+            stage_fixed: true
+    - name: fix:js
+      run: npx prettier --write {staged_files}
+      glob: '**/*.{js,jsx,ts,tsx,vue}'
+      stage_fixed: true
+    - name: fix:css
+      run: npx prettier --write {staged_files}
+      glob: '**/*.{css,scss,less}'
+      stage_fixed: true
+    - name: fix:docs-and-config
+      run: npx prettier --write {staged_files}
+      glob: '**/*.{html,json,jsonc,md,mdx,yml,yaml}'
+      stage_fixed: true
+
+# No pre-push hook. Static analysis and the test suite run in CI behind the
+# required ci-success gate, so a pre-push phpstan pass would duplicate that
+# enforcement while adding push latency and hard-failing in half-provisioned
+# agent sandboxes (vendor/bin/phpstan absent). See references/lefthook.md.
