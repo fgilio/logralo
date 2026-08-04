@@ -28,8 +28,9 @@ Distilled from Publica.la's `pla-app-project-kickoff` skill, adapted for Logralo
 | UI Kit | Flux Pro | Credentials via secrets, see § Secrets |
 | Blade compiler | Blaze | `livewire/blaze` — auto for Flux; opt-in for app Blade components via `@blaze` or `Blaze::optimize()->in(...)`, then `php artisan view:clear` |
 | CSS | Tailwind v4 (latest) | Via `@tailwindcss/vite` plugin |
-| DB (local) | SQLite | Zero-config local dev |
-| DB (hosted) | PostgreSQL on PlanetScale | Not a Laravel Cloud managed database — see `docs/mvp-decisions.md` |
+| DB (local) | SQLite | Zero-config local dev and hosted Claude Code sessions |
+| DB (CI) | PostgreSQL | Service container in `ci.yml`, for production parity |
+| DB (production) | PostgreSQL on PlanetScale | Not a Laravel Cloud managed database — see `docs/mvp-decisions.md` |
 | Testing | Pest v5 (latest) | Always `it()`, never class-based; plugins on matching major |
 | AI | laravel/ai | For the goal-difficulty judging feature |
 | Monitoring | Nightwatch | `laravel/nightwatch` |
@@ -101,7 +102,7 @@ Copy from `references/` (versions there are baselines — install latest):
 | `cloud-setup.sh` | `scripts/cloud/setup.sh` (chmod +x) |
 | `cloud-link.sh` | `scripts/cloud-link.sh` (chmod +x) |
 
-`.env.example`: `DB_CONNECTION=sqlite`.
+`.env.example`: `DB_CONNECTION=sqlite`. CI overrides it with `DB_*` job env vars pointing at its Postgres service (§ 8).
 
 ### 3.4 Hosted-session bootstrap
 
@@ -258,6 +259,7 @@ No pre-push hook: analysis and tests run in CI behind `ci-success`. Never bypass
 
 - Branch from `main`: `feature/{description}`, lowercase hyphen-separated. Small solo changes may go straight to `main` while the project is pre-launch — tighten once collaborators join.
 - CI: `references/ci.yml` → `.github/workflows/ci.yml`. Gates mirror `composer test`; single `ci-success` aggregate job.
+- The `test` job runs against a `postgres` service container (`pdo_pgsql` extension, `DB_*` job env) so the suite exercises the same engine as production. Local runs stay on SQLite.
 - Branch protection (once CI is green on `main`): require only the `ci-success` status check. `gh api repos/fgilio/logralo/branches/main/protection` or the settings UI.
 
 ## 9. AI Integration (laravel/ai)
@@ -307,6 +309,7 @@ Replace the pre-kickoff root `CLAUDE.md` using `references/claude-md-template.md
 | Composer scripts (setup, dev, lint, test) | `composer.json` scripts |
 | SQLite local default | `.env.example` |
 | CI + `ci-success` | `.github/workflows/ci.yml` |
+| Tests run on Postgres in CI | `.github/workflows/ci.yml` (`postgres` service + `DB_*` env) |
 | Branch protection on `ci-success` | GitHub settings |
 | SessionStart hook + bootstrap | `.claude/settings.json`, `.claude/hooks/session-start.sh`, `scripts/cloud/setup.sh` |
 | Laravel Cloud linked (personal org) | `.cloud/config.json` (committed) |
@@ -321,6 +324,5 @@ Replace the pre-kickoff root `CLAUDE.md` using `references/claude-md-template.md
 
 - **Domain**: check `logralo.app` availability (from the meeting notes).
 - **Nightwatch account**: confirm which Nightwatch account/app Logralo reports to (personal vs work).
-- **Database parity**: production is PlanetScale Postgres while local dev and CI run SQLite. Decide whether to move both to Postgres — before the schema picks up anything Postgres-specific, and keeping the hosted-sandbox bootstrap (§ 3.4) runnable.
 
 License is settled: FSL-1.1-MIT (`LICENSE.md` at repo root). Keep it intact when scaffolding.

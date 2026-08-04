@@ -95,11 +95,37 @@ jobs:
 
   test:
     runs-on: ubuntu-latest
+    # Tests run on PostgreSQL to match production (PlanetScale Postgres).
+    # Local dev and hosted Claude Code sessions stay on SQLite by choice.
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_DB: logralo
+          POSTGRES_USER: logralo
+          POSTGRES_PASSWORD: password
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    env:
+      # .env.example ships the SQLite default for local dev. Laravel loads it
+      # immutably, so real environment variables win — these point the suite at
+      # the service container above.
+      DB_CONNECTION: pgsql
+      DB_HOST: 127.0.0.1
+      DB_PORT: 5432
+      DB_DATABASE: logralo
+      DB_USERNAME: logralo
+      DB_PASSWORD: password
     steps:
       - uses: actions/checkout@v6
       - uses: shivammathur/setup-php@v2
         with:
           php-version: ${{ env.PHP_VERSION }}
+          extensions: pdo_pgsql # not in setup-php's default set
           coverage: pcov # pest --coverage needs a driver
       - uses: actions/cache@v4
         with:
@@ -118,7 +144,6 @@ jobs:
       - name: Prepare the app
         run: |
           cp .env.example .env
-          touch database/database.sqlite
           php artisan key:generate
       - run: composer test:unit
 

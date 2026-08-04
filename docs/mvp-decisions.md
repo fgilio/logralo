@@ -50,7 +50,15 @@ Out (later):
 
 ## Database
 
-- PostgreSQL, hosted on PlanetScale (Franco already runs another project
-  there) — not the Laravel Cloud managed MySQL the kickoff skill first assumed.
-- Local dev keeps the zero-config SQLite default for now. Moving local and CI
-  to Postgres for parity is an open item in the kickoff skill.
+PostgreSQL, hosted on PlanetScale (Franco already runs another project there)
+— not the Laravel Cloud managed MySQL the kickoff skill first assumed.
+
+Per environment:
+
+- Production: PlanetScale Postgres.
+- CI: Postgres in a service container, for production parity on the test suite.
+- Local dev and Claude Code hosted sessions: SQLite, for speed and zero setup.
+
+The schema is simple and needs no Postgres-specific features, so the local
+SQLite/Postgres split is an accepted trade. If the app grows into Postgres-only
+territory, set up Postgres locally then.
