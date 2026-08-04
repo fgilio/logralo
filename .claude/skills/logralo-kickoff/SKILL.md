@@ -316,6 +316,7 @@ Replace the pre-kickoff root `CLAUDE.md` using `references/claude-md-template.md
 
 ## Open items (decide during kickoff)
 
-- **License file**: repo is public with no LICENSE (= all rights reserved). Decide (MIT?) with Franco.
 - **Domain**: check `logralo.app` availability (from the meeting notes).
 - **Nightwatch account**: confirm which Nightwatch account/app Logralo reports to (personal vs work).
+
+License is settled: FSL-1.1-MIT (`LICENSE.md` at repo root). Keep it intact when scaffolding.
