@@ -10,13 +10,23 @@ pest()->extend(TestCase::class)
     })
     ->in('Arch', 'Feature', 'Unit');
 
-// Tia engine (test impact analysis, Pest 5). `locally()` turns it on for local
-// runs and skips it on CI, so CI always executes the full suite. `baselined()`
-// pulls the graph recorded by the tia-baseline workflow (best effort — it needs
-// an authenticated `gh`, so sandboxes without one just record their own).
+// Tia engine (test impact analysis, Pest 5). `always()` is what activates it
+// without a flag; `locally()` restricts that auto-activation to non-CI
+// environments (CI is detected via `--ci` or the CI env var), so CI always
+// executes the full suite. Spell out both — `locally()` narrows `always()`
+// rather than implying it, and `--tia --locally` is documented as the
+// equivalent of exactly this pair.
+//
+// Note this restricts auto-activation only: an explicit `--tia` on the command
+// line still takes effect on CI. That is deliberate, and it is what lets the
+// tia-baseline workflow record a graph despite `locally()`.
+//
+// `baselined()` pulls the graph recorded by that workflow (best effort — it
+// needs an authenticated `gh`, so sandboxes without one just record their own).
 // `filtered()` narrows PHPUnit to the affected test files instead of loading
 // every one of them.
 pest()->tia()
+    ->always()
     ->locally()
     ->baselined()
     ->filtered()

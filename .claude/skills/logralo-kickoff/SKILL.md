@@ -245,16 +245,21 @@ Configured in `tests/Pest.php` (already in `references/Pest.php`), so no flag is
 
 ```php
 pest()->tia()
-    ->locally()    // on for local runs, skipped on CI
+    ->always()     // activate without a flag
+    ->locally()    // ...but restrict that auto-activation to non-CI runs
     ->baselined()  // pull the shared baseline recorded by tia-baseline.yml
     ->filtered()   // load only the affected test files, not the whole suite
     ->watch([...]) // extra glob → test-directory mappings
 ```
 
+Spell out both `always()` and `locally()`. `locally()` *restricts* `always()` — it does not imply it — and the docs define the `--tia --locally` flag pair as the equivalent of exactly this chain. Drop `always()` and you risk a config that never auto-activates, which looks identical to Tia simply not helping.
+
 | Rule | Why |
 | --- | --- |
 | **On locally** (`locally()`) | Fast inner loop; `composer test:unit` picks it up with no extra flags |
-| **Off on CI** | A gate must execute the real suite. `ci.yml` never passes `--tia`, and `locally()` makes it inert there anyway |
+| **Off on CI** | A gate must execute the real suite. `ci.yml` never passes `--tia`, and `locally()` suppresses auto-activation there anyway |
+| **Explicit `--tia` still wins on CI** | `locally()` restricts *auto*-activation only. An explicit `--tia` takes effect regardless — which is exactly how `tia-baseline.yml` records a graph on CI without contradicting `locally()`. `--no-tia` is the reverse escape hatch |
+| **Browser tests never use it** | `test:browser` pins `--no-tia`. They are excluded from the baseline, and impact-analyzing a full-stack browser suite is the least trustworthy case |
 | **Needs a coverage driver** | PCOV (preferred) or Xdebug must be enabled locally — Tia records the test↔file graph through it. Without one it cannot record, so the run falls back to a plain full run |
 | **`--fresh` after weird results** | If replays look stale or the graph is suspect, `composer test:tia-baseline` (or `vendor/bin/pest --tia --fresh`) re-records from scratch |
 | **Never trust a replay for a claim** | Before saying "tests pass" on work you are shipping, run `composer test:unit:full` (`--no-tia`) or let CI say it |
@@ -280,7 +285,7 @@ Flags worth knowing (`--tia` is only needed if the config above is absent):
 - `baselined()` fetches through an authenticated `gh`. Franco's machine has one; hosted Claude Code web sessions do not, so they silently skip the fetch and record their own graph on first run. That is a slow first run, not a failure.
 - Cosmetic edits (comments, docblocks, Pint/Prettier passes) normalize to the same hash and trigger zero tests. That is correct behaviour, not a broken graph.
 - The graph rebuilds itself when `composer.lock`, `phpunit.xml*`, `vite.config.*`, the Node lockfile, or the PHP version changes.
-- The baseline is recorded with `--exclude-group=browser`, matching `test:unit`. Browser tests always run in full via `composer test:browser`.
+- The baseline is recorded with `--exclude-group=browser`, matching `test:unit`. Browser tests always run in full via `composer test:browser`, which pins `--no-tia` so the global config cannot quietly start replaying them.
 
 **Standard arch tests** (`tests/Arch/`) — create the ones whose layer exists, add the rest as layers appear:
 
