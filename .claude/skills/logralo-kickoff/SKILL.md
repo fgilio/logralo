@@ -29,7 +29,7 @@ Distilled from Publica.la's `pla-app-project-kickoff` skill, adapted for Logralo
 | Blade compiler | Blaze | `livewire/blaze` — auto for Flux; opt-in for app Blade components via `@blaze` or `Blaze::optimize()->in(...)`, then `php artisan view:clear` |
 | CSS | Tailwind v4 (latest) | Via `@tailwindcss/vite` plugin |
 | DB (local) | SQLite | Zero-config local dev |
-| DB (cloud) | MySQL 8 | Laravel Cloud managed |
+| DB (hosted) | PostgreSQL on PlanetScale | Not a Laravel Cloud managed database — see `docs/mvp-decisions.md` |
 | Testing | Pest v5 (latest) | Always `it()`, never class-based; plugins on matching major |
 | AI | laravel/ai | For the goal-difficulty judging feature |
 | Monitoring | Nightwatch | `laravel/nightwatch` |
@@ -123,7 +123,9 @@ Create the app on Laravel Cloud (dashboard or CLI), then link non-interactively:
 CLOUD_ORG_ID=org-... bash scripts/cloud-link.sh logralo
 ```
 
-Commit `.cloud/config.json` — it holds resource IDs (not secrets) and is required for non-interactive CLI usage by agents. All cloud commands take `-n` and `--json`. Set the `FLUX_*` env vars and the build-command prefix per § 2. Database: MySQL 8. Laravel Cloud auto-deploys every push to `main`.
+Commit `.cloud/config.json` — it holds resource IDs (not secrets) and is required for non-interactive CLI usage by agents. All cloud commands take `-n` and `--json`. Set the `FLUX_*` env vars and the build-command prefix per § 2. Laravel Cloud auto-deploys every push to `main`.
+
+Database: PostgreSQL on PlanetScale, not a Laravel Cloud managed database. Provision it on PlanetScale, then set `DB_CONNECTION=pgsql` plus the PlanetScale connection env vars on the Cloud environment.
 
 ## 4. Code Conventions
 
@@ -308,6 +310,7 @@ Replace the pre-kickoff root `CLAUDE.md` using `references/claude-md-template.md
 | Branch protection on `ci-success` | GitHub settings |
 | SessionStart hook + bootstrap | `.claude/settings.json`, `.claude/hooks/session-start.sh`, `scripts/cloud/setup.sh` |
 | Laravel Cloud linked (personal org) | `.cloud/config.json` (committed) |
+| PlanetScale Postgres provisioned + wired | Cloud env (`DB_CONNECTION=pgsql` + credentials) |
 | Nightwatch installed + env vars | `composer.json`, Cloud env |
 | Arch tests | `tests/Arch/` |
 | `tests/Pest.php` global config | `tests/Pest.php` |
@@ -318,5 +321,6 @@ Replace the pre-kickoff root `CLAUDE.md` using `references/claude-md-template.md
 
 - **Domain**: check `logralo.app` availability (from the meeting notes).
 - **Nightwatch account**: confirm which Nightwatch account/app Logralo reports to (personal vs work).
+- **Database parity**: production is PlanetScale Postgres while local dev and CI run SQLite. Decide whether to move both to Postgres — before the schema picks up anything Postgres-specific, and keeping the hosted-sandbox bootstrap (§ 3.4) runnable.
 
 License is settled: FSL-1.1-MIT (`LICENSE.md` at repo root). Keep it intact when scaffolding.

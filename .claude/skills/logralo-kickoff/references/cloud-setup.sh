@@ -2,9 +2,10 @@
 # Bootstrap for hosted Claude Code (web) sessions and fresh checkouts.
 # Copy to scripts/cloud/setup.sh during the kickoff.
 #
-# Simple by design: Logralo is a SQLite app, so a full checkout only needs
-# composer deps, node deps, an .env, a database file, built assets, and git
-# hooks. The Publica.la fleet carries a much heavier vendored bootstrap
+# Simple by design: Logralo runs on SQLite locally (PostgreSQL on PlanetScale
+# is production-only), so a full checkout only needs composer deps, node deps,
+# an .env, a database file, built assets, and git hooks.
+# The Publica.la fleet carries a much heavier vendored bootstrap
 # (static-PHP snapshots, restricted-egress fallbacks); adopt pieces of it
 # later only if hosted sandboxes turn out to need them.
 #

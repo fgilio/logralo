@@ -9,7 +9,7 @@
 - **Laravel 13** with PHP 8.5
 - **laravel/ai** with {provider} provider
 - **Livewire 4 SFCs + Flux Pro** for {UI description}
-- **SQLite** locally, **MySQL 8** on Laravel Cloud
+- **SQLite** locally, **PostgreSQL on PlanetScale** in production
 - **Pest v5** for testing
 
 ## Architecture

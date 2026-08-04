@@ -47,3 +47,10 @@ Out (later):
 - AI difficulty weighting (only matters when money is involved).
 - Categories for virality, boost/follower features.
 - Retroactive photo upgrade for ghost marks.
+
+## Database
+
+- PostgreSQL, hosted on PlanetScale (Franco already runs another project
+  there) — not the Laravel Cloud managed MySQL the kickoff skill first assumed.
+- Local dev keeps the zero-config SQLite default for now. Moving local and CI
+  to Postgres for parity is an open item in the kickoff skill.
