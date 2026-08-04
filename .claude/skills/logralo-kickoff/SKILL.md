@@ -13,7 +13,7 @@ Distilled from Publica.la's `pla-app-project-kickoff` skill, adapted for Logralo
 
 **Deltas vs the PLA original** (keep these in mind when in doubt):
 
-1. **Latest versions of everything.** Pest 5 (not 4), latest Pint/Rector/Larastan/PHPStan, PHP 8.5, latest Tailwind 4.x / Vite. Install unpinned to get the latest and verify with `composer outdated -D` / `npm outdated`. Version numbers in reference files are baselines, not pins.
+1. **Latest versions of everything.** Pest 5 (not 4) with the **Tia engine** on (§ 6), latest Pint/Rector/Larastan/PHPStan, PHP 8.5, latest Tailwind 4.x / Vite. Install unpinned to get the latest and verify with `composer outdated -D` / `npm outdated`. Version numbers in reference files are baselines, not pins.
 2. **Personal Laravel Cloud account** (Franco's), not the Publica.la org.
 3. **Public repo.** Secrets are NEVER committed — no committed `auth.json` (the PLA pattern relies on private repos). See § Secrets.
 4. **GitHub-hosted runners** (`ubuntu-latest`): public repo = unlimited free Actions minutes. No Depot runners, no org rulesets, no fleet audit machinery.
@@ -35,7 +35,7 @@ Distilled from Publica.la's `pla-app-project-kickoff` skill, adapted for Logralo
 | Queue / cache / sessions | Database driver | Queue workers managed by Laravel Cloud (jarvis pattern); no Redis, no Horizon |
 | Mail | Resend | Free tier; `log` mailer in local dev |
 | Auth | Livewire starter kit | Registration/join flow designed separately — see Open items |
-| Testing | Pest v5 (latest) | Always `it()`, never class-based; plugins on matching major |
+| Testing | Pest v5 (latest) | Always `it()`, never class-based; **Tia engine on locally** (§ 6); plugins on matching major |
 | AI | laravel/ai | For the goal-difficulty judging feature |
 | Monitoring | Nightwatch | `laravel/nightwatch`, Franco's personal account |
 | Build | Vite (latest) | With `@tailwindcss/vite` + `laravel-vite-plugin` |
@@ -98,8 +98,9 @@ Copy from `references/` (versions there are baselines — install latest):
 | `.prettierignore` | repo root |
 | `.editorconfig` | repo root |
 | `livewire.php` | `config/livewire.php` (SFC mode, page locations) |
-| `Pest.php` | `tests/Pest.php` (add imports; fakes, freezeTime, RefreshDatabase) |
+| `Pest.php` | `tests/Pest.php` (add imports; fakes, freezeTime, RefreshDatabase, Tia config) |
 | `ci.yml` | `.github/workflows/ci.yml` |
+| `tia-baseline.yml` | `.github/workflows/tia-baseline.yml` (records the shared Tia baseline; gates nothing) |
 | `claude-md-template.md` | template for root `CLAUDE.md` (replace the pre-kickoff CLAUDE.md) |
 | `claude-settings.json` | `.claude/settings.json` |
 | `session-start.sh` | `.claude/hooks/session-start.sh` (chmod +x) |
@@ -234,7 +235,57 @@ Pest v5. Always `it()` syntax. Test types:
 
 **Non-negotiable quality gates**: 100% type coverage (`--min=100`), PHPStan level 8, Pint clean, Rector clean.
 
-`tests/Pest.php` from `references/Pest.php`: RefreshDatabase, `Http::preventStrayRequests()`, `Process::preventStrayProcesses()`, `Sleep::fake()`, `freezeTime()`.
+`tests/Pest.php` from `references/Pest.php`: RefreshDatabase, `Http::preventStrayRequests()`, `Process::preventStrayProcesses()`, `Sleep::fake()`, `freezeTime()`, and the Tia config below.
+
+### 6.1 Tia engine (test impact analysis) — required
+
+Pest 5's Tia engine re-runs only the tests a change actually touched and replays cached results for the rest. It is not optional here: the whole point of a solo, phone-driven project is a sub-10-second inner loop. **Use it — do not run the suite without it locally, and do not rely on it on CI.**
+
+Configured in `tests/Pest.php` (already in `references/Pest.php`), so no flag is needed day to day:
+
+```php
+pest()->tia()
+    ->always()     // activate without a flag
+    ->locally()    // ...but restrict that auto-activation to non-CI runs
+    ->baselined()  // pull the shared baseline recorded by tia-baseline.yml
+    ->filtered()   // load only the affected test files, not the whole suite
+    ->watch([...]) // extra glob → test-directory mappings
+```
+
+Spell out both `always()` and `locally()`. `locally()` *restricts* `always()` — it does not imply it — and the docs define the `--tia --locally` flag pair as the equivalent of exactly this chain. Drop `always()` and you risk a config that never auto-activates, which looks identical to Tia simply not helping.
+
+| Rule | Why |
+| --- | --- |
+| **On locally** (`locally()`) | Fast inner loop; `composer test:unit` picks it up with no extra flags |
+| **Off on CI** | A gate must execute the real suite. `ci.yml` never passes `--tia`, and `locally()` suppresses auto-activation there anyway |
+| **Explicit `--tia` still wins on CI** | `locally()` restricts *auto*-activation only. An explicit `--tia` takes effect regardless — which is exactly how `tia-baseline.yml` records a graph on CI without contradicting `locally()`. `--no-tia` is the reverse escape hatch |
+| **Browser tests never use it** | `test:browser` pins `--no-tia`. They are excluded from the baseline, and impact-analyzing a full-stack browser suite is the least trustworthy case |
+| **Needs a coverage driver** | PCOV (preferred) or Xdebug must be enabled locally — Tia records the test↔file graph through it. Without one it cannot record, so the run falls back to a plain full run |
+| **`--fresh` after weird results** | If replays look stale or the graph is suspect, `composer test:tia-baseline` (or `vendor/bin/pest --tia --fresh`) re-records from scratch |
+| **Never trust a replay for a claim** | Before saying "tests pass" on work you are shipping, run `composer test:unit:full` (`--no-tia`) or let CI say it |
+
+Flags worth knowing (`--tia` is only needed if the config above is absent):
+
+| Flag / env | Effect |
+| --- | --- |
+| `--tia` / `PEST_TIA=1` | Replay from the baseline, or record one if none exists |
+| `--no-tia` | Force a full run for this invocation |
+| `--tia --fresh` | Discard the graph and re-record |
+| `--tia --filtered` / `PEST_TIA_FILTERED=1` | Narrow PHPUnit to the affected test files |
+| `--tia --locally` / `PEST_TIA_LOCALLY=1` | On locally, skipped on CI |
+| `--tia --baselined` / `PEST_TIA_BASELINED=1` | Fetch the shared CI baseline when needed |
+| `--tia --refetch` | Force a baseline fetch inside the 24h cooldown |
+| `--baseline` | Print the storage directory (used by the artifact upload) |
+
+**Shared baseline.** `references/tia-baseline.yml` → `.github/workflows/tia-baseline.yml` records a clean graph on every push to `main` plus nightly and uploads it as the `pest-tia-baseline` artifact, so a fresh clone starts warm instead of paying for a full recording run. It mirrors the `test` job (Postgres service, Flux auth, built assets) but with `coverage: pcov`, and it gates nothing — `ci-success` stays the only required check. Keep it out of `ci-success`'s `needs:` list.
+
+**Caveats to expect:**
+
+- State lives in `~/.pest/tia/<project-key>/`, keyed off the normalized git remote — outside the repo, so nothing to gitignore, but also nothing that survives an ephemeral hosted sandbox.
+- `baselined()` fetches through an authenticated `gh`. Franco's machine has one; hosted Claude Code web sessions do not, so they silently skip the fetch and record their own graph on first run. That is a slow first run, not a failure.
+- Cosmetic edits (comments, docblocks, Pint/Prettier passes) normalize to the same hash and trigger zero tests. That is correct behaviour, not a broken graph.
+- The graph rebuilds itself when `composer.lock`, `phpunit.xml*`, `vite.config.*`, the Node lockfile, or the PHP version changes.
+- The baseline is recorded with `--exclude-group=browser`, matching `test:unit`. Browser tests always run in full via `composer test:browser`, which pins `--no-tia` so the global config cannot quietly start replaying them.
 
 **Standard arch tests** (`tests/Arch/`) — create the ones whose layer exists, add the rest as layers appear:
 
@@ -268,6 +319,7 @@ No pre-push hook: analysis and tests run in CI behind `ci-success`. Never bypass
 - Branch from `main`: `feature/{description}`, lowercase hyphen-separated. Small solo changes may go straight to `main` while the project is pre-launch — tighten once collaborators join.
 - CI: `references/ci.yml` → `.github/workflows/ci.yml`. Gates mirror `composer test`; single `ci-success` aggregate job.
 - The `test` job runs against a `postgres` service container (`pdo_pgsql` extension, `DB_*` job env) so the suite exercises the same engine as production. Local runs stay on SQLite.
+- Second workflow, `references/tia-baseline.yml` → `.github/workflows/tia-baseline.yml`: records and uploads the shared Pest Tia baseline on push to `main` and nightly (§ 6.1). It is not a gate — keep it out of `ci-success`'s `needs:` list.
 - Branch protection (once CI is green on `main`): require only the `ci-success` status check. `gh api repos/fgilio/logralo/branches/main/protection` or the settings UI.
 
 ## 9. AI Integration (laravel/ai)
@@ -306,6 +358,8 @@ Replace the pre-kickoff root `CLAUDE.md` using `references/claude-md-template.md
 | PHP 8.5 + strict types | `composer.json`, `pint.json` |
 | Laravel 13 (latest) | `composer.json` |
 | Pest v5 + plugins on matching major | `composer.json` require-dev |
+| Tia engine configured (`locally`/`baselined`/`filtered`) | `tests/Pest.php` |
+| Tia baseline workflow (not a gate) | `.github/workflows/tia-baseline.yml` |
 | Everything on latest majors | `composer outdated -D`, `npm outdated` clean |
 | Flux Pro repo block | `composer.json` repositories |
 | Flux secrets wired, nothing committed | gitignored `auth.json`; Actions secrets; Cloud + web-session env vars |

@@ -14,6 +14,11 @@
 # FLUX_USERNAME and FLUX_LICENSE_KEY repository secrets first. Known
 # limitation: fork PRs cannot read secrets, so `composer install` fails for
 # external contributors until a maintainer reruns the workflow from a branch.
+#
+# Pest's Tia engine is deliberately inert here: tests/Pest.php configures it
+# `locally()`, so CI always executes the full suite and never trusts a cached
+# replay for a gate. The shared baseline is recorded by the separate
+# tia-baseline.yml workflow, which gates nothing.
 
 name: CI
 
