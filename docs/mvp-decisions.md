@@ -62,3 +62,26 @@ Per environment:
 The schema is simple and needs no Postgres-specific features, so the local
 SQLite/Postgres split is an accepted trade. If the app grows into Postgres-only
 territory, set up Postgres locally then.
+
+## Photo storage
+
+Laravel Cloud object storage bucket (S3-compatible) in production, wired via
+the env vars Cloud injects. Local dev uses the `local` disk.
+
+## Queue, cache, sessions
+
+Database driver for all three, with queue workers managed by Laravel Cloud —
+same pattern as jarvis. No Redis, no Horizon; at this scale the database
+handles it fine.
+
+## Mail
+
+Resend, on its free tier (3,000 emails/month). Evaluated in preference order:
+Bento has no free tier ($5/month after the first 100 emails) and Cloudflare
+Email Service sending is still beta with free sending limited to verified
+recipient addresses. Local dev uses the `log` mailer.
+
+## Auth
+
+Laravel's official Livewire starter kit. How users register and join the
+group is being designed separately — not decided here.

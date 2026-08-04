@@ -31,6 +31,10 @@ Distilled from Publica.la's `pla-app-project-kickoff` skill, adapted for Logralo
 | DB (local) | SQLite | Zero-config local dev and hosted Claude Code sessions |
 | DB (CI) | PostgreSQL 18 | Service container in `ci.yml`, for production parity |
 | DB (production) | PostgreSQL 18 on PlanetScale | Not a Laravel Cloud managed database — see `docs/mvp-decisions.md` |
+| Photo storage | Laravel Cloud bucket | S3-compatible object storage for goal photos; `local` disk in dev |
+| Queue / cache / sessions | Database driver | Queue workers managed by Laravel Cloud (jarvis pattern); no Redis, no Horizon |
+| Mail | Resend | Free tier; `log` mailer in local dev |
+| Auth | Livewire starter kit | Registration/join flow designed separately — see Open items |
 | Testing | Pest v5 (latest) | Always `it()`, never class-based; plugins on matching major |
 | AI | laravel/ai | For the goal-difficulty judging feature |
 | Monitoring | Nightwatch | `laravel/nightwatch` |
@@ -72,7 +76,7 @@ Merge `.gitignore` by hand (keep Laravel's, retain `/auth.json`).
 
 - `"php": "^8.5"` in `require`.
 - Flux Pro repository block (§ 2).
-- Required: `laravel/ai`, `laravel/horizon`, `laravel/nightwatch`, `livewire/blaze`, `livewire/flux-pro`, `livewire/livewire`.
+- Required: `laravel/ai`, `laravel/nightwatch`, `livewire/blaze`, `livewire/flux-pro`, `livewire/livewire`. No `laravel/horizon` — queues run on the database driver with Cloud-managed workers.
 - Dev: `driftingly/rector-laravel`, `larastan/larastan`, `laravel/pail`, `laravel/pint`, `pestphp/pest` (**v5**), `pestphp/pest-plugin-browser`, `pestphp/pest-plugin-laravel`, `pestphp/pest-plugin-type-coverage`, `rector/rector`.
 - Install everything unpinned (`composer require pkg` / `composer require pkg --dev`) so the latest majors resolve. Then run `composer outdated -D` and confirm nothing lags a major. Pest plugins must match Pest's major.
 - Scripts: copy the block from `references/composer-scripts.json` (adapt the `dev` concurrently line if services change). `composer setup` bootstraps everything; `composer dev` runs all services.
@@ -127,6 +131,8 @@ CLOUD_ORG_ID=org-... bash scripts/cloud-link.sh logralo
 Commit `.cloud/config.json` — it holds resource IDs (not secrets) and is required for non-interactive CLI usage by agents. All cloud commands take `-n` and `--json`. Set the `FLUX_*` env vars and the build-command prefix per § 2. Laravel Cloud auto-deploys every push to `main`.
 
 Database: PostgreSQL on PlanetScale, not a Laravel Cloud managed database. Provision it on PlanetScale, then set `DB_CONNECTION=pgsql` plus the PlanetScale connection env vars on the Cloud environment.
+
+Other Cloud resources: an object storage bucket for goal photos (Cloud injects the S3 env vars — point the default `FILESYSTEM_DISK` at it in production), and managed queue workers running the `database` queue driver (jarvis pattern — no Redis, no Horizon). Mail goes through Resend: set the Resend API key on the Cloud environment and `MAIL_MAILER=resend`.
 
 ## 4. Code Conventions
 
@@ -314,6 +320,8 @@ Replace the pre-kickoff root `CLAUDE.md` using `references/claude-md-template.md
 | SessionStart hook + bootstrap | `.claude/settings.json`, `.claude/hooks/session-start.sh`, `scripts/cloud/setup.sh` |
 | Laravel Cloud linked (personal org) | `.cloud/config.json` (committed) |
 | PlanetScale Postgres provisioned + wired | Cloud env (`DB_CONNECTION=pgsql` + credentials) |
+| Cloud bucket for photos + queue workers | Laravel Cloud environment (bucket env vars, `database` queue driver) |
+| Resend wired for mail | Cloud env (`MAIL_MAILER=resend` + API key); `log` mailer locally |
 | Nightwatch installed + env vars | `composer.json`, Cloud env |
 | Arch tests | `tests/Arch/` |
 | `tests/Pest.php` global config | `tests/Pest.php` |
@@ -324,5 +332,6 @@ Replace the pre-kickoff root `CLAUDE.md` using `references/claude-md-template.md
 
 - **Domain**: check `logralo.app` availability (from the meeting notes).
 - **Nightwatch account**: confirm which Nightwatch account/app Logralo reports to (personal vs work).
+- **Registration/join flow**: how users register and join the group — Franco is designing this in a separate session. Scaffold starter-kit auth, but don't invent the join flow.
 
 License is settled: FSL-1.1-MIT (`LICENSE.md` at repo root). Keep it intact when scaffolding.
