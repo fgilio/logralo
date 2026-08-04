@@ -55,7 +55,7 @@ there) — not the Laravel Cloud managed MySQL the kickoff skill first assumed.
 
 Per environment:
 
-- Production: PlanetScale Postgres.
+- Production: PlanetScale Postgres, region `us-east-2`.
 - CI: Postgres in a service container, for production parity on the test suite.
 - Local dev and Claude Code hosted sessions: SQLite, for speed and zero setup.
 
@@ -85,3 +85,12 @@ recipient addresses. Local dev uses the `log` mailer.
 
 Laravel's official Livewire starter kit. How users register and join the
 group is being designed separately — not decided here.
+
+## Domain
+
+`logralo.fgilio.com` — a subdomain of Franco's own domain, the fallback the
+meeting notes anticipated. No new domain purchase.
+
+## Monitoring
+
+Nightwatch, on Franco's personal account (not the work one).

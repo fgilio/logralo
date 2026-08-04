@@ -37,7 +37,7 @@ Distilled from Publica.la's `pla-app-project-kickoff` skill, adapted for Logralo
 | Auth | Livewire starter kit | Registration/join flow designed separately — see Open items |
 | Testing | Pest v5 (latest) | Always `it()`, never class-based; plugins on matching major |
 | AI | laravel/ai | For the goal-difficulty judging feature |
-| Monitoring | Nightwatch | `laravel/nightwatch` |
+| Monitoring | Nightwatch | `laravel/nightwatch`, Franco's personal account |
 | Build | Vite (latest) | With `@tailwindcss/vite` + `laravel-vite-plugin` |
 
 ## 2. Secrets (public repo — read first)
@@ -130,7 +130,9 @@ CLOUD_ORG_ID=org-... bash scripts/cloud-link.sh logralo
 
 Commit `.cloud/config.json` — it holds resource IDs (not secrets) and is required for non-interactive CLI usage by agents. All cloud commands take `-n` and `--json`. Set the `FLUX_*` env vars and the build-command prefix per § 2. Laravel Cloud auto-deploys every push to `main`.
 
-Database: PostgreSQL on PlanetScale, not a Laravel Cloud managed database. Provision it on PlanetScale, then set `DB_CONNECTION=pgsql` plus the PlanetScale connection env vars on the Cloud environment.
+Database: PostgreSQL on PlanetScale, not a Laravel Cloud managed database. Provision it on PlanetScale in `us-east-2`, then set `DB_CONNECTION=pgsql` plus the PlanetScale connection env vars on the Cloud environment.
+
+Domain: `logralo.fgilio.com`. Add it as a custom domain on the Cloud environment and point the DNS record where Cloud instructs.
 
 Other Cloud resources: an object storage bucket for goal photos (Cloud injects the S3 env vars — point the default `FILESYSTEM_DISK` at it in production), and managed queue workers running the `database` queue driver (jarvis pattern — no Redis, no Horizon). Mail goes through Resend: set the Resend API key on the Cloud environment and `MAIL_MAILER=resend`.
 
@@ -322,7 +324,8 @@ Replace the pre-kickoff root `CLAUDE.md` using `references/claude-md-template.md
 | PlanetScale Postgres provisioned + wired | Cloud env (`DB_CONNECTION=pgsql` + credentials) |
 | Cloud bucket for photos + queue workers | Laravel Cloud environment (bucket env vars, `database` queue driver) |
 | Resend wired for mail | Cloud env (`MAIL_MAILER=resend` + API key); `log` mailer locally |
-| Nightwatch installed + env vars | `composer.json`, Cloud env |
+| Nightwatch installed + env vars (personal account) | `composer.json`, Cloud env |
+| `logralo.fgilio.com` pointed at Cloud | Cloud custom domain + DNS |
 | Arch tests | `tests/Arch/` |
 | `tests/Pest.php` global config | `tests/Pest.php` |
 | Root CLAUDE.md from template | `CLAUDE.md` |
@@ -330,8 +333,8 @@ Replace the pre-kickoff root `CLAUDE.md` using `references/claude-md-template.md
 
 ## Open items (decide during kickoff)
 
-- **Domain**: check `logralo.app` availability (from the meeting notes).
-- **Nightwatch account**: confirm which Nightwatch account/app Logralo reports to (personal vs work).
 - **Registration/join flow**: how users register and join the group — Franco is designing this in a separate session. Scaffold starter-kit auth, but don't invent the join flow.
+
+Settled since: domain is `logralo.fgilio.com`, Nightwatch runs on Franco's personal account, PlanetScale region is `us-east-2` (all in `docs/mvp-decisions.md`).
 
 License is settled: FSL-1.1-MIT (`LICENSE.md` at repo root). Keep it intact when scaffolding.
