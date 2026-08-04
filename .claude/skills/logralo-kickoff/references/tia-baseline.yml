@@ -4,9 +4,14 @@
 # starts from a warm graph instead of paying for a full recording run.
 #
 # This workflow does NOT gate anything: `ci-success` in ci.yml is the only
-# required check, and CI itself always runs the full suite (Tia is configured
-# `locally()`, so it is inert on CI). If this workflow fails, the worst case is
-# that developers record their own baseline on the next local run.
+# required check. If this workflow fails, the worst case is that developers
+# record their own baseline on the next local run.
+#
+# Why recording works here even though tests/Pest.php sets `locally()`:
+# `locally()` restricts *auto*-activation to non-CI environments, but an
+# explicit `--tia` on the command line takes effect regardless. The recording
+# step below passes it (via `composer test:tia-baseline`), so it records a graph
+# here; the gate jobs in ci.yml never pass it, so they run the full suite.
 #
 # Recording mirrors the `test` job in ci.yml — same Postgres service, same Flux
 # auth, same built assets — so the graph reflects the suite people actually run.
