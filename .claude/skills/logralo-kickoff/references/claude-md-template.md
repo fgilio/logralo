@@ -10,7 +10,7 @@
 - **laravel/ai** with {provider} provider
 - **Livewire 4 SFCs + Flux Pro** for {UI description}
 - **SQLite** locally, **PostgreSQL on PlanetScale** in production
-- **Pest v5** for testing
+- **Pest v5** for testing, with the **Tia engine** (test impact analysis) on for local runs
 
 ## Architecture
 
@@ -39,11 +39,19 @@ composer test
 composer lint
 
 # Run specific test suites
-composer test:unit          # Pest parallel + coverage
+composer test:unit          # Pest parallel, Tia-accelerated locally
+composer test:unit:full     # Same suite with --no-tia (use before claiming green)
 composer test:types         # PHPStan level 8
 composer test:type-coverage # 100% type coverage
 composer test:lint          # Pint + Rector + Prettier checks
+composer test:tia-baseline  # Re-record the Tia graph from scratch
 ```
+
+## Testing
+
+Pest v5, always `it()` syntax. The Tia engine re-runs only the tests your change touched and replays the rest from cache — configured in `tests/Pest.php` (`locally()`, `baselined()`, `filtered()`), so `composer test:unit` picks it up with no flags. It needs PCOV or Xdebug enabled locally to record its graph.
+
+Tia is off on CI: gates always execute the full suite. Before claiming tests pass on work you are shipping, run `composer test:unit:full` or let CI say it — never a replay. If replays look stale, `composer test:tia-baseline` re-records.
 
 ## Environment Variables
 
