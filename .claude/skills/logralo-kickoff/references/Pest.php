@@ -21,8 +21,9 @@ pest()->extend(TestCase::class)
 // line still takes effect on CI. That is deliberate, and it is what lets the
 // tia-baseline workflow record a graph despite `locally()`.
 //
-// `baselined()` pulls the graph recorded by that workflow (best effort — it
-// needs an authenticated `gh`, so sandboxes without one just record their own).
+// `baselined()` pulls the graph recorded by that workflow. Best effort: it
+// shells out to GitHub's CLI, so sandboxes without `gh` fall back to recording
+// their own. A failed fetch then backs off for 24h unless you pass `--refetch`.
 // `filtered()` narrows PHPUnit to the affected test files instead of loading
 // every one of them.
 pest()->tia()

@@ -282,7 +282,8 @@ Flags worth knowing (`--tia` is only needed if the config above is absent):
 **Caveats to expect:**
 
 - State lives in `~/.pest/tia/<project-key>/`, keyed off the normalized git remote — outside the repo, so nothing to gitignore, but also nothing that survives an ephemeral hosted sandbox.
-- `baselined()` fetches through an authenticated `gh`. Franco's machine has one; hosted Claude Code web sessions do not, so they silently skip the fetch and record their own graph on first run. That is a slow first run, not a failure.
+- `baselined()` fetches by shelling out to GitHub's CLI — the docs describe it as using `gh` to download the `pest-tia-baseline` artifact from the last successful `tia-baseline.yml` run. Franco's machine has `gh`; hosted Claude Code web sessions do not, so they fall back to recording their own graph. A slow first run, not a failure. A fetched graph is also validated against project state and discarded if it does not match, with the same local-rebuild fallback.
+- A **failed fetch starts a 24-hour cooldown** before Pest tries again — `--tia --refetch` forces one inside that window. So a hosted session that fails the fetch once won't retry on its own for a day; not a problem for ephemeral sandboxes (each is a fresh `~`), but worth knowing on a long-lived machine that was briefly offline or logged out of `gh`.
 - Cosmetic edits (comments, docblocks, Pint/Prettier passes) normalize to the same hash and trigger zero tests. That is correct behaviour, not a broken graph.
 - The graph rebuilds itself when `composer.lock`, `phpunit.xml*`, `vite.config.*`, the Node lockfile, or the PHP version changes.
 - The baseline is recorded with `--exclude-group=browser`, matching `test:unit`. Browser tests always run in full via `composer test:browser`, which pins `--no-tia` so the global config cannot quietly start replaying them.
