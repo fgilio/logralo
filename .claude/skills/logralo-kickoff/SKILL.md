@@ -29,8 +29,8 @@ Distilled from Publica.la's `pla-app-project-kickoff` skill, adapted for Logralo
 | Blade compiler | Blaze | `livewire/blaze` — auto for Flux; opt-in for app Blade components via `@blaze` or `Blaze::optimize()->in(...)`, then `php artisan view:clear` |
 | CSS | Tailwind v4 (latest) | Via `@tailwindcss/vite` plugin |
 | DB (local) | SQLite | Zero-config local dev and hosted Claude Code sessions |
-| DB (CI) | PostgreSQL | Service container in `ci.yml`, for production parity |
-| DB (production) | PostgreSQL on PlanetScale | Not a Laravel Cloud managed database — see `docs/mvp-decisions.md` |
+| DB (CI) | PostgreSQL 18 | Service container in `ci.yml`, for production parity |
+| DB (production) | PostgreSQL 18 on PlanetScale | Not a Laravel Cloud managed database — see `docs/mvp-decisions.md` |
 | Testing | Pest v5 (latest) | Always `it()`, never class-based; plugins on matching major |
 | AI | laravel/ai | For the goal-difficulty judging feature |
 | Monitoring | Nightwatch | `laravel/nightwatch` |

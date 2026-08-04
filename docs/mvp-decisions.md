@@ -50,8 +50,8 @@ Out (later):
 
 ## Database
 
-PostgreSQL, hosted on PlanetScale (Franco already runs another project there)
-— not the Laravel Cloud managed MySQL the kickoff skill first assumed.
+PostgreSQL 18, hosted on PlanetScale (Franco already runs another project
+there) — not the Laravel Cloud managed MySQL the kickoff skill first assumed.
 
 Per environment:
 

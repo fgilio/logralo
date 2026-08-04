@@ -99,7 +99,7 @@ jobs:
     # Local dev and hosted Claude Code sessions stay on SQLite by choice.
     services:
       postgres:
-        image: postgres:17
+        image: postgres:18
         env:
           POSTGRES_DB: logralo
           POSTGRES_USER: logralo
