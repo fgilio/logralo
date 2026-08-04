@@ -1,8 +1,11 @@
 # MVP Decisions
 
 Decisions made after the kickoff meeting. These refine the ambiguous points in
-[kickoff-meeting-notes.md](kickoff-meeting-notes.md). This file is the source of
-truth when the two disagree.
+[kickoff-meeting-notes.md](kickoff-meeting-notes.md) and win over the notes
+when the two disagree. [mvp-v1-scope.md](mvp-v1-scope.md) came later, is more
+detailed, and wins over this file (notably: the core screen is now goal cards
+on top with a group feed below, not a days-by-goals grid, and the grace cutoff
+is settled at 12:00 in each user's own timezone).
 
 ## Goals
 

@@ -5,7 +5,8 @@ Daily goals app with streak counter and photo verification, built for a group of
 ## Product docs
 
 - `docs/kickoff-meeting-notes.md` — meeting notes. Reference only, NOT a spec or task list.
-- `docs/mvp-decisions.md` — post-kickoff decisions. Source of truth when the two disagree.
+- `docs/mvp-decisions.md` — post-kickoff decisions (product refinements + infra choices). Wins over the notes.
+- `docs/mvp-v1-scope.md` — the v1 product spec from the 2026-08-04 scope interview. Wins over both.
 
 ## Bootstrapping the app
 
