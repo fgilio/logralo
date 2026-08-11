@@ -70,14 +70,17 @@ it('keeps one row per member per mark at the database level', function (): void 
 
     Reaction::factory()->for($mark)->for($user)->create(['emoji' => ReactionEmoji::Fire]);
 
-    expect(fn (): bool => DB::table('reactions')->insert([
+    // Wrapped in its own transaction — a savepoint, since RefreshDatabase has
+    // one open — because on Postgres a failed statement aborts the surrounding
+    // transaction and every later query in this test with it.
+    expect(fn (): bool => DB::transaction(fn (): bool => DB::table('reactions')->insert([
         'id' => (string) Str::ulid(),
         'mark_id' => $mark->id,
         'user_id' => $user->id,
         'emoji' => ReactionEmoji::Clap->value,
         'created_at' => now(),
         'updated_at' => now(),
-    ]))->toThrow(QueryException::class);
+    ])))->toThrow(QueryException::class);
 
     expect(Reaction::query()->count())->toBe(1);
 });
