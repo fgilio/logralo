@@ -1,17 +1,93 @@
-# Logralo
+# Logralo — daily goals with streaks and photo proof
 
-Daily goals app with streak counter and photo verification, built for a group of friends. Public repo, pre-scaffold stage.
+## Project Overview
 
-## Product docs
+A private daily-goals app for one group of friends. Each member keeps up to five goals, marks them with one tap, and proves them with a photo. Streaks reward showing up; the monthly score rewards proof. Everything happens on one screen.
 
-- `docs/kickoff-meeting-notes.md` — meeting notes. Reference only, NOT a spec or task list.
-- `docs/mvp-decisions.md` — post-kickoff decisions (product refinements + infra choices). Wins over the notes.
-- `docs/mvp-v1-scope.md` — the v1 product spec from the 2026-08-04 scope interview. Wins over both.
+The product spec is `docs/mvp-v1-scope.md` — it wins over `docs/mvp-decisions.md`, which wins over `docs/kickoff-meeting-notes.md`. `docs/architecture/` explains the rules that were not obvious to implement.
 
-## Bootstrapping the app
+## Tech Stack
 
-The Laravel app is not scaffolded yet. To do the technical kickoff, follow `.claude/skills/logralo-kickoff/SKILL.md` step by step — it is self-contained (all baseline configs in its `references/`).
+- **Laravel 13** with PHP 8.5. The default `php` on this machine is 8.4, so anything that shells out goes through `./scripts/php` (the git hooks already do). By hand: `./scripts/php artisan …`, `./scripts/php "$(command -v composer)" test`.
+- **Livewire 4 single-file components + Flux Pro**, Tailwind 4, Vite
+- **SQLite** locally and in hosted sessions, **PostgreSQL 18** in CI and on PlanetScale in production
+- **Pest v5**, PHPStan level 8 via Larastan, Pint, Rector
+- **laravel/ai** is installed for the post-MVP goal-difficulty judge; `app/Ai/` is empty on purpose
 
-## Secrets
+## Architecture
 
-This repo is PUBLIC. Never commit credentials. The Flux Pro license lives in the gitignored root `auth.json` locally, in the `FLUX_USERNAME`/`FLUX_LICENSE_KEY` GitHub Actions secrets for CI, and as environment variables on Laravel Cloud and hosted Claude Code sessions. Details in the kickoff skill § Secrets.
+The layering is the thing to keep. It is enforced by `tests/Arch/`.
+
+### `app/Services/` — pure logic, no Eloquent
+
+- `StreakCalculator` — consecutive marked days, given plain date arrays
+- `ScoreCalculator` — ordering and the shared podium
+- `PhotoRule` — "pics or it didn't happen": when the next mark owes a photo
+- `PhotoProcessor` — uploads to feed derivatives, EXIF stripped
+
+### `app/Queries/` — the read side, where Eloquent lives
+
+- `GroupPulse`, `MonthlyStandings`, `FeedPage`, `GoalHistory`
+
+### `app/Actions/` — the write side, one unit of work each
+
+- `MarkGoal`, `UnmarkGoal`, `ToggleReaction`, `CreateGoal`, `RenameGoal`, `ArchiveGoal`, `RestoreGoal`, `CloseMonth`, `IssueMagicLink`
+
+### `app/ValueObjects/` — final readonly
+
+- `UserClock` is the important one: every day boundary, grace window and month edge in the app is resolved through a member's own timezone, and nothing else is allowed to do that arithmetic.
+
+### UI
+
+- `resources/views/pages/` — Livewire page components (`pages::today`)
+- `resources/views/livewire/` — nested Livewire components (`goal-card`, `feed`)
+- `resources/views/components/` — anonymous Blade only, optimised by Blaze
+
+Livewire SFCs never go in `resources/views/components/`: a non-emoji file there is also a Blade anonymous component, and the two resolve to the same name.
+
+## Key Commands
+
+```bash
+composer setup               # first run: deps, .env, database, assets
+composer dev                 # server + queue + logs + vite
+composer test                # type coverage, phpstan, lint, unit, browser
+composer lint                # rector + pint + prettier, writing fixes
+
+php artisan logralo:seed-member "Nombre" email@example.com America/Montevideo
+php artisan logralo:close-months            # normally hourly on the scheduler
+php artisan migrate:fresh --seed            # local demo data (DemoSeeder)
+bash scripts/branding.sh                    # regenerate PWA icons and splashes
+```
+
+## Environment Variables
+
+See `.env.example`. The ones that are not self-explanatory:
+
+- `LOGRALO_GRACE_CUTOFF_HOUR` — a day D closes at D+1 at this hour, local to each member. Changing it changes streaks, grace and month close together.
+- `LOGRALO_PHOTO_DISK` — `photos` locally, the Laravel Cloud bucket disk name in production. `LOGRALO_PHOTO_SIGNED_URLS=true` if that bucket is private.
+- `LIVEWIRE_TEMPORARY_FILE_UPLOAD_DISK=local` — uploads are decoded from the local filesystem before being stored, so the temp disk must stay local.
+- `IMAGE_DRIVER` — GD by default; only the Imagick driver can read HEIC, and only where ImageMagick has libheif.
+
+## Laravel-First Conventions
+
+Prefer Laravel utilities over native PHP equivalents:
+
+- **Filesystem**: `File::exists()`, `File::get()`, `File::put()`, `File::ensureDirectoryExists()` — never `file_exists`, `file_get_contents`
+- **Collections**: `collect()` pipelines instead of nested `array_map`/ `array_filter`/`array_values`
+- **Strings**: `Str::` helpers and `Str::of()` instead of `mb_substr`/`explode` chains
+- **Arrays**: `Arr::get()`, `Arr::has()` instead of `isset()` chains
+
+## Observability
+
+One canonical `Log::info()` per unit of work, emitted in `finally`, with no manual context array. Data goes through `Context::add('logralo.*', …)`. Warnings always carry a `reason`. No `Log::debug()`. Event names are lowercase and dot-separated: `mark.create.handled`, `month.close.handled`.
+
+Key context keys: `logralo.user_id`, `logralo.goal_id`, `logralo.mark_id`, `logralo.marked_on`, `logralo.outcome`, `logralo.reject_reason`.
+
+## Deploy and Verify
+
+Laravel Cloud auto-deploys every push to `main`.
+
+1. `gh run watch` until CI is green
+2. Wait 3–5 minutes for the rollout
+3. Nightwatch MCP `list_issues`; zero new issues after 5 minutes is the green signal
+4. If there are issues: `get_issue()` for the stack trace and context, read the source at that line, fix, repeat
