@@ -174,6 +174,59 @@ it('points every link at a photo it actually stored', function (): void {
     }
 });
 
+/**
+ * Fakes a private bucket: a disk that signs its URLs, with a random component
+ * so a second signature is never mistaken for a reused one.
+ */
+function signingDisk(): void
+{
+    config()->set('logralo.photos.signed_urls', true);
+
+    Storage::fake('photos')->buildTemporaryUrlsUsing(
+        fn (string $path, DateTimeInterface $expiresAt): string => 'https://bucket.test/'.$path
+            .'?expires='.$expiresAt->getTimestamp()
+            .'&signature='.Str::random(16)
+    );
+}
+
+it('signs every photo URL when the bucket is private', function (): void {
+    signingDisk();
+
+    $links = resolve(PhotoProcessor::class)->links('01HZZKEY', 1080, 1350);
+
+    expect($links->thumbnailUrl)->toStartWith('https://bucket.test/01HZZKEY/thumb.webp?expires=')
+        ->and($links->thumbnailUrl)->toContain('&signature=')
+        ->and($links->fallbackUrl)->toContain('expires='.now()->addHour()->getTimestamp());
+});
+
+it('hands out the same signature until it is close to expiring', function (): void {
+    signingDisk();
+
+    $first = resolve(PhotoProcessor::class)->url('01HZZKEY/feed-1080.webp');
+
+    // The feed polls, so an <img src> that changed here would re-download the
+    // whole feed over mobile data.
+    $this->travel(44)->minutes();
+    expect(resolve(PhotoProcessor::class)->url('01HZZKEY/feed-1080.webp'))->toBe($first);
+
+    $this->travel(2)->minutes();
+    expect(resolve(PhotoProcessor::class)->url('01HZZKEY/feed-1080.webp'))->not->toBe($first);
+});
+
+it('keeps one photo signature out of another', function (): void {
+    signingDisk();
+
+    expect(resolve(PhotoProcessor::class)->url('01HZZKEY/thumb.webp'))
+        ->not->toBe(resolve(PhotoProcessor::class)->url('01HZZKEY/feed-720.webp'));
+});
+
+it('leaves URLs unsigned when the bucket is public', function (): void {
+    Storage::fake('photos');
+
+    expect(resolve(PhotoProcessor::class)->url('01HZZKEY/thumb.webp'))
+        ->not->toContain('signature=');
+});
+
 it('refuses an upload it cannot decode', function (): void {
     Storage::fake('photos');
 

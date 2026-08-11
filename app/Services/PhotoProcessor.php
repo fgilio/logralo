@@ -10,6 +10,7 @@ use App\ValueObjects\StoredPhoto;
 use Illuminate\Contracts\Filesystem\Filesystem;
 use Illuminate\Filesystem\FilesystemAdapter;
 use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use Intervention\Image\Encoders\JpegEncoder;
@@ -129,7 +130,18 @@ final readonly class PhotoProcessor
         $disk = $this->disk();
 
         if (config('logralo.photos.signed_urls') === true && $disk instanceof FilesystemAdapter && $disk->providesTemporaryUrls()) {
-            return $disk->temporaryUrl($path, now()->addMinutes((int) config('logralo.photos.url_ttl_minutes')));
+            $minutes = (int) config('logralo.photos.url_ttl_minutes');
+
+            // Signing on every render would hand the browser a new `src` each
+            // time the feed polls, so every photo would download again. The
+            // signature is minted once and then reused for three quarters of
+            // its life: long enough for the cache to work, short enough that
+            // nobody receives a URL about to expire under them.
+            return Cache::remember(
+                'logralo.photo-url:'.$path,
+                now()->addMinutes(max(1, intdiv($minutes * 3, 4))),
+                fn (): string => $disk->temporaryUrl($path, now()->addMinutes($minutes)),
+            );
         }
 
         return $disk->url($path);
