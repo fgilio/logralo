@@ -1,0 +1,94 @@
+<?php
+
+declare(strict_types=1);
+
+return [
+
+    /*
+    |---------------------------------------------------------------------------
+    | Grace cutoff
+    |---------------------------------------------------------------------------
+    |
+    | A member's day D accepts marks from D 00:00 until D+1 at this hour, in the
+    | member's own timezone, and then closes forever. This single number decides
+    | when the grace banner shows, when a streak breaks, and when a month can be
+    | closed.
+    |
+    */
+
+    'grace_cutoff_hour' => (int) env('LOGRALO_GRACE_CUTOFF_HOUR', 12),
+
+    /*
+    |---------------------------------------------------------------------------
+    | Default timezone
+    |---------------------------------------------------------------------------
+    |
+    | Seeded members start here and can change it from their profile.
+    |
+    */
+
+    'default_timezone' => (string) env('LOGRALO_DEFAULT_TIMEZONE', 'America/Montevideo'),
+
+    /*
+    |---------------------------------------------------------------------------
+    | Goals
+    |---------------------------------------------------------------------------
+    |
+    | Five goals fit the grid. After two ghost marks in a row on the same goal,
+    | the third tap opens the camera instead of marking.
+    |
+    */
+
+    'goals' => [
+        'max_active' => 5,
+        'ghosts_before_camera' => 2,
+        'name_max_length' => 40,
+        'note_max_length' => 140,
+    ],
+
+    /*
+    |---------------------------------------------------------------------------
+    | Photos
+    |---------------------------------------------------------------------------
+    |
+    | Originals are never kept: every upload is downscaled, stripped of metadata
+    | and stored as a feed image plus a card thumbnail.
+    |
+    */
+
+    'photos' => [
+        'disk' => (string) env('LOGRALO_PHOTO_DISK', 'photos'),
+        'webp_quality' => 78,
+        'jpeg_quality' => 80,
+        // Public buckets keep the feed browser-cacheable. Flip this on for a
+        // private bucket and every photo URL becomes a short-lived signed one.
+        'signed_urls' => (bool) env('LOGRALO_PHOTO_SIGNED_URLS', false),
+        'url_ttl_minutes' => 60,
+        'max_upload_kilobytes' => 20480,
+    ],
+
+    /*
+    |---------------------------------------------------------------------------
+    | Feed
+    |---------------------------------------------------------------------------
+    */
+
+    'feed' => [
+        'page_size' => 20,
+    ],
+
+    /*
+    |---------------------------------------------------------------------------
+    | Magic links
+    |---------------------------------------------------------------------------
+    |
+    | Members join by opening a signed link sent over WhatsApp. The link is only
+    | good until they set a password.
+    |
+    */
+
+    'magic_link' => [
+        'ttl_days' => (int) env('LOGRALO_MAGIC_LINK_TTL_DAYS', 14),
+    ],
+
+];

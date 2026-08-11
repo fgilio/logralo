@@ -1,0 +1,39 @@
+includes:
+    - vendor/larastan/larastan/extension.neon
+
+parameters:
+
+    paths:
+        - app
+        - bootstrap/app.php
+        - config
+        - database
+        - public
+        - resources/views/livewire
+        - resources/views/pages
+        - routes
+
+    level: 8
+
+    # Livewire 4 SFC syntax. PHPStan sees `new #[Title('X')] class extends
+    # Component {...}; ?>` as a stray expression and treats the trailing
+    # `$this->view([...])` inside `render()` as a call on a bare anonymous
+    # Livewire\Component. The SFC compiler hands the value back to the page
+    # loader, and `view()` is a real method (HandleComponents trait). These
+    # ignores scope to the SFC paths only.
+    ignoreErrors:
+        -
+            identifier: expr.resultUnused
+            paths:
+                - resources/views/livewire/*
+                - resources/views/pages/*
+        # Livewire reads #[Computed] methods as properties. That is the whole
+        # point of the attribute, and PHPStan cannot model it.
+        -
+            identifier: property.notFound
+            message: '#Access to an undefined property Livewire\\Component@anonymous#'
+            paths:
+                - resources/views/livewire/*
+                - resources/views/pages/*
+
+    tmpDir: /tmp/phpstan-logralo

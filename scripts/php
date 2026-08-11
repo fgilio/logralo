@@ -1,0 +1,29 @@
+#!/usr/bin/env bash
+# Runs its arguments with a PHP that satisfies this app's version constraint.
+#
+# `php` on PATH is not necessarily that PHP: Herd installs several versions
+# side by side and the default is not always the newest, so `vendor/bin/rector`
+# and friends die on Composer's platform check. Everything that shells out to a
+# PHP binary — the git hooks, and anything you run by hand — goes through here.
+#
+#   ./scripts/php artisan migrate
+#   ./scripts/php "$(command -v composer)" test
+#
+# Set PHP_BIN to override the search.
+set -euo pipefail
+
+readonly MINIMUM_VERSION_ID=80500
+
+for candidate in "${PHP_BIN:-}" php php85 php8.5 "$HOME/Library/Application Support/Herd/bin/php85"; do
+    [[ -n $candidate ]] || continue
+    command -v "$candidate" >/dev/null 2>&1 || continue
+
+    version=$("$candidate" -r 'echo PHP_VERSION_ID;' 2>/dev/null || echo 0)
+
+    if [[ $version -ge $MINIMUM_VERSION_ID ]]; then
+        exec "$candidate" "$@"
+    fi
+done
+
+echo "error: no PHP >= 8.5 on this machine. Install one, or set PHP_BIN." >&2
+exit 78

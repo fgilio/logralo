@@ -1,0 +1,10 @@
+/vendor
+/node_modules
+/storage
+/public/build
+/bootstrap/cache
+CHANGELOG.md
+
+# Verbatim copies and legal text: reformatting them only creates diff noise.
+/.claude/skills
+LICENSE.md
