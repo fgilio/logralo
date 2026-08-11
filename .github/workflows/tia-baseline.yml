@@ -1,0 +1,102 @@
+# Records the shared Pest Tia baseline (test impact analysis) and publishes it
+# as an artifact. Developer machines pull it via `pest()->tia()->baselined()`
+# in tests/Pest.php, so a fresh clone — or a fresh hosted Claude Code sandbox —
+# starts from a warm graph instead of paying for a full recording run.
+#
+# This workflow does NOT gate anything: `ci-success` in ci.yml is the only
+# required check. If this workflow fails, the worst case is that developers
+# record their own baseline on the next local run.
+#
+# Why recording works here even though tests/Pest.php sets `locally()`:
+# `locally()` restricts *auto*-activation to non-CI environments, but an
+# explicit `--tia` on the command line takes effect regardless. The recording
+# step below passes it (via `composer test:tia-baseline`), so it records a graph
+# here; the gate jobs in ci.yml never pass it, so they run the full suite.
+#
+# Recording mirrors the `test` job in ci.yml — same Postgres service, same Flux
+# auth, same built assets — so the graph reflects the suite people actually run.
+# The one difference is `coverage: pcov`: Tia needs a coverage driver to record
+# which test touched which file.
+
+name: TIA Baseline
+
+on:
+  push:
+    branches: [main]
+  schedule:
+    # Nightly, so the baseline never drifts more than a day behind `main`.
+    - cron: "0 6 * * *"
+  workflow_dispatch:
+
+concurrency:
+  # Only the newest baseline matters — supersede in-flight runs.
+  group: tia-baseline
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+env:
+  # Keep in sync with the `php` constraint in composer.json.
+  PHP_VERSION: "8.5"
+
+jobs:
+  baseline:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:18
+        env:
+          POSTGRES_DB: logralo
+          POSTGRES_USER: logralo
+          POSTGRES_PASSWORD: password
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    env:
+      DB_CONNECTION: pgsql
+      DB_HOST: 127.0.0.1
+      DB_PORT: 5432
+      DB_DATABASE: logralo
+      DB_USERNAME: logralo
+      DB_PASSWORD: password
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0 # Tia diffs against git history
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: ${{ env.PHP_VERSION }}
+          extensions: pdo_pgsql
+          coverage: pcov # required — Tia records the graph through the coverage driver
+      - uses: actions/cache@v4
+        with:
+          path: vendor
+          key: vendor-${{ env.PHP_VERSION }}-${{ hashFiles('composer.lock') }}
+      - run: composer config http-basic.composer.fluxui.dev "${{ secrets.FLUX_USERNAME }}" "${{ secrets.FLUX_LICENSE_KEY }}"
+      - run: composer install --no-progress --prefer-dist --no-interaction
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run build
+      - name: Prepare the app
+        run: |
+          cp .env.example .env
+          php artisan key:generate
+      # --fresh discards the previous graph so the baseline is a clean recording.
+      - run: composer test:tia-baseline
+      - name: Resolve the baseline path
+        id: baseline
+        run: echo "path=$(vendor/bin/pest --baseline)" >> "$GITHUB_OUTPUT"
+      - name: Upload the baseline
+        uses: actions/upload-artifact@v4
+        with:
+          name: pest-tia-baseline
+          path: ${{ steps.baseline.outputs.path }}
+          include-hidden-files: true # the baseline lives in dot-prefixed directories
+          retention-days: 30

@@ -85,7 +85,9 @@
         "test:types": "@php vendor/bin/phpstan analyse --memory-limit=2G",
         "test:type-coverage": "@php vendor/bin/pest --type-coverage --min=100",
         "test:unit": "@php vendor/bin/pest --parallel --exclude-group=browser",
-        "test:browser": "@php vendor/bin/pest --group=browser",
+        "test:unit:full": "@php vendor/bin/pest --parallel --exclude-group=browser --no-tia",
+        "test:browser": "@php vendor/bin/pest --group=browser --no-tia",
+        "test:tia-baseline": "@php vendor/bin/pest --parallel --exclude-group=browser --tia --coverage --fresh",
         "test": [
             "@test:type-coverage",
             "@test:types",

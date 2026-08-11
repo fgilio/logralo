@@ -28,3 +28,23 @@ pest()->extend(TestCase::class)
     ->use(RefreshDatabase::class)
     ->group('browser')
     ->in('Browser');
+
+/*
+ * Tia (test impact analysis, Pest 5). `always()` is what activates it without a
+ * flag; `locally()` restricts that auto-activation to non-CI environments, so a
+ * CI gate always executes the real suite. Both are spelled out on purpose —
+ * `locally()` narrows `always()` rather than implying it.
+ *
+ * An explicit `--tia` still takes effect on CI, which is how tia-baseline.yml
+ * records the shared graph that `baselined()` pulls down here. `filtered()`
+ * narrows PHPUnit to the affected files instead of loading every test.
+ */
+pest()->tia()
+    ->always()
+    ->locally()
+    ->baselined()
+    ->filtered()
+    ->watch([
+        'resources/css/**/*.css' => 'tests/Browser',
+        'public/build/**/*' => 'tests/Browser',
+    ]);
