@@ -1,0 +1,171 @@
+@import "tailwindcss";
+@import "../../vendor/livewire/flux/dist/flux.css";
+
+@source "../../vendor/laravel/framework/src/Illuminate/Pagination/resources/views/*.blade.php";
+@source "../../storage/framework/views/*.php";
+@source "../**/*.blade.php";
+@source "../**/*.js";
+
+/* Flux toggles a `.dark` class; Tailwind's default `dark:` is media-query
+   based and would never match it. */
+@custom-variant dark (&:where(.dark, .dark *));
+
+/*
+ * Logralo looks like a scoreboard at night: warm charcoal ground, ember
+ * accents, condensed display type, and photos that blaze out of the dark.
+ * Light mode is the same room with the lights on — warm paper, same ember.
+ */
+@theme {
+    --font-sans: var(--font-archivo), ui-sans-serif, system-ui, sans-serif;
+    --font-display: var(--font-anton), var(--font-archivo), sans-serif;
+
+    /* Flux hardcodes zinc, so the whole kit warms up by remapping it. */
+    --color-zinc-50: oklch(0.985 0.002 75);
+    --color-zinc-100: oklch(0.968 0.004 75);
+    --color-zinc-200: oklch(0.925 0.006 75);
+    --color-zinc-300: oklch(0.868 0.008 72);
+    --color-zinc-400: oklch(0.704 0.012 70);
+    --color-zinc-500: oklch(0.556 0.014 68);
+    --color-zinc-600: oklch(0.442 0.014 65);
+    --color-zinc-700: oklch(0.362 0.014 62);
+    --color-zinc-800: oklch(0.276 0.013 60);
+    --color-zinc-900: oklch(0.212 0.012 58);
+    --color-zinc-950: oklch(0.152 0.011 56);
+
+    --color-accent: var(--color-orange-600);
+    --color-accent-content: var(--color-orange-700);
+    --color-accent-foreground: var(--color-white);
+
+    /* Ghost marks read cool against the warm palette — mist, not fire. */
+    --color-ghost: oklch(0.62 0.03 240);
+
+    --spacing-safe-t: env(safe-area-inset-top, 0px);
+    --spacing-safe-b: env(safe-area-inset-bottom, 0px);
+
+    --ease-pop: cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+@layer theme {
+    .dark {
+        --color-accent: oklch(0.78 0.16 55);
+        --color-accent-content: oklch(0.84 0.14 62);
+        --color-accent-foreground: var(--color-zinc-950);
+
+        --color-ghost: oklch(0.68 0.04 240);
+    }
+}
+
+@layer base {
+    html {
+        background-color: var(--color-zinc-100);
+        /* The feed owns the pull gesture, so the document must not bounce. */
+        overscroll-behavior-y: none;
+        -webkit-text-size-adjust: 100%;
+    }
+
+    /* The class lands on <html> itself, so the overscroll area matches the
+       app instead of flashing the light ground. */
+    html.dark {
+        background-color: var(--color-zinc-950);
+    }
+
+    body {
+        overscroll-behavior-y: none;
+    }
+
+    [x-cloak] {
+        display: none !important;
+    }
+
+    /* Big display numerals: streak counts, standings positions, "HOY". */
+    .font-display {
+        font-family: var(--font-display);
+        letter-spacing: 0.01em;
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+        *,
+        *::before,
+        *::after {
+            animation-duration: 0.01ms !important;
+            animation-iteration-count: 1 !important;
+            transition-duration: 0.01ms !important;
+        }
+    }
+}
+
+@utility tap-target {
+    /* Everything a finger holds down: no iOS callout, no magnifier, no tap
+       flash, no double-tap zoom — but scrolling still works. */
+    -webkit-touch-callout: none;
+    -webkit-user-select: none;
+    user-select: none;
+    touch-action: manipulation;
+    -webkit-tap-highlight-color: transparent;
+}
+
+@utility hatched {
+    /* The half-value segment of a standings bar: earned, but without proof. */
+    background-image: repeating-linear-gradient(
+        135deg,
+        color-mix(in oklab, var(--color-ghost) 70%, transparent) 0 3px,
+        transparent 3px 7px
+    );
+    background-color: color-mix(in oklab, var(--color-ghost) 18%, transparent);
+}
+
+@utility ember-gauge {
+    /* A goal card's streak, drawn as fuel: the longer the run, the higher the
+       ember climbs up the left edge. --fuel is set inline, 0 to 1. */
+    background: linear-gradient(
+        to top,
+        var(--color-accent) 0%,
+        color-mix(in oklab, var(--color-accent) 55%, transparent)
+            calc(var(--fuel, 0) * 100%),
+        transparent calc(var(--fuel, 0) * 100%)
+    );
+}
+
+@utility pulse-ring {
+    /* Completion ring around an avatar. --pulse is 0 to 1. */
+    background: conic-gradient(
+        var(--color-accent) calc(var(--pulse, 0) * 360deg),
+        color-mix(in oklab, currentColor 12%, transparent) 0
+    );
+}
+
+@utility feed-card {
+    content-visibility: auto;
+    contain-intrinsic-size: auto 520px;
+}
+
+@keyframes logralo-ignite {
+    0% {
+        transform: scale(1);
+    }
+    40% {
+        transform: scale(1.12) rotate(-4deg);
+    }
+    100% {
+        transform: scale(1);
+    }
+}
+
+@utility ignite {
+    animation: logralo-ignite 0.45s var(--ease-pop);
+}
+
+@keyframes logralo-rise {
+    from {
+        opacity: 0;
+        transform: translateY(12px);
+    }
+    to {
+        opacity: 1;
+        transform: none;
+    }
+}
+
+@utility rise {
+    animation: logralo-rise 0.4s var(--ease-pop) both;
+}
