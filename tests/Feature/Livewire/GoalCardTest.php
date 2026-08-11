@@ -1,0 +1,314 @@
+<?php
+
+declare(strict_types=1);
+
+use App\Models\Goal;
+use App\Models\Mark;
+use App\Models\User;
+use Carbon\CarbonImmutable;
+use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\Storage;
+use Livewire\Livewire;
+
+/**
+ * The goal card is the whole product in one tile: one tap marks, another
+ * un-marks, and the sheet behind it is the only way a photo or a note gets in.
+ */
+
+/** 09:00 in Montevideo: today is open, and so is yesterday's grace window. */
+function morningOfTheEleventh(): void
+{
+    test()->travelTo(CarbonImmutable::parse('2026-08-11 09:00', 'America/Montevideo')->utc());
+}
+
+it('marks the day when pressed', function (): void {
+    morningOfTheEleventh();
+
+    $user = User::factory()->create();
+    $goal = Goal::factory()->for($user)->create();
+
+    Livewire::actingAs($user)
+        ->test('goal-card', ['goal' => $goal])
+        ->assertSet('date', '2026-08-11')
+        ->call('press')
+        ->assertDispatched('mark-updated');
+
+    $mark = Mark::query()->sole();
+
+    expect($mark->goal_id)->toBe($goal->id)
+        ->and($mark->user_id)->toBe($user->id)
+        ->and($mark->marked_on->toDateString())->toBe('2026-08-11')
+        ->and($mark->isGhost())->toBeTrue()
+        ->and($mark->note)->toBeNull();
+});
+
+it('un-marks the day when pressed again', function (): void {
+    morningOfTheEleventh();
+
+    $user = User::factory()->create();
+    $goal = Goal::factory()->for($user)->create();
+
+    $component = Livewire::actingAs($user)
+        ->test('goal-card', ['goal' => $goal])
+        ->call('press');
+
+    expect(Mark::query()->count())->toBe(1);
+
+    $component->call('press')->assertDispatched('mark-updated');
+
+    expect(Mark::query()->count())->toBe(0);
+});
+
+it('deletes the photo of the mark it un-marks', function (): void {
+    Storage::fake('local');
+    Storage::fake('photos');
+    morningOfTheEleventh();
+
+    $user = User::factory()->create();
+    $goal = Goal::factory()->for($user)->create();
+
+    Livewire::actingAs($user)
+        ->test('goal-card', ['goal' => $goal])
+        ->upload('photo', [UploadedFile::fake()->image('proof.jpg', 400, 500)])
+        ->call('save')
+        ->call('press');
+
+    expect(Mark::query()->count())->toBe(0)
+        ->and(Storage::disk('photos')->allFiles())->toBe([]);
+});
+
+it("refuses to mount another member's goal", function (): void {
+    morningOfTheEleventh();
+
+    Livewire::actingAs(User::factory()->create())
+        ->test('goal-card', ['goal' => Goal::factory()->create()])
+        ->assertForbidden();
+});
+
+it('does not mark when the photo rule wants proof', function (): void {
+    morningOfTheEleventh();
+
+    $user = User::factory()->create();
+    $goal = Goal::factory()->for($user)->create();
+
+    // Two ghost marks in a row: the third tap owes a photo, so it opens the
+    // sheet rather than marking.
+    Mark::factory()->for($goal)->on('2026-08-09')->create();
+    Mark::factory()->for($goal)->on('2026-08-10')->create();
+
+    Livewire::actingAs($user)
+        ->test('goal-card', ['goal' => $goal])
+        ->assertSet('requiresPhoto', true)
+        ->call('press')
+        ->assertNotDispatched('mark-updated');
+
+    expect(Mark::query()->where('marked_on', '2026-08-11')->exists())->toBeFalse();
+});
+
+it('refuses a save with no photo when the photo rule wants proof', function (): void {
+    morningOfTheEleventh();
+
+    $user = User::factory()->create();
+    $goal = Goal::factory()->for($user)->create();
+
+    Mark::factory()->for($goal)->on('2026-08-09')->create();
+    Mark::factory()->for($goal)->on('2026-08-10')->create();
+
+    Livewire::actingAs($user)
+        ->test('goal-card', ['goal' => $goal])
+        ->set('note', 'palabra de honor')
+        ->call('save')
+        ->assertNotDispatched('mark-updated');
+
+    expect(Mark::query()->count())->toBe(2);
+});
+
+it('lets a photo through once the photo rule is satisfied', function (): void {
+    Storage::fake('local');
+    Storage::fake('photos');
+    morningOfTheEleventh();
+
+    $user = User::factory()->create();
+    $goal = Goal::factory()->for($user)->create();
+
+    Mark::factory()->for($goal)->on('2026-08-09')->create();
+    Mark::factory()->for($goal)->on('2026-08-10')->create();
+
+    Livewire::actingAs($user)
+        ->test('goal-card', ['goal' => $goal])
+        ->upload('photo', [UploadedFile::fake()->image('proof.jpg', 400, 500)])
+        ->call('save')
+        ->assertHasNoErrors()
+        ->assertDispatched('mark-updated');
+
+    expect(Mark::query()->where('marked_on', '2026-08-11')->sole()->isFull())->toBeTrue();
+});
+
+it('saves a photo and a note through the sheet', function (): void {
+    Storage::fake('local');
+    Storage::fake('photos');
+    morningOfTheEleventh();
+
+    $user = User::factory()->create();
+    $goal = Goal::factory()->for($user)->create();
+
+    Livewire::actingAs($user)
+        ->test('goal-card', ['goal' => $goal])
+        ->set('note', '  Sesión   de   piernas  ')
+        ->upload('photo', [UploadedFile::fake()->image('proof.jpg', 1200, 1500)])
+        ->call('save')
+        ->assertHasNoErrors()
+        ->assertDispatched('mark-updated')
+        // The sheet is emptied, so re-opening it does not offer a stale photo.
+        ->assertSet('photo', null)
+        ->assertSet('note', '');
+
+    $mark = Mark::query()->sole();
+
+    expect($mark->isFull())->toBeTrue()
+        ->and($mark->note)->toBe('Sesión de piernas')
+        ->and($mark->photo_width)->toBe(1080)
+        ->and($mark->photo_height)->toBe(1350)
+        ->and(Storage::disk('photos')->files((string) $mark->photo_key))->toHaveCount(4);
+});
+
+it('saves a bare note with no photo at all', function (): void {
+    morningOfTheEleventh();
+
+    $user = User::factory()->create();
+    $goal = Goal::factory()->for($user)->create();
+
+    Livewire::actingAs($user)
+        ->test('goal-card', ['goal' => $goal])
+        ->set('note', 'sin cámara')
+        ->call('save')
+        ->assertHasNoErrors();
+
+    $mark = Mark::query()->sole();
+
+    expect($mark->isGhost())->toBeTrue()
+        ->and($mark->note)->toBe('sin cámara');
+});
+
+it('rejects a note longer than the limit', function (): void {
+    morningOfTheEleventh();
+
+    $user = User::factory()->create();
+    $goal = Goal::factory()->for($user)->create();
+
+    Livewire::actingAs($user)
+        ->test('goal-card', ['goal' => $goal])
+        ->set('note', str_repeat('a', (int) config('logralo.goals.note_max_length') + 1))
+        ->call('save')
+        ->assertHasErrors(['note' => 'max']);
+
+    expect(Mark::query()->count())->toBe(0);
+});
+
+it('marks yesterday while the grace window is open', function (): void {
+    morningOfTheEleventh();
+
+    $user = User::factory()->create();
+    $goal = Goal::factory()->for($user)->create();
+
+    Livewire::actingAs($user)
+        ->test('goal-card', ['goal' => $goal, 'date' => '2026-08-10', 'compact' => true])
+        ->assertSet('date', '2026-08-10')
+        ->assertSet('compact', true)
+        ->call('press')
+        ->assertDispatched('mark-updated');
+
+    expect(Mark::query()->sole()->marked_on->toDateString())->toBe('2026-08-10');
+});
+
+it('refuses to mark yesterday once the grace window has closed', function (): void {
+    // 12:00 sharp is the cutoff, so yesterday is already gone.
+    $this->travelTo(CarbonImmutable::parse('2026-08-11 12:00', 'America/Montevideo')->utc());
+
+    $user = User::factory()->create();
+    $goal = Goal::factory()->for($user)->create();
+
+    Livewire::actingAs($user)
+        ->test('goal-card', ['goal' => $goal, 'date' => '2026-08-10'])
+        ->call('press')
+        ->assertNotDispatched('mark-updated');
+
+    expect(Mark::query()->count())->toBe(0);
+});
+
+it('keeps a mark whose day has already closed', function (): void {
+    morningOfTheEleventh();
+
+    $user = User::factory()->create();
+    $goal = Goal::factory()->for($user)->create();
+    Mark::factory()->for($goal)->on('2026-08-05')->create();
+
+    Livewire::actingAs($user)
+        ->test('goal-card', ['goal' => $goal, 'date' => '2026-08-05'])
+        ->call('press')
+        ->assertNotDispatched('mark-updated');
+
+    expect(Mark::query()->count())->toBe(1);
+});
+
+it('refuses to mark an archived goal', function (): void {
+    morningOfTheEleventh();
+
+    $user = User::factory()->create();
+    $goal = Goal::factory()->for($user)->archived()->create();
+
+    Livewire::actingAs($user)
+        ->test('goal-card', ['goal' => $goal])
+        ->call('press')
+        ->assertNotDispatched('mark-updated');
+
+    expect(Mark::query()->count())->toBe(0);
+});
+
+it('refuses a second mark on the same day', function (): void {
+    morningOfTheEleventh();
+
+    $user = User::factory()->create();
+    $goal = Goal::factory()->for($user)->create();
+    Mark::factory()->for($goal)->on('2026-08-11')->create();
+
+    Livewire::actingAs($user)
+        ->test('goal-card', ['goal' => $goal])
+        ->call('save')
+        ->assertNotDispatched('mark-updated');
+
+    expect(Mark::query()->count())->toBe(1);
+});
+
+it('counts the streak the mark belongs to', function (): void {
+    morningOfTheEleventh();
+
+    $user = User::factory()->create();
+    $goal = Goal::factory()->for($user)->create();
+
+    // With proof on the run, today's tap does not owe the camera anything.
+    foreach (['2026-08-08', '2026-08-09', '2026-08-10'] as $date) {
+        Mark::factory()->for($goal)->withPhoto()->on($date)->create();
+    }
+
+    $component = Livewire::actingAs($user)->test('goal-card', ['goal' => $goal]);
+
+    expect($component->get('streak'))->toBe(3);
+
+    // Today's own mark extends it, and the card says so straight away.
+    $component->call('press');
+
+    expect($component->get('streak'))->toBe(4);
+});
+
+it("reads the day off the member's own clock when none is given", function (): void {
+    // 23:30 in Montevideo is already the next day in Madrid.
+    $this->travelTo(CarbonImmutable::parse('2026-08-11 23:30', 'America/Montevideo')->utc());
+
+    $user = User::factory()->inTimezone('Europe/Madrid')->create();
+    $goal = Goal::factory()->for($user)->create();
+
+    Livewire::actingAs($user)
+        ->test('goal-card', ['goal' => $goal])
+        ->assertSet('date', '2026-08-12');
+});
