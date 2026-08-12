@@ -99,6 +99,9 @@ return [
             'prefix_indexes' => true,
             'search_path' => 'public',
             'sslmode' => env('DB_SSLMODE', 'prefer'),
+            // PlanetScale needs verify-full; `system` uses the host's CA store
+            // instead of the ~/.postgresql/root.crt libpq looks for by default.
+            'sslrootcert' => env('DB_SSLROOTCERT'),
         ],
 
         'sqlsrv' => [

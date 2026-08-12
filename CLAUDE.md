@@ -10,7 +10,7 @@ The product spec is `docs/mvp-v1-scope.md` — it wins over `docs/mvp-decisions.
 
 - **Laravel 13** with PHP 8.5. The default `php` on this machine is 8.4, so anything that shells out goes through `./scripts/php` (the git hooks already do). By hand: `./scripts/php artisan …`, `./scripts/php "$(command -v composer)" test`.
 - **Livewire 4 single-file components + Flux Pro**, Tailwind 4, Vite
-- **SQLite** locally and in hosted sessions, **PostgreSQL 18** in CI and on PlanetScale in production
+- **SQLite** locally and in hosted sessions, **PostgreSQL 18** in CI and on PlanetScale in production. Production shares jarvis's PlanetScale cluster and keeps its own database inside it — `docs/architecture/planetscale-shared-cluster.md`
 - **Pest v5**, PHPStan level 8 via Larastan, Pint, Rector
 - **laravel/ai** is installed for the post-MVP goal-difficulty judge; `app/Ai/` is empty on purpose
 
