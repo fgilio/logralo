@@ -64,7 +64,7 @@ bash scripts/branding.sh                    # regenerate PWA icons and splashes
 See `.env.example`. The ones that are not self-explanatory:
 
 - `LOGRALO_GRACE_CUTOFF_HOUR` — a day D closes at D+1 at this hour, local to each member. Changing it changes streaks, grace and month close together.
-- `LOGRALO_PHOTO_DISK` — `photos` locally, the Laravel Cloud bucket disk name in production. `LOGRALO_PHOTO_SIGNED_URLS=true` if that bucket is private.
+- `LOGRALO_PHOTO_DISK` — `photos` locally; in production it is `private`, the name the R2 bucket is mounted under on Laravel Cloud. That bucket is private, so production also sets `LOGRALO_PHOTO_SIGNED_URLS=true`.
 - `LIVEWIRE_TEMPORARY_FILE_UPLOAD_DISK=local` — uploads are decoded from the local filesystem before being stored, so the temp disk must stay local.
 - `IMAGE_DRIVER` — GD by default; only the Imagick driver can read HEIC, and only where ImageMagick has libheif.
 
@@ -85,9 +85,11 @@ Key context keys: `logralo.user_id`, `logralo.goal_id`, `logralo.mark_id`, `logr
 
 ## Deploy and Verify
 
-Laravel Cloud auto-deploys every push to `main`.
+Laravel Cloud auto-deploys every push to `main`. How production is wired, and the traps in it, are in `docs/architecture/laravel-cloud-production.md`.
 
 1. `gh run watch` until CI is green
-2. Wait 3–5 minutes for the rollout
-3. Nightwatch MCP `list_issues`; zero new issues after 5 minutes is the green signal
-4. If there are issues: `get_issue()` for the stack trace and context, read the source at that line, fix, repeat
+2. Wait 3–5 minutes for the rollout, then `cloud deployment:list --json -n` until the newest one says `deployment.succeeded`
+3. Hit the app: `/up`, `/entrar`, and `/` redirecting to `/entrar`
+4. Check for errors in Nightwatch. **The Nightwatch MCP connection in a Claude session is scoped to the Publica.la workspace and cannot see Logralo**, which reports to Franco's personal account — an empty `list_issues` there proves nothing. Ask Franco, or read the Nightwatch web interface.
+
+Never conclude that a resource is missing from `cloud environment:get --fields=environmentVariables`. That list omits everything Cloud injects at deploy time. Ask the running app with `cloud tinker production -n --code='…'`.

@@ -34,6 +34,7 @@ It prints a signed link to send over WhatsApp. The link logs them in once and as
 - [`docs/mvp-v1-scope.md`](docs/mvp-v1-scope.md) — the product spec
 - [`docs/architecture/day-boundaries.md`](docs/architecture/day-boundaries.md) — days, grace, streaks and scoring
 - [`docs/architecture/photos-and-onboarding.md`](docs/architecture/photos-and-onboarding.md) — the camera, the photo pipeline and the magic link
+- [`docs/architecture/laravel-cloud-production.md`](docs/architecture/laravel-cloud-production.md) — how production is wired, and how to run things against it
 - [`CLAUDE.md`](CLAUDE.md) — how the code is laid out
 
 Note for contributors: the UI uses [Flux Pro](https://fluxui.dev), a paid component library, so `composer install` needs a Flux license. CI runs with the maintainer's license via repository secrets.
