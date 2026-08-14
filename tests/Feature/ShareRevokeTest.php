@@ -71,6 +71,20 @@ it('counts a person who opens the link', function (): void {
         ->and($mark->share_last_viewed_at)->not->toBeNull();
 });
 
+it('does not count the sender checking their own link', function (): void {
+    // The number is there to say the message landed somewhere. Opening it
+    // yourself is not that.
+    $author = User::factory()->create();
+    $mark = markFor($author);
+
+    $this->actingAs($author)
+        ->withHeader('User-Agent', 'Mozilla/5.0 Safari')
+        ->get("/l/{$mark->share_token}")
+        ->assertOk();
+
+    expect($mark->refresh()->share_views)->toBe(0);
+});
+
 it('does not count the preview crawler as a visitor', function (string $agent): void {
     // WhatsApp fetches a link once to build its preview. Counting that would
     // report a view for every message sent, opened or not.

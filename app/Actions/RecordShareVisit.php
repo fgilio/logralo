@@ -6,7 +6,7 @@ namespace App\Actions;
 
 use App\Models\Mark;
 use App\Models\MonthlyRecap;
-use Illuminate\Database\Eloquent\Model;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Context;
 use Illuminate\Support\Facades\Log;
 use Throwable;
@@ -44,6 +44,14 @@ final class RecordShareVisit
         try {
             if ($this->isCrawler($userAgent)) {
                 Context::add('logralo.outcome', 'crawler');
+
+                return false;
+            }
+
+            // Nor is the sender. The count exists to tell them the message
+            // landed somewhere, and checking their own link is not that.
+            if ($shared instanceof Mark && $shared->user_id === Auth::id()) {
+                Context::add('logralo.outcome', 'author');
 
                 return false;
             }

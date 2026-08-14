@@ -84,6 +84,19 @@ it('renders the recap stats row', function (): void {
     expect(composedSize($jpeg)['width'])->toBe(1200);
 });
 
+it('falls back to the plain ground when the photo will not decode', function (): void {
+    // The card route is fetched by a link crawler building a preview. A card
+    // without its photo is worth far more there than a 500, which would cost
+    // the whole unfurl over one bad derivative.
+    $jpeg = resolve(ShareCardComposer::class)->compose(
+        ShareCardFormat::Unfurl,
+        sampleCard(),
+        'this is not an image',
+    );
+
+    expect(composedSize($jpeg))->toBe(['width' => 1200, 'height' => 630, 'mime' => 'image/jpeg']);
+});
+
 it('ships the fonts it draws with', function (): void {
     // FreeType cannot read a woff2, and @fontsource ships nothing else, so
     // these two are committed. Losing them breaks every share card and

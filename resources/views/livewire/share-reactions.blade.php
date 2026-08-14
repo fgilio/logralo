@@ -7,6 +7,7 @@ use App\Enums\ReactionEmoji;
 use App\Models\Mark;
 use Illuminate\Support\Collection;
 use Livewire\Attributes\Computed;
+use Livewire\Attributes\Locked;
 use Livewire\Component;
 
 /**
@@ -19,6 +20,7 @@ use Livewire\Component;
  */
 new class extends Component
 {
+    #[Locked]
     public Mark $mark;
 
     /** @return Collection<string, int> */

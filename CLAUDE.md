@@ -24,14 +24,16 @@ The layering is the thing to keep. It is enforced by `tests/Arch/`.
 - `ScoreCalculator` — ordering and the shared podium
 - `PhotoRule` — "pics or it didn't happen": when the next mark owes a photo
 - `PhotoProcessor` — uploads to feed derivatives, EXIF stripped
+- `ShareCardComposer` / `ShareCardRenderer` — the WhatsApp unfurl image, drawn and cached
+- `StreakMilestone` — which streaks are worth interrupting somebody for
 
 ### `app/Queries/` — the read side, where Eloquent lives
 
-- `GroupPulse`, `MonthlyStandings`, `FeedPage`, `GoalHistory`
+- `GroupPulse`, `MonthlyStandings`, `FeedPage`, `GoalHistory`, `SharedEntry`
 
 ### `app/Actions/` — the write side, one unit of work each
 
-- `MarkGoal`, `UnmarkGoal`, `ToggleReaction`, `CreateGoal`, `RenameGoal`, `ArchiveGoal`, `RestoreGoal`, `CloseMonth`, `IssueMagicLink`
+- `MarkGoal`, `UnmarkGoal`, `ToggleReaction`, `CreateGoal`, `RenameGoal`, `ArchiveGoal`, `RestoreGoal`, `CloseMonth`, `IssueMagicLink`, `RecordShareVisit`, `RevokeSharing`
 
 ### `app/ValueObjects/` — final readonly
 

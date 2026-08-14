@@ -6,6 +6,7 @@ namespace App\ValueObjects;
 
 use App\Models\MonthlyRecap;
 use Carbon\CarbonImmutable;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Str;
 
 /**
@@ -36,8 +37,8 @@ final readonly class RecapEntry implements FeedEntry
         return Str::ucfirst($this->recap->month->translatedFormat('F Y'));
     }
 
-    /** @return \Illuminate\Support\Collection<int, Standing> */
-    public function winners(): \Illuminate\Support\Collection
+    /** @return Collection<int, Standing> */
+    public function winners(): Collection
     {
         return $this->recap->standingEntries()->where('rank', 1)->values();
     }

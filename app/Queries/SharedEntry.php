@@ -8,10 +8,10 @@ use App\Models\Mark;
 use App\Models\MonthlyRecap;
 use App\Services\PhotoProcessor;
 use App\Services\StreakCalculator;
+use App\ValueObjects\FeedEntry;
 use App\ValueObjects\MarkEntry;
 use App\ValueObjects\MarkHistory;
 use App\ValueObjects\RecapEntry;
-use App\ValueObjects\FeedEntry;
 
 /**
  * A share token, resolved back to the thing it points at.

@@ -32,15 +32,15 @@ It needs Node **and a Chrome binary**. Laravel Cloud has no Chrome binary, and g
 So `App\Services\ShareCardComposer` draws the card with Intervention over GD, which is already the photo pipeline. The costs are real and worth knowing:
 
 - **Layout is arithmetic.** Everything scales off the card's width, so the wide unfurl and the tall portrait share one routine.
-- **No emoji.** GD renders one TTF at a time and has no colour-glyph support, so an emoji comes out as a hollow box. `ShareCard` carries no emoji by construction; the flame is the badge's colour instead of a character. The share *text* may carry emoji — that is text in WhatsApp, not a glyph anyone has to draw.
+- **No emoji.** GD renders one TTF at a time and has no colour-glyph support, so an emoji comes out as a hollow box. `ShareCard` carries no emoji by construction; the flame is the badge's colour instead of a character. The share _text_ may carry emoji — that is text in WhatsApp, not a glyph anyone has to draw.
 - **The fonts are committed.** `resources/fonts/` holds Anton and Archivo as TTF because FreeType cannot read a woff2 and `@fontsource` ships nothing else. Both are OFL.
 
 ## The two shapes
 
-| Format     | Size      | What it is for                                                              |
-| ---------- | --------- | --------------------------------------------------------------------------- |
+| Format     | Size      | What it is for                                                                                |
+| ---------- | --------- | --------------------------------------------------------------------------------------------- |
 | `og`       | 1200×630  | the link preview. 1.91:1 is the ratio that gets the large card rather than the thumbnail tile |
-| `portrait` | 1080×1350 | the file itself, for a story post or anywhere a preview will not render      |
+| `portrait` | 1080×1350 | the file itself, for a story post or anywhere a preview will not render                       |
 
 Cards render on first request and are cached on the photo disk under `shares/{token}/`, and served from this origin rather than redirected to the bucket: production signs its photo URLs and those expire, while an unfurl is fetched whenever a chat client feels like it. A token never changes what it points at, so the response is `immutable`.
 
@@ -51,7 +51,7 @@ The share button `fetch()`es the unfurl card on `pointerdown` to warm it. A prev
 - **Tap** the share button → the native sheet with the link. One tap, and the unfurl draws the photo.
 - **Hold** → a small menu: send the image, copy the link, see how it looks.
 
-The hold *opens* the menu rather than sharing the image directly, for the same reason the goal card's hold opens a sheet instead of the camera: a press timer is not a user gesture, and a `navigator.share()` fired from one is refused on iOS.
+The hold _opens_ the menu rather than sharing the image directly, for the same reason the goal card's hold opens a sheet instead of the camera: a press timer is not a user gesture, and a `navigator.share()` fired from one is refused on iOS.
 
 ## Asking at the right moment
 

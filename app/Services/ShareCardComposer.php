@@ -5,11 +5,11 @@ declare(strict_types=1);
 namespace App\Services;
 
 use App\Enums\ShareCardFormat;
-use App\Exceptions\PhotoUnreadableException;
 use App\ValueObjects\ShareCard;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Str;
 use Intervention\Image\Encoders\JpegEncoder;
+use Intervention\Image\Geometry\Factories\EllipseFactory;
 use Intervention\Image\Geometry\Factories\RectangleFactory;
 use Intervention\Image\ImageManager;
 use Intervention\Image\Interfaces\ImageInterface;
@@ -43,29 +43,37 @@ final readonly class ShareCardComposer
 
     private const string EMBER = '#ff9845';
 
-    /** How much of the card's height the scrim under the text covers. */
-    private const float SCRIM_FRACTION = 0.62;
+    /**
+     * How far up the scrim reaches, as a fraction of height and a fraction of
+     * width. The narrower of the two wins, so the tall portrait card gets a
+     * scrim in proportion to its text rather than one gradual wash over half
+     * the photo.
+     */
+    private const float SCRIM_OF_HEIGHT = 0.62;
 
-    /** Bands the scrim is painted in. Enough that no edge is visible. */
-    private const int SCRIM_BANDS = 72;
+    private const float SCRIM_OF_WIDTH = 0.55;
+
+    /**
+     * Rings in the ember bloom behind a card that has no photo. High, because
+     * each ellipse has a hard edge and two dozen of them read as tree rings.
+     */
+    private const int BLOOM_STEPS = 96;
+
+    /** The centre of the bloom: the ground, pushed towards the ember. */
+    private const string BLOOM_PEAK = '#3d1f0c';
 
     public function __construct(private ImageManager $images) {}
 
     /**
      * @param  string|null  $photo  the raw feed JPEG, or null for a ghost mark
      *                              or a month recap, which have no photo
-     *
-     * @throws PhotoUnreadableException when the photo handed in cannot be
-     *                                  decoded on this host
      */
     public function compose(ShareCardFormat $format, ShareCard $card, ?string $photo = null): string
     {
         $width = $format->width();
         $height = $format->height();
 
-        $canvas = $photo === null
-            ? $this->ground($width, $height)
-            : $this->photograph($photo, $width, $height);
+        $canvas = $this->canvas($photo, $width, $height);
 
         $this->scrim($canvas, $width, $height);
         $this->words($canvas, $card, $width, $height);
@@ -76,21 +84,28 @@ final readonly class ShareCardComposer
     }
 
     /**
-     * A photo, cropped to the card and dimmed.
+     * What the words are drawn on.
      *
      * `cover` rather than `contain`: a letterboxed photo in a chat preview
      * reads as a broken image, and losing the edges of a gym selfie costs
      * nothing.
+     *
+     * A photo that will not decode falls back to the plain ground rather than
+     * raising. This is fetched by a link crawler building a preview, and a
+     * card without the photo is worth far more there than a 500 — which would
+     * cost the unfurl entirely, for the one derivative that failed.
      */
-    private function photograph(string $photo, int $width, int $height): ImageInterface
+    private function canvas(?string $photo, int $width, int $height): ImageInterface
     {
-        try {
-            $image = $this->images->read($photo);
-        } catch (Throwable $throwable) {
-            throw new PhotoUnreadableException('share card', $throwable);
+        if ($photo === null) {
+            return $this->ground($width, $height);
         }
 
-        return $image->cover($width, $height)->brightness(-8);
+        try {
+            return $this->images->read($photo)->cover($width, $height)->brightness(-8);
+        } catch (Throwable) {
+            return $this->ground($width, $height);
+        }
     }
 
     /**
@@ -101,18 +116,28 @@ final readonly class ShareCardComposer
     {
         $canvas = $this->images->create($width, $height)->fill(self::GROUND);
 
-        // Concentric ellipses at a low alpha, because GD has no gradient.
-        // Painted largest first so the centre accumulates the most passes.
+        // Concentric ellipses, largest first, each an opaque step along a ramp
+        // from the ground to the ember.
+        //
+        // Opaque rather than a stack of translucent ones: alpha compositing
+        // the same colour a hundred times saturates the red channel long
+        // before the others and the glow comes out maroon with a green fringe.
+        // Interpolating the colour keeps the hue exactly where it was put, and
+        // the outermost ring is the ground itself, so the bloom has no edge.
         $radius = (int) ($width * 0.55);
         $centerX = (int) ($width * 0.82);
         $centerY = (int) ($height * 0.12);
 
-        for ($step = 24; $step > 0; $step--) {
-            $size = (int) ($radius * ($step / 24));
+        for ($step = self::BLOOM_STEPS; $step > 0; $step--) {
+            $distance = $step / self::BLOOM_STEPS;
+            $size = (int) ($radius * $distance);
 
-            $canvas->drawEllipse($centerX, $centerY, function ($ellipse) use ($size): void {
+            // Eased, so the bloom has a bright core rather than a flat disc.
+            $colour = $this->mix(self::GROUND, self::BLOOM_PEAK, (1 - $distance) ** 1.8);
+
+            $canvas->drawEllipse($centerX, $centerY, function (EllipseFactory $ellipse) use ($size, $colour): void {
                 $ellipse->size($size * 2, $size * 2);
-                $ellipse->background('rgba(255, 152, 69, 0.028)');
+                $ellipse->background($colour);
             });
         }
 
@@ -122,21 +147,23 @@ final readonly class ShareCardComposer
     /**
      * The darkening under the text, so a bright photo never eats the words.
      *
-     * Painted as bands whose alpha grows on a square curve: linear bands leave
-     * a visible hard edge where the scrim begins, a curve does not.
+     * One row at a time. Painting it in bands of a few pixels was cheaper and
+     * left visible stripes: the band edges do not line up with the rounding,
+     * and a chat preview is exactly the size where that reads as a corrupt
+     * image. The alpha grows on a curve rather than linearly, so there is no
+     * hard line where the scrim begins either.
      */
     private function scrim(ImageInterface $canvas, int $width, int $height): void
     {
-        $scrimHeight = (int) ($height * self::SCRIM_FRACTION);
-        $bandHeight = (int) ceil($scrimHeight / self::SCRIM_BANDS);
+        $scrimHeight = (int) min($height * self::SCRIM_OF_HEIGHT, $width * self::SCRIM_OF_WIDTH);
         $top = $height - $scrimHeight;
 
-        for ($band = 0; $band < self::SCRIM_BANDS; $band++) {
-            $progress = $band / (self::SCRIM_BANDS - 1);
-            $alpha = round(0.92 * $progress ** 2, 4);
+        for ($y = $top; $y < $height; $y++) {
+            $progress = ($y - $top) / max($scrimHeight - 1, 1);
+            $alpha = round(0.97 * $progress ** 1.2, 4);
 
-            $canvas->drawRectangle(0, $top + $band * $bandHeight, function (RectangleFactory $rectangle) use ($width, $bandHeight, $alpha): void {
-                $rectangle->size($width, $bandHeight);
+            $canvas->drawRectangle(0, $y, function (RectangleFactory $rectangle) use ($width, $alpha): void {
+                $rectangle->size($width, 1);
                 $rectangle->background("rgba(0, 0, 0, {$alpha})");
             });
         }
@@ -146,7 +173,7 @@ final readonly class ShareCardComposer
     private function words(ImageInterface $canvas, ShareCard $card, int $width, int $height): void
     {
         $pad = (int) ($width * 0.058);
-        $titleSize = (int) ($width * 0.072);
+        $titleSize = (int) ($width * 0.075);
         $badgeSize = (int) ($width * 0.028);
         $bylineSize = (int) ($width * 0.024);
 
@@ -162,10 +189,14 @@ final readonly class ShareCardComposer
         // Anton is drawn uppercase because it has no lowercase worth reading at
         // this size, and because a shout is the point.
         $this->write($canvas, Str::upper($card->title), $pad, $baseline, $titleSize, '#ffffff', $this->display());
-        $baseline -= (int) ($titleSize * 1.08);
+
+        // Anton's caps fill the whole em and the accented ones overshoot it,
+        // so a single line of clearance puts Í straight through the badge.
+        $baseline -= (int) ($titleSize * 1.38);
 
         if ($card->badge !== null) {
             $this->write($canvas, Str::upper($card->badge), $pad, $baseline, $badgeSize, self::EMBER, $this->display(), tracking: 3);
+            $this->rule($canvas, $pad, $baseline - (int) ($badgeSize * 1.5), $width);
         }
 
         $this->wordmark($canvas, $width, $pad);
@@ -192,6 +223,28 @@ final readonly class ShareCardComposer
         }
 
         return $baseline - (int) ($valueSize * 1.5) - (int) ($labelSize * 2.6);
+    }
+
+    /** One point along a straight line between two hex colours. */
+    private function mix(string $from, string $to, float $amount): string
+    {
+        $channels = collect([0, 1, 2])->map(function (int $channel) use ($from, $to, $amount): string {
+            $start = (int) hexdec(mb_substr($from, 1 + $channel * 2, 2));
+            $end = (int) hexdec(mb_substr($to, 1 + $channel * 2, 2));
+
+            return mb_str_pad(dechex((int) round($start + ($end - $start) * $amount)), 2, '0', STR_PAD_LEFT);
+        });
+
+        return '#'.$channels->implode('');
+    }
+
+    /** The short ember bar over the badge. Brand, for the price of a rectangle. */
+    private function rule(ImageInterface $canvas, int $x, int $y, int $width): void
+    {
+        $canvas->drawRectangle($x, $y, function (RectangleFactory $rectangle) use ($width): void {
+            $rectangle->size((int) ($width * 0.05), max((int) ($width * 0.004), 1));
+            $rectangle->background(self::EMBER);
+        });
     }
 
     /** "LOGRALO", top right, so the card is recognisable at thumbnail size. */
