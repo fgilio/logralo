@@ -335,9 +335,7 @@ final readonly class ShareCardComposer
     {
         $path = resource_path('fonts/'.$name);
 
-        if (! File::exists($path)) {
-            throw new RuntimeException("Missing share card font: {$name}");
-        }
+        throw_if(! File::exists($path), RuntimeException::class, "Missing share card font: {$name}");
 
         return $path;
     }

@@ -168,6 +168,15 @@ new #[Title('Hoy')] class extends Component
         </div>
     </header>
 
+    {{-- Whatever a full page POST wants to say on its way back — revoking a
+         shared link is the only one so far. Toasts need a Livewire component
+         to dispatch onto, and a plain controller has none. --}}
+    @if (session('status'))
+        <flux:callout variant="success" icon="check-circle" class="mt-3" data-test="status">
+            <flux:callout.text>{{ session('status') }}</flux:callout.text>
+        </flux:callout>
+    @endif
+
     @if ($this->graceGoals->isNotEmpty())
         <flux:callout variant="warning" icon="clock" class="mt-3" data-test="grace-banner">
             {{-- Everything goes in the default slot: passing an x-slot:content

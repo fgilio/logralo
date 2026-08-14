@@ -6,6 +6,7 @@ namespace App\Http\Controllers;
 
 use App\Actions\RecordShareVisit;
 use App\Queries\SharedEntry;
+use App\ValueObjects\FeedEntry;
 use Illuminate\Http\Request;
 use Illuminate\View\View;
 use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
@@ -27,11 +28,9 @@ final class ShareController
     {
         $entry = $shared->find($token);
 
-        if ($entry === null) {
-            // Revoked and never-existed are the same answer on purpose: a 410
-            // would confirm that a token was once real.
-            throw new NotFoundHttpException;
-        }
+        // Revoked and never-existed are the same answer on purpose: a 410 would
+        // confirm that a token was once real.
+        throw_if(! $entry instanceof FeedEntry, NotFoundHttpException::class);
 
         $visits->handle($entry->shareable(), $request->userAgent());
 

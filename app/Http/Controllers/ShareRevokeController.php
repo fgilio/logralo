@@ -6,8 +6,8 @@ namespace App\Http\Controllers;
 
 use App\Actions\RevokeSharing;
 use App\Queries\SharedEntry;
+use App\ValueObjects\FeedEntry;
 use App\ValueObjects\MarkEntry;
-use Flux\Flux;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Support\Facades\Auth;
 use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
@@ -26,9 +26,7 @@ final class ShareRevokeController
     {
         $entry = $shared->find($token);
 
-        if ($entry === null) {
-            throw new NotFoundHttpException;
-        }
+        throw_if(! $entry instanceof FeedEntry, NotFoundHttpException::class);
 
         // Only whoever made the mark can un-share it. A recap belongs to the
         // whole group, so anyone in the group may pull that one.
@@ -40,8 +38,11 @@ final class ShareRevokeController
 
         $revoke->handle($entry->shareable());
 
-        Flux::toast(text: 'Listo. El link dejó de funcionar.', variant: 'success');
-
-        return to_route('today');
+        // A session flash, not Flux::toast(): a toast is dispatched onto a
+        // Livewire component, and there is none in a plain controller — the
+        // call blows up with "dispatch() on false" rather than showing
+        // anything. The feed reads this on the way back, the same way the auth
+        // screens do.
+        return to_route('today')->with('status', 'Listo. Ese link dejó de funcionar.');
     }
 }

@@ -52,7 +52,11 @@ it('draws the portrait card for sending the image itself', function (): void {
 });
 
 it('covers the card with the photo when there is one', function (): void {
-    $photo = (string) File::get(UploadedFile::fake()->image('proof.jpg', 900, 1600)->getRealPath());
+    // Held in a variable on purpose: a fake upload deletes its temporary file
+    // when the object goes out of scope, so inlining this reads a path that no
+    // longer exists by the time File::get() runs.
+    $upload = UploadedFile::fake()->image('proof.jpg', 900, 1600);
+    $photo = (string) File::get($upload->getRealPath());
 
     $jpeg = resolve(ShareCardComposer::class)->compose(ShareCardFormat::Unfurl, sampleCard(), $photo);
 

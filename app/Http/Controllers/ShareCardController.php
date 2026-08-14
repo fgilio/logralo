@@ -7,6 +7,7 @@ namespace App\Http\Controllers;
 use App\Enums\ShareCardFormat;
 use App\Queries\SharedEntry;
 use App\Services\ShareCardRenderer;
+use App\ValueObjects\FeedEntry;
 use App\ValueObjects\ShareCard;
 use Illuminate\Http\Response;
 use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
@@ -31,11 +32,9 @@ final class ShareCardController
     public function __invoke(string $token, string $format, SharedEntry $shared, ShareCardRenderer $cards): Response
     {
         $shape = ShareCardFormat::tryFrom($format);
-        $entry = $shape === null ? null : $shared->find($token);
+        $entry = $shape instanceof ShareCardFormat ? $shared->find($token) : null;
 
-        if ($shape === null || $entry === null) {
-            throw new NotFoundHttpException;
-        }
+        throw_if(! $entry instanceof FeedEntry || ! $shape instanceof ShareCardFormat, NotFoundHttpException::class);
 
         return $this->jpeg($cards->render(
             $entry->shareCardDirectory(),

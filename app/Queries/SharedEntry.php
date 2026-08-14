@@ -41,7 +41,7 @@ final readonly class SharedEntry
             ->where('share_token', $token)
             ->first();
 
-        if ($mark === null) {
+        if (! $mark instanceof Mark) {
             return null;
         }
 
@@ -66,6 +66,6 @@ final readonly class SharedEntry
             ->where('share_token', $token)
             ->first();
 
-        return $recap === null ? null : new RecapEntry($recap);
+        return $recap instanceof MonthlyRecap ? new RecapEntry($recap) : null;
     }
 }
