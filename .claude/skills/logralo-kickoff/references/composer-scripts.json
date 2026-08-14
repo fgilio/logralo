@@ -27,7 +27,7 @@
     "test:unit": "vendor/bin/pest --parallel",
     "test:unit:full": "vendor/bin/pest --parallel --no-tia",
     "test:browser": "vendor/bin/pest --testsuite=Browser --no-tia",
-    "test:tia-baseline": "php -d memory_limit=1G vendor/bin/pest --parallel --tia --coverage --fresh",
+    "test:tia-baseline": "php -d memory_limit=1G vendor/bin/pest --parallel --tia --fresh",
     "test": [
         "@test:type-coverage",
         "@test:types",

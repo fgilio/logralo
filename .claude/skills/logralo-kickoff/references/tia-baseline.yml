@@ -16,7 +16,9 @@
 # Recording mirrors the `test` job in ci.yml — same Postgres service, same Flux
 # auth, same built assets — so the graph reflects the suite people actually run.
 # The one difference is `coverage: pcov`: Tia needs a coverage driver to record
-# which test touched which file.
+# which test touched which file. It needs the driver, not the report — asking
+# Pest for `--coverage` as well leaves the run writing its coverage cache and no
+# graph.json at all, which is why `test:tia-baseline` does not.
 
 name: TIA Baseline
 
