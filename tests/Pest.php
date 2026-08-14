@@ -6,6 +6,7 @@ use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Process;
 use Illuminate\Support\Sleep;
+use Symfony\Component\Process\ExecutableFinder;
 use Tests\TestCase;
 
 pest()->extend(TestCase::class)
@@ -32,20 +33,29 @@ pest()->extend(TestCase::class)
 
 /*
  * Tia (test impact analysis, Pest 5). `always()` is what activates it without a
- * flag; `locally()` restricts that auto-activation to non-CI environments, so a
- * CI gate always executes the real suite. Both are spelled out on purpose —
- * `locally()` narrows `always()` rather than implying it.
+ * flag; `locally()` restricts that auto-activation to non-CI environments. Both
+ * are spelled out on purpose — `locally()` narrows `always()` rather than
+ * implying it.
  *
- * An explicit `--tia` still takes effect on CI, which is how tia-baseline.yml
- * records the shared graph that `baselined()` pulls down here. `filtered()`
- * narrows PHPUnit to the affected files instead of loading every test.
+ * `locally()` is not what keeps Tia out of CI, though: Pest reads the
+ * environment from a `--ci` argument and calls everything else local, so the
+ * gate jobs pass `--no-tia` themselves. An explicit `--tia` still takes effect
+ * on CI, which is how tia-baseline.yml records the shared graph.
+ * `filtered()` narrows PHPUnit to the affected files instead of loading every
+ * test.
  */
-pest()->tia()
+$tia = pest()->tia()
     ->always()
     ->locally()
-    ->baselined()
     ->filtered()
     ->watch([
         'resources/css/**/*.css' => 'tests/Browser',
         'public/build/**/*' => 'tests/Browser',
     ]);
+
+// Fetching the shared baseline shells out to `gh`, and Pest treats a missing
+// binary as fatal rather than falling back. A hosted session without the CLI
+// records its own graph instead of failing every run on the first command.
+if ((new ExecutableFinder)->find('gh') !== null) {
+    $tia->baselined();
+}

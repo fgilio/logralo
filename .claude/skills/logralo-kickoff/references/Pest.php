@@ -12,26 +12,32 @@ pest()->extend(TestCase::class)
 
 // Tia engine (test impact analysis, Pest 5). `always()` is what activates it
 // without a flag; `locally()` restricts that auto-activation to non-CI
-// environments (CI is detected via `--ci` or the CI env var), so CI always
-// executes the full suite. Spell out both — `locally()` narrows `always()`
-// rather than implying it, and `--tia --locally` is documented as the
-// equivalent of exactly this pair.
+// environments. Spell out both — `locally()` narrows `always()` rather than
+// implying it, and `--tia --locally` is documented as the equivalent of exactly
+// this pair.
 //
-// Note this restricts auto-activation only: an explicit `--tia` on the command
-// line still takes effect on CI. That is deliberate, and it is what lets the
-// tia-baseline workflow record a graph despite `locally()`.
+// `locally()` is not a CI guard on its own: Pest reads the environment from a
+// `--ci` argument, not from the usual variables, and calls everything else
+// local. Gate jobs pass `--no-tia` themselves. An explicit `--tia` on the
+// command line still takes effect on CI, which is what lets the tia-baseline
+// workflow record a graph despite `locally()`.
 //
-// `baselined()` pulls the graph recorded by that workflow. Best effort: it
-// shells out to GitHub's CLI, so sandboxes without `gh` fall back to recording
-// their own. A failed fetch then backs off for 24h unless you pass `--refetch`.
 // `filtered()` narrows PHPUnit to the affected test files instead of loading
 // every one of them.
-pest()->tia()
+$tia = pest()->tia()
     ->always()
     ->locally()
-    ->baselined()
     ->filtered()
     ->watch([
         'resources/css/**/*.css' => 'tests/Browser',
         'public/build/**/*' => 'tests/Browser',
     ]);
+
+// `baselined()` pulls the graph recorded by the tia-baseline workflow, by
+// shelling out to GitHub's CLI. Pest treats a missing binary as fatal rather
+// than falling back, so a sandbox without `gh` records its own graph instead of
+// failing every run on the first command. A failed fetch backs off for 24h
+// unless you pass `--refetch`.
+if ((new ExecutableFinder)->find('gh') !== null) {
+    $tia->baselined();
+}

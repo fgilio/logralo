@@ -67,6 +67,10 @@ jobs:
       - uses: actions/checkout@v7
         with:
           fetch-depth: 0 # Tia diffs against git history
+          # A default checkout leaves HEAD detached, and Tia records the graph
+          # per branch — on a detached HEAD it skips the write and the artifact
+          # goes out with the coverage cache and no graph.json.
+          ref: ${{ github.ref_name }}
       - uses: shivammathur/setup-php@v2
         with:
           php-version: ${{ env.PHP_VERSION }}

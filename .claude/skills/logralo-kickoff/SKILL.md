@@ -257,7 +257,7 @@ Spell out both `always()` and `locally()`. `locally()` *restricts* `always()` �
 | Rule | Why |
 | --- | --- |
 | **On locally** (`locally()`) | Fast inner loop; `composer test:unit` picks it up with no extra flags |
-| **Off on CI** | A gate must execute the real suite. `ci.yml` never passes `--tia`, and `locally()` suppresses auto-activation there anyway |
+| **Off on CI** | A gate must execute the real suite, and `locally()` does not deliver that: Pest sets its environment from a `--ci` **argument**, not from `CI=true`, so an unflagged CI run counts as local and `always()` fires. Gate jobs run `composer test:unit:full`, which pins `--no-tia` |
 | **Explicit `--tia` still wins on CI** | `locally()` restricts *auto*-activation only. An explicit `--tia` takes effect regardless — which is exactly how `tia-baseline.yml` records a graph on CI without contradicting `locally()`. `--no-tia` is the reverse escape hatch |
 | **Browser tests never use it** | `phpunit.xml` keeps them out of the default suite and `test:browser` selects them by name with `--no-tia`. They stay out of the baseline, and impact-analyzing a full-stack browser suite is the least trustworthy case |
 | **Needs a coverage driver** | PCOV (preferred) or Xdebug must be enabled locally — Tia records the test↔file graph through it. Without one it cannot record, so the run falls back to a plain full run |
@@ -281,8 +281,9 @@ Flags worth knowing (`--tia` is only needed if the config above is absent):
 
 **Caveats to expect:**
 
+- **Check out the branch in the baseline job** (`ref: ${{ github.ref_name }}`). Tia keys the graph by branch and skips `saveGraph()` entirely on a detached HEAD, which is what a default `actions/checkout` gives you. The symptom is quiet: the job goes green, the artifact uploads, and it holds `coverage.bin.gz` with no `graph.json` — every consumer then fails with *"Baseline downloaded but the artifact is missing expected files"*.
 - State lives in `~/.pest/tia/<project-key>/`, keyed off the normalized git remote — outside the repo, so nothing to gitignore, but also nothing that survives an ephemeral hosted sandbox.
-- `baselined()` fetches by shelling out to GitHub's CLI — the docs describe it as using `gh` to download the `pest-tia-baseline` artifact from the last successful `tia-baseline.yml` run. Franco's machine has `gh`; hosted Claude Code web sessions do not, so they fall back to recording their own graph. A slow first run, not a failure. A fetched graph is also validated against project state and discarded if it does not match, with the same local-rebuild fallback.
+- `baselined()` fetches by shelling out to GitHub's CLI — it uses `gh` to download the `pest-tia-baseline` artifact from the last successful `tia-baseline.yml` run. A missing or logged-out `gh` is **fatal**, not a fallback: `BaselineSync::validateGhDependencies()` panics, and every test command dies before running a test. Franco's machine has `gh`; hosted Claude Code web sessions do not, so `references/Pest.php` only calls `baselined()` when `ExecutableFinder` can see the binary, and those sessions record their own graph instead. A fetched graph is validated against project state and discarded if it does not match, which does fall back to a local rebuild.
 - A **failed fetch starts a 24-hour cooldown** before Pest tries again — `--tia --refetch` forces one inside that window. So a hosted session that fails the fetch once won't retry on its own for a day; not a problem for ephemeral sandboxes (each is a fresh `~`), but worth knowing on a long-lived machine that was briefly offline or logged out of `gh`.
 - Cosmetic edits (comments, docblocks, Pint/Prettier passes) normalize to the same hash and trigger zero tests. That is correct behaviour, not a broken graph.
 - The graph rebuilds itself when `composer.lock`, `phpunit.xml*`, `vite.config.*`, the Node lockfile, or the PHP version changes.

@@ -143,7 +143,11 @@ jobs:
         run: |
           cp .env.example .env
           php artisan key:generate
-      - run: composer test:unit
+      # `test:unit:full`, not `test:unit`: a gate has to execute every test, and
+      # Pest reads its environment from a `--ci` argument rather than the usual
+      # variables, so `locally()` in tests/Pest.php does not switch Tia off here
+      # on its own. The `--no-tia` this script carries does.
+      - run: composer test:unit:full
 
   # Browser tests get their own job: they are the slowest and the most likely
   # to flake, and isolating them keeps a red `test` job meaningful.
