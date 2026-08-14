@@ -229,7 +229,12 @@ final readonly class ShareCardComposer
 
         $this->write($canvas, $streak, $x, $baseline, $size, self::EMBER, $this->bodyBold());
 
-        $this->flame($canvas, $x + $this->advance($streak, $size, $this->bodyBold()) + (int) ($size * 0.4), $baseline, $size);
+        $this->flame(
+            $canvas,
+            $x + $this->advance($streak, $size, $this->bodyBold()) + (int) ($size * 0.4),
+            $baseline + $this->inkMiddle($streak, $size, $this->bodyBold()),
+            $size,
+        );
     }
 
     /**
@@ -240,18 +245,35 @@ final readonly class ShareCardComposer
      * emoji comes out a hollow box. `resources/images/flame.png` is the app
      * icon with its ground keyed out, committed like the fonts are.
      */
-    private function flame(ImageInterface $canvas, int $x, int $baseline, int $size): void
+    private function flame(ImageInterface $canvas, int $x, int $middle, int $size): void
     {
-        // A shade taller than the words beside it, which is how an icon reads
-        // as an icon rather than as a letter that went wrong.
+        // A shade taller than the digits beside it, which is how an icon reads
+        // as an icon rather than as a letter that went wrong. Centred on their
+        // ink and not stood on the baseline: the flame is the taller of the
+        // two, so sharing a floor left it hanging above the number.
         $height = (int) ($size * 1.3);
 
         $canvas->place(
             $this->images->read($this->asset('images/flame.png'))->scale(height: $height),
             'top-left',
             $x,
-            $baseline - $height,
+            $middle - (int) ($height / 2),
         );
+    }
+
+    /**
+     * Half way up the ink of a line, relative to its baseline — so negative,
+     * since a bounding box measures upwards from there.
+     *
+     * Digits have no descender and Archivo's caps do not overshoot, so this is
+     * the middle of what the eye actually sees rather than the middle of the
+     * em the font reserves for letters this line does not use.
+     */
+    private function inkMiddle(string $text, int $size, string $font): int
+    {
+        $box = imagettfbbox($size, 0, $font, $text);
+
+        return $box === false ? (int) (-$size * 0.35) : (int) (($box[1] + $box[7]) / 2);
     }
 
     /**
