@@ -62,6 +62,26 @@ it('opens the month table from the trophy button', function (): void {
         ->assertNoJavaScriptErrors();
 });
 
+it('leaves the goal name the wide half of the new-goal sheet', function (): void {
+    $user = User::factory()->create();
+
+    $this->actingAs($user);
+
+    // Flux copies `class` onto its own `w-full` wrapper, which once let the
+    // emoji box eat the row and squeezed the name box down to a sliver.
+    visit('/perfil')->on()->iPhone15Pro()
+        ->click('@new-goal')
+        ->wait(1)
+        ->assertScript("document.querySelector('[data-test=goal-name]').clientWidth > 2 * document.querySelector('[data-test=goal-emoji]').clientWidth")
+        ->type('@goal-name', 'Gimnasio')
+        ->click('@save-goal')
+        ->wait(1)
+        ->assertSee('Gimnasio')
+        ->assertNoJavaScriptErrors();
+
+    expect($user->goals()->sole()->name)->toBe('Gimnasio');
+});
+
 it('renders the login screen and refuses the wrong password', function (): void {
     User::factory()->create(['email' => 'ana@logralo.test']);
 

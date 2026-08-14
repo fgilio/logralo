@@ -27,6 +27,7 @@ new #[Title('Perfil')] class extends Component
 {
     use InteractsWithMember;
     use PasswordValidationRules;
+
     /** A few starters, so nobody has to hunt for the emoji keyboard. */
     public const array EMOJI_SUGGESTIONS = ['🏋️', '🏃', '📚', '🧘', '💧', '🥗', '🛏️', '🎸', '🧠', '🚭'];
 
@@ -372,22 +373,26 @@ new #[Title('Perfil')] class extends Component
         </flux:heading>
 
         <form wire:submit="saveGoal" class="mt-5 flex flex-col gap-4">
+            {{-- Flux copies `class` onto its own `w-full` wrapper, so the widths live on these divs instead. --}}
             <div class="flex gap-3">
-                <flux:input
-                    wire:model="goalEmoji"
-                    class="w-20 text-center text-2xl"
-                    maxlength="8"
-                    aria-label="Emoji"
-                    data-test="goal-emoji"
-                />
-                <flux:input
-                    wire:model="goalName"
-                    class="flex-1"
-                    placeholder="Gimnasio"
-                    maxlength="{{ config('logralo.goals.name_max_length') }}"
-                    aria-label="Nombre"
-                    data-test="goal-name"
-                />
+                <div class="w-20 shrink-0">
+                    <flux:input
+                        wire:model="goalEmoji"
+                        class:input="text-center text-2xl"
+                        maxlength="8"
+                        aria-label="Emoji"
+                        data-test="goal-emoji"
+                    />
+                </div>
+                <div class="min-w-0 flex-1">
+                    <flux:input
+                        wire:model="goalName"
+                        placeholder="Gimnasio"
+                        maxlength="{{ config('logralo.goals.name_max_length') }}"
+                        aria-label="Nombre"
+                        data-test="goal-name"
+                    />
+                </div>
             </div>
 
             <div class="flex flex-wrap gap-1.5">
