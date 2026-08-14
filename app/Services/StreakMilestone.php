@@ -4,8 +4,6 @@ declare(strict_types=1);
 
 namespace App\Services;
 
-use Illuminate\Support\Collection;
-
 /**
  * Which streaks are worth interrupting somebody for.
  *
@@ -45,11 +43,5 @@ final readonly class StreakMilestone
             100 => 'Cien días',
             default => "{$streak} días seguidos",
         };
-    }
-
-    /** @return Collection<int, int> */
-    public function thresholds(): Collection
-    {
-        return collect(self::THRESHOLDS);
     }
 }

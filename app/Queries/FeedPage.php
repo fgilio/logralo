@@ -6,11 +6,8 @@ namespace App\Queries;
 
 use App\Models\Mark;
 use App\Models\MonthlyRecap;
-use App\Services\PhotoProcessor;
-use App\Services\StreakCalculator;
 use App\ValueObjects\FeedEntry;
 use App\ValueObjects\FeedResult;
-use App\ValueObjects\MarkEntry;
 use App\ValueObjects\MarkHistory;
 use App\ValueObjects\RecapEntry;
 use Illuminate\Database\Eloquent\Builder;
@@ -29,8 +26,7 @@ final readonly class FeedPage
 {
     public function __construct(
         private GoalHistory $history,
-        private StreakCalculator $streaks,
-        private PhotoProcessor $photos,
+        private MarkEntries $entries,
     ) {}
 
     public function load(int $limit): FeedResult
@@ -50,21 +46,10 @@ final readonly class FeedPage
         );
 
         /** @var Collection<int, FeedEntry> $entries */
-        $entries = $marks->map(function (Mark $mark) use ($histories): FeedEntry {
-            $history = $histories->get($mark->goal_id, MarkHistory::empty());
-            $date = $mark->marked_on->toDateString();
-
-            return new MarkEntry(
-                mark: $mark,
-                streak: $this->streaks->endingOn($history->dates(), $mark->marked_on),
-                ghostRun: $mark->isGhost() ? $history->ghostRunEndingOn($date) : 0,
-                photo: $mark->photo_key === null ? null : $this->photos->links(
-                    $mark->photo_key,
-                    $mark->photo_width ?? 4,
-                    $mark->photo_height ?? 3,
-                ),
-            );
-        });
+        $entries = $marks->map(fn (Mark $mark): FeedEntry => $this->entries->from(
+            $mark,
+            $histories->get($mark->goal_id, MarkHistory::empty()),
+        ));
 
         return new FeedResult(
             entries: $this->withRecaps($entries, $hasMore),

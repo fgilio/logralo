@@ -121,10 +121,12 @@ document.addEventListener("alpine:init", () => {
      * comes with it. Handing the unfurl the picture ends the choice.
      *
      * Holding sends the composed image itself instead, for a story post or for
-     * anywhere a preview will not render. That payload is fetched on
-     * pointerdown, because an `await` between the gesture and
-     * `navigator.share()` spends the transient activation on iOS and the sheet
-     * never opens.
+     * anywhere a preview will not render. That payload is fetched when the
+     * hold opens the menu, not when the sheet is asked for: an `await` between
+     * the gesture and `navigator.share()` spends the transient activation on
+     * iOS and the sheet never opens, so the file has to be in hand already.
+     * The menu's dwell time is what pays for it, and a plain tap — which never
+     * sends a file — never downloads one.
      */
     Alpine.data("shareCard", (options = {}) => ({
         url: options.url ?? window.location.origin,
@@ -154,8 +156,6 @@ document.addEventListener("alpine:init", () => {
 
         /** The tall card, ready to hand to the share sheet as a file. */
         async prefetch() {
-            this.warm();
-
             if (this.file || !this.imageUrl || !navigator.canShare) return;
 
             try {
@@ -230,11 +230,14 @@ document.addEventListener("alpine:init", () => {
             }
         },
 
-        async copy() {
-            const message = `${this.text} ${this.url}`.trim();
+        /** What goes in the chat when the share sheet is not what happens. */
+        get message() {
+            return `${this.text} ${this.url}`.trim();
+        },
 
+        async copy() {
             try {
-                await navigator.clipboard.writeText(message);
+                await navigator.clipboard.writeText(this.message);
                 window.Flux?.toast?.("Copiado 📋");
             } catch {
                 await this.fallback();
@@ -242,11 +245,9 @@ document.addEventListener("alpine:init", () => {
         },
 
         async fallback() {
-            const message = `${this.text} ${this.url}`.trim();
-
             if (navigator.clipboard?.writeText) {
                 try {
-                    await navigator.clipboard.writeText(message);
+                    await navigator.clipboard.writeText(this.message);
                     window.Flux?.toast?.("Copiado. Pegalo en WhatsApp 📋");
 
                     return;
@@ -256,7 +257,7 @@ document.addEventListener("alpine:init", () => {
             }
 
             window.open(
-                `https://wa.me/?text=${encodeURIComponent(message)}`,
+                `https://wa.me/?text=${encodeURIComponent(this.message)}`,
                 "_blank",
                 "noopener",
             );

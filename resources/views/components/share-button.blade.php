@@ -5,12 +5,13 @@
 
     $shareUrl = $entry->shareUrl();
     $shareable = $entry->shareable();
+    $shareText = $entry->shareText();
 @endphp
 
 @if ($shareUrl === null)
     {{-- Revoked. Only the person who pulled it sees the way back, and taking
          it back gets a new token so the link they killed stays dead. --}}
-    @if ($shareable instanceof \App\Models\MonthlyRecap || $shareable->user_id === auth()->id())
+    @if ($shareable->isManagedBy(auth()->user()))
         <button
             type="button"
             wire:click="resumeSharing('{{ $entry->shareKind() }}', '{{ $shareable->getKey() }}')"
@@ -30,10 +31,10 @@
         class="relative"
         x-data="shareCard({
             url: @js($shareUrl),
-            text: @js($entry->shareText()),
+            text: @js($shareText),
             cardUrl: @js($shareable->shareCardUrl(ShareCardFormat::Unfurl)),
             imageUrl: @js($shareable->shareCardUrl(ShareCardFormat::Portrait)),
-            filename: @js(Str::slug(Str::limit($entry->shareText(), 40, '')) . '-logralo.jpg'),
+            filename: @js(Str::slug(Str::limit($shareText, 40, '')) . '-logralo.jpg'),
         })"
     >
         <div
@@ -49,7 +50,11 @@
             <button
                 type="button"
                 x-data="longPress({ delay: 420 })"
-                @pointerdown="start($event); prefetch()"
+                {{-- Only the unfurl is warmed on touch: it is what the crawler
+                     will ask for the moment the link is sent. The tall card is
+                     fetched when the menu that offers it opens, so a plain tap
+                     no longer downloads a 1080×1350 JPEG nobody asked for. --}}
+                @pointerdown="start($event); warm()"
                 @pointermove="move($event)"
                 @pointerup="end()"
                 @pointercancel="cancel()"
@@ -57,14 +62,14 @@
                 @contextmenu.prevent
                 @click.capture="onClick($event)"
                 @short-press="share()"
-                @long-press="open = true"
+                @long-press="open = true; prefetch()"
                 {{-- `short-press` rides on pointerup, which a keyboard never
                      sends, so without this Enter and Space did nothing at all.
                      detail is 0 only for keyboard-activated clicks, so a tap
                      cannot double-fire through here. --}}
                 @click="$event.detail === 0 && share()"
                 {{-- And the arrow key reaches the menu the hold opens. --}}
-                @keydown.down.prevent="open = true"
+                @keydown.down.prevent="open = true; prefetch()"
                 aria-haspopup="menu"
                 :aria-expanded="open ? 'true' : 'false'"
                 @class([

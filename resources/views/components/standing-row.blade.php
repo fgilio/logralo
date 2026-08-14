@@ -31,7 +31,7 @@
         <div class="flex items-baseline justify-between gap-2">
             <span class="truncate text-sm font-medium">{{ $standing->name }}</span>
             <span class="shrink-0 font-display text-base tabular-nums">
-                {{ rtrim(rtrim(number_format($standing->percentage(), 1, ',', '.'), '0'), ',') }}%
+                {{ $standing->percentageLabel() }}
             </span>
         </div>
 

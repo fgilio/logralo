@@ -36,6 +36,19 @@ interface FeedEntry
      */
     public function shareText(): string;
 
+    /** The share page's headline, and the unfurl's `og:title`. */
+    public function shareTitle(): string;
+
+    /** What the preview says under the headline. */
+    public function shareDescription(): string;
+
+    /**
+     * The fragment "Abrir en Logralo" appends, so a member arriving from the
+     * chat lands on the card rather than the top of the feed. Null when the
+     * feed has nothing to scroll to.
+     */
+    public function shareAnchor(): ?string;
+
     /** Null once sharing has been revoked. */
     public function shareUrl(): ?string;
 

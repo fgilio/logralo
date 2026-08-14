@@ -30,14 +30,17 @@ final class RecordShareVisit
      * Substrings of the User-Agent that mean a preview, not a person. Kept
      * broad on purpose — over-counting a person as a bot loses a number
      * nobody depends on, while under-counting makes the feature lie.
+     *
+     * These are substrings, so `bot` already covers telegrambot, twitterbot,
+     * discordbot, slackbot and every one after them. Only the crawlers that
+     * do not say "bot" need naming.
      */
     private const array CRAWLERS = [
-        'facebookexternalhit', 'whatsapp', 'telegrambot', 'twitterbot',
-        'discordbot', 'slackbot', 'linkedinbot', 'embedly', 'bot', 'crawler',
-        'preview', 'spider',
+        'bot', 'crawler', 'spider', 'preview',
+        'facebookexternalhit', 'whatsapp', 'embedly',
     ];
 
-    public function handle(Mark|MonthlyRecap $shared, ?string $userAgent): bool
+    public function handle(Mark|MonthlyRecap $shared, ?string $userAgent): void
     {
         Context::add('logralo.share_token', $shared->share_token);
         Context::add('logralo.shared_type', class_basename($shared));
@@ -46,7 +49,7 @@ final class RecordShareVisit
             if ($this->isCrawler($userAgent)) {
                 Context::add('logralo.outcome', 'crawler');
 
-                return false;
+                return;
             }
 
             // Nor is the sender. The count exists to tell them the message
@@ -54,7 +57,7 @@ final class RecordShareVisit
             if ($shared instanceof Mark && $shared->user_id === Auth::id()) {
                 Context::add('logralo.outcome', 'author');
 
-                return false;
+                return;
             }
 
             // Incremented in the database rather than from the value this
@@ -70,8 +73,6 @@ final class RecordShareVisit
 
             Context::add('logralo.outcome', 'counted');
             Context::add('logralo.share_views', $shared->share_views);
-
-            return true;
         } catch (Throwable $throwable) {
             Context::add('logralo.outcome', 'error');
             Context::add('logralo.error', $throwable->getMessage());
@@ -85,14 +86,9 @@ final class RecordShareVisit
 
     private function isCrawler(?string $userAgent): bool
     {
-        if ($userAgent === null || $userAgent === '') {
-            return true;
-        }
-
-        $agent = Str::lower($userAgent);
-
-        return collect(self::CRAWLERS)->contains(
-            fn (string $needle): bool => Str::contains($agent, $needle)
-        );
+        // A missing User-Agent is a bot too: every browser sends one.
+        return $userAgent === null
+            || $userAgent === ''
+            || Str::contains($userAgent, self::CRAWLERS, ignoreCase: true);
     }
 }

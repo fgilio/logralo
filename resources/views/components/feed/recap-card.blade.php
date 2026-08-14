@@ -3,8 +3,8 @@
 @php
     $recap = $entry->recap;
     $standings = $recap->standingEntries();
-    $winners = $standings->where('rank', 1);
-    $runnersUp = $standings->where('rank', 2);
+    $winners = $entry->winners();
+    $runnersUp = $standings->where('rank', 2)->values();
     $month = $entry->monthName();
 @endphp
 
@@ -41,9 +41,9 @@
                 @endforeach
             </div>
             <div class="min-w-0 leading-tight">
-                <p class="truncate font-semibold">{{ $winners->pluck('name')->join(', ', ' y ') }}</p>
+                <p class="truncate font-semibold">{{ $entry->winnerNames() }}</p>
                 <p class="text-xs text-white/60">
-                    {{ rtrim(rtrim(number_format($winners->first()->percentage(), 1, ',', '.'), '0'), ',') }}% del mes
+                    {{ $winners->first()->percentageLabel() }} del mes
                 </p>
             </div>
         </div>

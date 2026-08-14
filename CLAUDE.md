@@ -29,7 +29,7 @@ The layering is the thing to keep. It is enforced by `tests/Arch/`.
 
 ### `app/Queries/` — the read side, where Eloquent lives
 
-- `GroupPulse`, `MonthlyStandings`, `FeedPage`, `GoalHistory`, `SharedEntry`
+- `GroupPulse`, `MonthlyStandings`, `FeedPage`, `GoalHistory`, `SharedEntry`, `MarkEntries`
 
 ### `app/Actions/` — the write side, one unit of work each
 

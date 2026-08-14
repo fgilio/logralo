@@ -35,6 +35,17 @@ it('shows the score as a percentage with one decimal', function (): void {
         ->and(standingWithMarks(20, 0, 20)->percentage())->toBe(100.0);
 });
 
+it('writes the percentage with a comma and no trailing zero', function (): void {
+    // The standings row, the recap card and the image that lands in WhatsApp
+    // all read this one method, so the group never sees 92% and 92,0% for the
+    // same month on two screens.
+    expect(standingWithMarks(7, 3, 20)->percentageLabel())->toBe('42,5%')
+        ->and(standingWithMarks(1, 0, 3)->percentageLabel())->toBe('33,3%')
+        ->and(standingWithMarks(20, 0, 20)->percentageLabel())->toBe('100%')
+        ->and(standingWithMarks(18, 0, 20)->percentageLabel())->toBe('90%')
+        ->and(standingWithMarks(0, 0, 20)->percentageLabel())->toBe('0%');
+});
+
 it('splits the bar into a solid and a hatched segment', function (): void {
     $standing = standingWithMarks(7, 3, 20);
 

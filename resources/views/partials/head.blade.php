@@ -6,8 +6,12 @@
     // Every page unfurls as something. Without these a pasted link showed
     // WhatsApp the login page's title over a favicon-sized tile, identically
     // for every share anyone in the group ever sent.
+    // The tab always carries the suffix. A page that supplies its own og:title
+    // keeps it bare, because a chat preview already says where it came from.
+    $pageTitle = filled($title ?? null) ? $title . ' · Logralo' : 'Logralo';
+
     $og = ($og ?? []) + [
-        'title' => filled($title ?? null) ? $title . ' · Logralo' : 'Logralo',
+        'title' => $pageTitle,
         'description' => 'Objetivos diarios, rachas y pruebas con foto. Entre amigos.',
         'image' => route('share.default-card'),
         'width' => 1200,
@@ -17,7 +21,7 @@
     ];
 @endphp
 
-<title>{{ filled($title ?? null) ? $title . ' · Logralo' : 'Logralo' }}</title>
+<title>{{ $pageTitle }}</title>
 <meta name="description" content="{{ $og['description'] }}">
 
 {{-- WhatsApp reads the OpenGraph tags and nothing else. It only draws the

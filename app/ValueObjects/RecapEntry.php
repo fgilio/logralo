@@ -43,20 +43,25 @@ final readonly class RecapEntry implements FeedEntry
         return $this->recap->standingEntries()->where('rank', 1)->values();
     }
 
+    /** "Guido", or "Franco y Guido" on a tie. Empty when nobody marked. */
+    public function winnerNames(): string
+    {
+        return $this->winners()->pluck('name')->join(', ', ' y ');
+    }
+
     public function shareCard(): ShareCard
     {
-        $winners = $this->winners();
-        $champion = $winners->pluck('name')->join(', ', ' y ');
+        $champion = $this->winnerNames();
 
         return new ShareCard(
             title: $this->monthName(),
             badge: 'Cerró el mes',
-            byline: $winners->isEmpty() ? 'Sin ganador' : "Ganó {$champion}",
+            byline: $champion === '' ? 'Sin ganador' : "Ganó {$champion}",
+            // array_filter drops the empty champion along with the nulls, so a
+            // month nobody marked shows no podium rather than a blank one.
             stats: array_filter([
-                'Campeón' => $winners->isEmpty() ? null : $champion,
-                'Del mes' => $winners->isEmpty()
-                    ? null
-                    : mb_rtrim(mb_rtrim(number_format($winners->first()->percentage(), 1, ',', '.'), '0'), ',').'%',
+                'Campeón' => $champion,
+                'Del mes' => $this->winners()->first()?->percentageLabel(),
                 // `??` already suppresses the null, so the nullsafe arrow would
                 // only be noise.
                 'Mejor racha' => $this->recap->best_streak_days > 0
@@ -66,13 +71,34 @@ final readonly class RecapEntry implements FeedEntry
         );
     }
 
+    /** The headline the share page and the unfurl's `og:title` both use. */
+    public function shareTitle(): string
+    {
+        $champion = $this->winnerNames();
+
+        return $champion === ''
+            ? "Cerró {$this->monthName()}"
+            : "Ganó {$champion} en {$this->monthName()}";
+    }
+
+    public function shareDescription(): string
+    {
+        return 'Cómo terminó el mes en Logralo.';
+    }
+
+    /** A month has no row in the feed to scroll to. */
+    public function shareAnchor(): ?string
+    {
+        return null;
+    }
+
     public function shareText(): string
     {
-        $winners = $this->winners();
+        $champion = $this->winnerNames();
 
-        return $winners->isEmpty()
+        return $champion === ''
             ? "🏆 Cerró {$this->monthName()} en Logralo"
-            : '🏆 Ganó '.$winners->pluck('name')->join(', ', ' y ')." en {$this->monthName()}";
+            : "🏆 Ganó {$champion} en {$this->monthName()}";
     }
 
     public function shareUrl(): ?string

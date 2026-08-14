@@ -5,11 +5,9 @@ declare(strict_types=1);
 use App\Concerns\ResumesSharing;
 use App\Models\Mark;
 use App\Queries\GoalHistory;
-use App\Services\PhotoProcessor;
-use App\Services\StreakCalculator;
+use App\Queries\MarkEntries;
 use App\Services\StreakMilestone;
 use App\ValueObjects\MarkEntry;
-use App\ValueObjects\MarkHistory;
 use Flux\Flux;
 use Livewire\Attributes\Computed;
 use Livewire\Attributes\On;
@@ -44,17 +42,9 @@ new class extends Component
             return null;
         }
 
-        $history = resolve(GoalHistory::class)->for($mark->goal);
-
-        return new MarkEntry(
-            mark: $mark,
-            streak: resolve(StreakCalculator::class)->endingOn($history->dates(), $mark->marked_on),
-            ghostRun: 0,
-            photo: $mark->photo_key === null ? null : resolve(PhotoProcessor::class)->links(
-                $mark->photo_key,
-                $mark->photo_width ?? 4,
-                $mark->photo_height ?? 3,
-            ),
+        return resolve(MarkEntries::class)->from(
+            $mark,
+            resolve(GoalHistory::class)->for($mark->goal),
         );
     }
 

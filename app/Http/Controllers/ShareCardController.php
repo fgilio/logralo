@@ -9,6 +9,7 @@ use App\Queries\SharedEntry;
 use App\Services\ShareCardRenderer;
 use App\ValueObjects\FeedEntry;
 use App\ValueObjects\ShareCard;
+use Illuminate\Http\Request;
 use Illuminate\Http\Response;
 use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
 
@@ -29,7 +30,7 @@ use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
  */
 final class ShareCardController
 {
-    public function __invoke(string $token, string $format, SharedEntry $shared, ShareCardRenderer $cards): Response
+    public function __invoke(Request $request, string $token, string $format, SharedEntry $shared, ShareCardRenderer $cards): Response
     {
         // Two guards rather than one: the format is checked first so an
         // unknown one never reaches the database, and checking both in a
@@ -43,7 +44,7 @@ final class ShareCardController
 
         throw_if(! $entry instanceof FeedEntry, NotFoundHttpException::class);
 
-        return $this->jpeg($cards->render(
+        return $this->jpeg($request, $cards->render(
             $entry->shareCardDirectory(),
             $shape,
             $entry->shareCard(),
@@ -55,21 +56,31 @@ final class ShareCardController
      * The card a bare link to the app unfurls as — no mark behind it, so no
      * photo and nothing private, just the wordmark and the pitch.
      */
-    public function default(ShareCardRenderer $cards): Response
+    public function default(Request $request, ShareCardRenderer $cards): Response
     {
-        return $this->jpeg($cards->render('shares/default', ShareCardFormat::Unfurl, new ShareCard(
-            title: 'Logralo',
-            badge: 'Entre amigos',
-            byline: 'Objetivos diarios, rachas y pruebas con foto.',
-        )));
+        return $this->jpeg($request, $cards->render(
+            'shares/default',
+            ShareCardFormat::Unfurl,
+            ShareCard::pitch(),
+        ));
     }
 
-    private function jpeg(string $body): Response
+    /**
+     * The revalidation is answered here rather than left to the framework:
+     * setting an ETag header does nothing on its own, so without the
+     * `isNotModified` check every "has this changed?" shipped the whole JPEG
+     * back — which is the cost `no-cache` was supposed to avoid, not incur.
+     */
+    private function jpeg(Request $request, string $body): Response
     {
-        return response($body, 200, [
+        $response = response($body, 200, [
             'Content-Type' => 'image/jpeg',
             'Cache-Control' => 'private, no-cache, must-revalidate',
-            'ETag' => '"'.hash('xxh128', $body).'"',
         ]);
+
+        $response->setEtag(hash('xxh128', $body));
+        $response->isNotModified($request);
+
+        return $response;
     }
 }

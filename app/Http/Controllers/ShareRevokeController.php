@@ -7,7 +7,6 @@ namespace App\Http\Controllers;
 use App\Actions\RevokeSharing;
 use App\Queries\SharedEntry;
 use App\ValueObjects\FeedEntry;
-use App\ValueObjects\MarkEntry;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Support\Facades\Auth;
 use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
@@ -28,15 +27,11 @@ final class ShareRevokeController
 
         throw_if(! $entry instanceof FeedEntry, NotFoundHttpException::class);
 
-        // Only whoever made the mark can un-share it. A recap belongs to the
-        // whole group, so anyone in the group may pull that one.
-        $allowed = $entry instanceof MarkEntry
-            ? $entry->mark->user_id === Auth::id()
-            : Auth::check();
+        $shared = $entry->shareable();
 
-        abort_unless($allowed, 403);
+        abort_unless($shared->isManagedBy(Auth::user()), 403);
 
-        $revoke->handle($entry->shareable());
+        $revoke->handle($shared);
 
         // A session flash, not Flux::toast(): a toast is dispatched onto a
         // Livewire component, and there is none in a plain controller — the

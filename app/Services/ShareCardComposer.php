@@ -280,26 +280,25 @@ final readonly class ShareCardComposer
         string $font,
         int $tracking = 0,
     ): void {
-        if ($tracking === 0) {
-            $canvas->text($text, $x, $y, function (FontFactory $factory) use ($size, $color, $font): void {
-                $factory->filename($font);
-                $factory->size($size);
-                $factory->color($color);
-                $factory->align('left', 'bottom');
-            });
+        $style = function (FontFactory $factory) use ($size, $color, $font): void {
+            $factory->filename($font);
+            $factory->size($size);
+            $factory->color($color);
+            $factory->align('left', 'bottom');
+        };
 
-            return;
-        }
+        // Untracked text is one piece; tracked text is one piece per character,
+        // with the pen moved by hand in between.
+        $pieces = $tracking === 0 ? [$text] : mb_str_split($text);
 
-        foreach (mb_str_split($text) as $character) {
-            $canvas->text($character, $x, $y, function (FontFactory $factory) use ($size, $color, $font): void {
-                $factory->filename($font);
-                $factory->size($size);
-                $factory->color($color);
-                $factory->align('left', 'bottom');
-            });
+        foreach ($pieces as $piece) {
+            $canvas->text($piece, $x, $y, $style);
 
-            $x += $this->advance($character, $size, $font) + $tracking;
+            // Measuring costs a bounding box, so only tracked text pays for it;
+            // the untracked branch is a single piece and never comes round.
+            if ($tracking > 0) {
+                $x += $this->advance($piece, $size, $font) + $tracking;
+            }
         }
     }
 

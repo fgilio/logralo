@@ -30,9 +30,9 @@
                     @endforeach
                 </div>
                 <div class="min-w-0 leading-tight">
-                    <p class="truncate text-lg font-semibold">{{ $winners->pluck('name')->join(', ', ' y ') }}</p>
+                    <p class="truncate text-lg font-semibold">{{ $entry->winnerNames() }}</p>
                     <p class="text-xs text-white/60">
-                        {{ rtrim(rtrim(number_format($winners->first()->percentage(), 1, ',', '.'), '0'), ',') }}% del mes
+                        {{ $winners->first()->percentageLabel() }} del mes
                     </p>
                 </div>
             </div>

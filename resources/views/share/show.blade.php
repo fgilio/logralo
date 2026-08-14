@@ -1,19 +1,17 @@
 @php
-    use App\ValueObjects\MarkEntry;
-
-    $isMark = $entry instanceof MarkEntry;
     $member = auth()->user();
     $shareable = $entry->shareable();
-    $isOwner = $member !== null && (! $isMark || $entry->mark->user_id === $member->id);
+    $anchor = $entry->shareAnchor();
+    $openUrl = route('today') . ($anchor === null ? '' : '#' . $anchor);
 
+    // Reached only through a live token, so the card and the link are never
+    // null here — `SharedEntry` matches on `share_token` and revoking clears it.
     $og = [
-        'title' => $isMark ? $entry->shareTitle() : $entry->shareText(),
-        'description' => $isMark
-            ? 'Una prueba más en Logralo. Objetivos diarios y rachas, entre amigos.'
-            : 'Cómo terminó el mes en Logralo.',
-        'image' => $shareable->shareCardUrl() ?? route('share.default-card'),
+        'title' => $entry->shareTitle(),
+        'description' => $entry->shareDescription(),
+        'image' => $shareable->shareCardUrl(),
         'type' => 'article',
-        'url' => $entry->shareUrl() ?? url('/'),
+        'url' => $entry->shareUrl(),
     ];
 @endphp
 
@@ -42,17 +40,15 @@
             </header>
 
             <main class="flex-1">
-                @if ($isMark)
-                    @include('share.partials.mark', ['entry' => $entry])
-                @else
-                    @include('share.partials.recap', ['entry' => $entry])
-                @endif
+                {{-- The partials are named for the two kinds an entry answers
+                     with, so the page needs no branch of its own. --}}
+                @include('share.partials.' . $entry->shareKind(), ['entry' => $entry])
             </main>
 
             <footer class="py-8 text-center">
                 @if ($member !== null)
                     <flux:button
-                        href="{{ $isMark ? route('today') . '#mark-' . $entry->mark->id : route('today') }}"
+                        href="{{ $openUrl }}"
                         variant="primary"
                         class="w-full"
                         data-test="open-app"
@@ -60,7 +56,7 @@
                         Abrir en Logralo
                     </flux:button>
 
-                    @if ($isOwner)
+                    @if ($shareable->isManagedBy($member))
                         <p class="mt-6 text-xs text-zinc-500">
                             Cualquiera con este link ve esta página.
                             @if ($shareable->share_views > 0)

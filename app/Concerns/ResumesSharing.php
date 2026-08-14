@@ -25,12 +25,7 @@ trait ResumesSharing
             ? MonthlyRecap::query()->findOrFail($id)
             : Mark::query()->findOrFail($id);
 
-        // A mark belongs to whoever made it. A month belongs to the group, so
-        // anyone in it may put that one back.
-        abort_unless(
-            $shared instanceof MonthlyRecap || $shared->user_id === Auth::id(),
-            403,
-        );
+        abort_unless($shared->isManagedBy(Auth::user()), 403);
 
         resolve(ResumeSharing::class)->handle($shared);
 

@@ -49,6 +49,8 @@ The response itself is `private, no-cache, must-revalidate` with an ETag. `publi
 
 The share button `fetch()`es the unfurl card on `pointerdown` to warm it. A preview that comes back slowly is a preview the sender's own client gives up on, leaving a bare link in the chat.
 
+The tall card is fetched later — when the hold opens the menu that offers it, not on every touch. It still has to be in hand before `navigator.share()` is called, because an `await` between the gesture and the call spends the transient activation on iOS and the sheet never opens; the menu's dwell time is what pays for it. A plain tap never sends a file, so it no longer downloads one either.
+
 ## The gestures
 
 - **Tap** the share button → the native sheet with the link. One tap, and the unfurl draws the photo.

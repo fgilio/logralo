@@ -8,7 +8,7 @@
         ->groupBy(fn ($reaction) => $reaction->emoji->value)
         ->map(fn ($group) => $group->count());
 
-    $isOwner = $mark->user_id === auth()->id();
+    $isOwner = $mark->isManagedBy(auth()->user());
 @endphp
 
 {{-- The id is what a shared link lands on: /#mark-{id} scrolls here and

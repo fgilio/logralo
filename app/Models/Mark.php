@@ -77,6 +77,12 @@ final class Mark extends Model
         return $this->kind() === MarkKind::Ghost;
     }
 
+    /** A mark is one person's, so only they can take its link back. */
+    public function isManagedBy(?User $member): bool
+    {
+        return $member instanceof User && $this->user_id === $member->id;
+    }
+
     /** @return array<string, string> */
     protected function casts(): array
     {

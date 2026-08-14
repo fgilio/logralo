@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Concerns;
 
 use App\Enums\ShareCardFormat;
+use App\Models\User;
 use Illuminate\Support\Str;
 
 /**
@@ -45,6 +46,21 @@ trait Shareable
     public function isShareable(): bool
     {
         return $this->share_token !== null;
+    }
+
+    /**
+     * Who may revoke this link, or mint a new one after revoking.
+     *
+     * A month belongs to the group, so anyone in it may pull that one — which
+     * is the default here. `Mark` narrows it to the member who made it.
+     *
+     * One method rather than the expression written wherever it was needed:
+     * the button that offers "Compartir de nuevo" and the code that carries it
+     * out have to agree, or the group gets a control that 403s.
+     */
+    public function isManagedBy(?User $member): bool
+    {
+        return $member instanceof User;
     }
 
     public function shareUrl(): ?string

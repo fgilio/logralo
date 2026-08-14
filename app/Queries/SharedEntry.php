@@ -6,8 +6,6 @@ namespace App\Queries;
 
 use App\Models\Mark;
 use App\Models\MonthlyRecap;
-use App\Services\PhotoProcessor;
-use App\Services\StreakCalculator;
 use App\ValueObjects\FeedEntry;
 use App\ValueObjects\MarkEntry;
 use App\ValueObjects\MarkHistory;
@@ -24,8 +22,7 @@ final readonly class SharedEntry
 {
     public function __construct(
         private GoalHistory $history,
-        private StreakCalculator $streaks,
-        private PhotoProcessor $photos,
+        private MarkEntries $entries,
     ) {}
 
     /** Null for a token that never existed, or one that has been revoked. */
@@ -36,8 +33,11 @@ final readonly class SharedEntry
 
     private function mark(string $token): ?MarkEntry
     {
+        // Reactions are not eager-loaded: the page renders them through
+        // <livewire:share-reactions>, which reads them itself, and the card
+        // endpoint never looks at them at all.
         $mark = Mark::query()
-            ->with(['user', 'goal', 'reactions.user'])
+            ->with(['user', 'goal'])
             ->where('share_token', $token)
             ->first();
 
@@ -45,24 +45,18 @@ final readonly class SharedEntry
             return null;
         }
 
-        $history = $this->history->forGoals([$mark->goal_id])->get($mark->goal_id, MarkHistory::empty());
-
-        return new MarkEntry(
-            mark: $mark,
-            streak: $this->streaks->endingOn($history->dates(), $mark->marked_on),
-            ghostRun: $mark->isGhost() ? $history->ghostRunEndingOn($mark->marked_on->toDateString()) : 0,
-            photo: $mark->photo_key === null ? null : $this->photos->links(
-                $mark->photo_key,
-                $mark->photo_width ?? 4,
-                $mark->photo_height ?? 3,
-            ),
+        return $this->entries->from(
+            $mark,
+            $this->history->forGoals([$mark->goal_id])->get($mark->goal_id, MarkHistory::empty()),
         );
     }
 
     private function recap(string $token): ?RecapEntry
     {
+        // The podium comes out of the standings JSON column; only the best
+        // streak's owner is a relation anything on this page reads.
         $recap = MonthlyRecap::query()
-            ->with(['winner', 'runnerUp', 'bestStreakUser', 'bestStreakGoal'])
+            ->with('bestStreakUser')
             ->where('share_token', $token)
             ->first();
 

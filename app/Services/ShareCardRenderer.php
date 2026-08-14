@@ -6,8 +6,6 @@ namespace App\Services;
 
 use App\Enums\ShareCardFormat;
 use App\ValueObjects\ShareCard;
-use Illuminate\Contracts\Filesystem\Filesystem;
-use Illuminate\Support\Facades\Storage;
 
 /**
  * Share cards, rendered once and kept.
@@ -22,7 +20,10 @@ use Illuminate\Support\Facades\Storage;
  */
 final readonly class ShareCardRenderer
 {
-    public function __construct(private ShareCardComposer $composer) {}
+    public function __construct(
+        private ShareCardComposer $composer,
+        private PhotoProcessor $photos,
+    ) {}
 
     /**
      * @param  string|null  $photoKey  the mark's photo directory, or null for a
@@ -31,13 +32,17 @@ final readonly class ShareCardRenderer
     public function render(string $directory, ShareCardFormat $format, ShareCard $card, ?string $photoKey = null): string
     {
         $path = "{$directory}/{$format->filename()}";
-        $disk = $this->disk();
+        $disk = $this->photos->disk();
 
         if ($disk->exists($path)) {
             return (string) $disk->get($path);
         }
 
-        $jpeg = $this->composer->compose($format, $card, $this->photo($photoKey));
+        $jpeg = $this->composer->compose(
+            $format,
+            $card,
+            $photoKey === null ? null : $this->photos->shareJpeg($photoKey),
+        );
 
         $disk->put($path, $jpeg);
 
@@ -46,28 +51,6 @@ final readonly class ShareCardRenderer
 
     public function forget(string $directory): void
     {
-        $this->disk()->deleteDirectory($directory);
-    }
-
-    /**
-     * The share width JPEG is read straight off the disk rather than fetched
-     * over its URL: on production that URL is signed and short-lived, and the
-     * app is already standing next to the bucket.
-     */
-    private function photo(?string $photoKey): ?string
-    {
-        if ($photoKey === null) {
-            return null;
-        }
-
-        $path = $photoKey.'/feed-'.PhotoProcessor::SHARE_WIDTH.'.jpg';
-        $disk = $this->disk();
-
-        return $disk->exists($path) ? (string) $disk->get($path) : null;
-    }
-
-    private function disk(): Filesystem
-    {
-        return Storage::disk((string) config('logralo.photos.disk'));
+        $this->photos->disk()->deleteDirectory($directory);
     }
 }

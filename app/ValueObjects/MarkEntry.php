@@ -93,4 +93,15 @@ final readonly class MarkEntry implements FeedEntry
             ? "{$this->mark->user->name} · {$this->streak} días de {$goal}"
             : "{$this->mark->user->name} · {$goal}";
     }
+
+    public function shareDescription(): string
+    {
+        return 'Una prueba más en Logralo. Objetivos diarios y rachas, entre amigos.';
+    }
+
+    /** The `id` the feed card carries, so "Abrir en Logralo" lands on it. */
+    public function shareAnchor(): ?string
+    {
+        return "mark-{$this->mark->id}";
+    }
 }

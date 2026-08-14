@@ -31,4 +31,17 @@ final readonly class ShareCard
         public string $byline,
         public array $stats = [],
     ) {}
+
+    /**
+     * What a bare link to the app unfurls as: no mark behind it, so no photo
+     * and nothing private — just the wordmark and the pitch.
+     */
+    public static function pitch(): self
+    {
+        return new self(
+            title: 'Logralo',
+            badge: 'Entre amigos',
+            byline: 'Objetivos diarios, rachas y pruebas con foto.',
+        );
+    }
 }
