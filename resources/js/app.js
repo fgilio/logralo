@@ -197,6 +197,131 @@ document.addEventListener("alpine:init", () => {
     }));
 
     /**
+     * Reacting to someone else's card.
+     *
+     * Two ways into one bar: the ＋ button opens it, and holding the card opens
+     * it under the finger, which can then slide onto an emoji and let go. The
+     * hit test runs on coordinates rather than on hover, because a touch
+     * pointer captured by the card never fires pointerenter on the bar.
+     *
+     * The bar is a selector, not a set of checkboxes: one reaction per member
+     * per mark, and choosing the current one takes it away.
+     */
+    Alpine.data("reactionPicker", (options = {}) => ({
+        markId: options.markId ?? null,
+        delay: options.delay ?? 380,
+        moveTolerance: options.moveTolerance ?? 10,
+
+        showing: false,
+        active: null,
+        dragging: false,
+        pointerId: null,
+        timer: null,
+        startX: 0,
+        startY: 0,
+        suppressClick: false,
+
+        destroy() {
+            this.clearTimer();
+        },
+
+        press(event) {
+            if (event.button !== undefined && event.button !== 0) return;
+            if (this.pointerId !== null) return this.stop();
+
+            this.pointerId = event.pointerId;
+            this.startX = event.clientX;
+            this.startY = event.clientY;
+
+            this.timer = setTimeout(() => {
+                this.timer = null;
+                this.dragging = true;
+                this.showing = true;
+                // The click this press will emit belongs to the gesture, not to
+                // whatever is underneath it.
+                this.suppressClick = true;
+
+                if (navigator.vibrate) navigator.vibrate(12);
+            }, this.delay);
+        },
+
+        track(event) {
+            if (this.pointerId === null || event.pointerId !== this.pointerId)
+                return;
+
+            // Still waiting on the timer: a finger that travels is a scroll.
+            if (this.timer !== null) {
+                const movedX = Math.abs(event.clientX - this.startX);
+                const movedY = Math.abs(event.clientY - this.startY);
+
+                if (movedX > this.moveTolerance || movedY > this.moveTolerance)
+                    this.stop();
+
+                return;
+            }
+
+            if (!this.dragging) return;
+            if (event.cancelable) event.preventDefault();
+
+            this.active = this.emojiAt(event.clientX, event.clientY);
+        },
+
+        release() {
+            const chosen = this.dragging ? this.active : null;
+
+            this.stop();
+
+            // Letting go anywhere else leaves the bar open, so the tap path
+            // still finishes what the hold started.
+            if (chosen !== null) this.choose(chosen);
+        },
+
+        stop() {
+            this.clearTimer();
+            this.dragging = false;
+            this.pointerId = null;
+            this.active = null;
+        },
+
+        emojiAt(x, y) {
+            const element = document.elementFromPoint(x, y);
+
+            return element?.closest("[data-emoji]")?.dataset.emoji ?? null;
+        },
+
+        choose(emoji) {
+            this.close();
+
+            if (this.markId) this.$wire.react(this.markId, emoji);
+        },
+
+        toggle() {
+            this.showing = !this.showing;
+            this.active = null;
+        },
+
+        close() {
+            this.showing = false;
+            this.active = null;
+        },
+
+        clearTimer() {
+            if (this.timer !== null) {
+                clearTimeout(this.timer);
+                this.timer = null;
+            }
+        },
+
+        onClick(event) {
+            if (!this.suppressClick) return;
+
+            this.suppressClick = false;
+            event.preventDefault();
+            event.stopPropagation();
+        },
+    }));
+
+    /**
      * Pull to refresh over the feed.
      *
      * Chrome on Android hands the gesture back once `overscroll-behavior-y` is

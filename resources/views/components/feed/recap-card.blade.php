@@ -11,7 +11,10 @@
         : 'Ganó ' . $winners->pluck('name')->join(', ', ' y ') . " en {$month} — Logralo";
 @endphp
 
-<article class="feed-card relative overflow-hidden rounded-2xl bg-zinc-900 p-5 text-white ring-1 ring-white/10">
+<article
+    class="feed-card relative overflow-hidden rounded-2xl bg-zinc-900 p-5 text-white ring-1 ring-white/10"
+    style="--card-height: 340px"
+>
     <div
         aria-hidden="true"
         class="pointer-events-none absolute -top-24 -right-16 size-56 rounded-full bg-accent/25 blur-3xl"

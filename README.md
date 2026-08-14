@@ -4,7 +4,7 @@ Daily goals with a streak counter and photo proof, built for one group of friend
 
 One screen: the group's pulse across the top, whatever is still open from yesterday, today's goal cards, and everyone's proof underneath.
 
-- **Ghost marks.** You can always mark without a photo. It keeps your streak, scores half, and shows up in the feed as "marcó sin foto 🌫️". After two in a row on the same goal, the next one goes with a camera.
+- **Ghost marks.** You can always mark without a photo. It keeps your streak, scores half, and shows up in the feed as the goal's own emoji over "sin foto". After two in a row on the same goal, the next one goes with a camera.
 - **Grace.** Yesterday stays open until noon, in your own timezone. Then it closes forever.
 - **The month.** Completion of your own possible marks, so two goals can beat five. Ties share the podium, and the month-end recap card lands in the feed.
 

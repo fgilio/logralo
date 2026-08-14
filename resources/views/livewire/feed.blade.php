@@ -81,11 +81,24 @@ new class extends Component
     $today = $clock->today()->toDateString();
     $yesterday = $clock->yesterday()->toDateString();
     $first = true;
+
+    // The ladder: inside a day the newest mark is the cover, the one behind it
+    // is half of that, and everything older is a row. It restarts at every
+    // divider, so each day gets a cover of its own.
+    $ladder = fn (int $rank): int => match (true) {
+        $rank === 1 => 3,
+        $rank === 2 => 2,
+        default => 1,
+    };
 @endphp
 
-<div class="flex flex-col gap-3">
+<div class="flex flex-col gap-2">
     @forelse ($this->days as $date => $entries)
         <x-day-divider :day="$entries->first()->day()" :today="$today" :yesterday="$yesterday" />
+
+        {{-- A recap card sits in the day without taking a rung, so the ladder
+             counts marks and nothing else. --}}
+        @php $rank = 0; @endphp
 
         @foreach ($entries as $entry)
             @if ($entry instanceof App\ValueObjects\RecapEntry)
@@ -93,6 +106,7 @@ new class extends Component
             @else
                 <x-feed.mark-card
                     :entry="$entry"
+                    :height="$ladder(++$rank)"
                     :eager="$first"
                     :reacted="$entry->mark->reactions->firstWhere('user_id', auth()->id())?->emoji"
                     wire:key="{{ $entry->key() }}"

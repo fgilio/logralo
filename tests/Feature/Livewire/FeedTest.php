@@ -27,6 +27,18 @@ function feedMorning(): void
     test()->travelTo(CarbonImmutable::parse('2026-08-11 09:00', 'America/Montevideo')->utc());
 }
 
+/**
+ * The rungs the feed handed out, in the order it rendered them.
+ *
+ * @return list<int>
+ */
+function feedLadder(string $html): array
+{
+    preg_match_all('/data-height="(\d)"/', $html, $matches);
+
+    return array_map(intval(...), $matches[1]);
+}
+
 it('renders the marks of every member', function (): void {
     feedMorning();
 
@@ -288,6 +300,98 @@ it('refuses to react to a mark that is not there', function (): void {
         ->test('feed')
         ->call('react', '01HZZNOTAMARK', 'fire');
 })->throws(ModelNotFoundException::class);
+
+it('gives the newest mark of a day the cover, the next one half of it, and the rest rows', function (): void {
+    feedMorning();
+
+    $user = User::factory()->create();
+
+    // One goal per mark: a goal can only be marked once on a given day.
+    foreach (range(1, 4) as $minute) {
+        $this->travelTo(CarbonImmutable::parse('2026-08-11 09:00', 'America/Montevideo')->addMinutes($minute)->utc());
+
+        Mark::factory()->for(Goal::factory()->for($user)->create())->on('2026-08-11')->create();
+    }
+
+    // Yesterday gets a cover of its own: the ladder restarts at every divider.
+    Mark::factory()->for(Goal::factory()->for($user)->create())->on('2026-08-10')->create();
+
+    $html = Livewire::actingAs($user)->test('feed')->html();
+
+    expect(feedLadder($html))->toBe([3, 2, 1, 1, 3]);
+});
+
+it('lets a recap card sit in a day without taking a rung', function (): void {
+    feedMorning();
+
+    $user = User::factory()->create(['name' => 'Ana']);
+
+    Mark::factory()->for(Goal::factory()->for($user)->create())->on('2026-07-31')->create();
+    Mark::factory()->for(Goal::factory()->for($user)->create())->on('2026-07-31')->create();
+
+    MonthlyRecap::factory()->create([
+        'month' => '2026-07-01',
+        'posted_on' => '2026-07-31',
+        'best_streak_days' => 0,
+        'standings' => [],
+    ]);
+
+    $html = Livewire::actingAs($user)->test('feed')->html();
+
+    expect(feedLadder($html))->toBe([3, 2])
+        ->and($html)->toContain('Cerró el mes');
+});
+
+it('stands the goal emoji in for a mark that has no photo', function (): void {
+    feedMorning();
+
+    $user = User::factory()->create();
+    $goal = Goal::factory()->for($user)->create(['name' => 'Natacion', 'emoji' => '🏊']);
+
+    Mark::factory()->for($goal)->on('2026-08-11')->create();
+    Mark::factory()->for($goal)->on('2026-08-10')->create();
+
+    Livewire::actingAs($user)
+        ->test('feed')
+        ->assertSee('🏊')
+        ->assertSee('sin foto')
+        // Two ghosts in a row, so the newest one says which one it is.
+        ->assertSee('2ᵃ seguida');
+});
+
+it('carries the note at every height', function (): void {
+    feedMorning();
+
+    $user = User::factory()->create();
+
+    foreach (['la banda', 'la columna', 'la segunda linea'] as $index => $note) {
+        $this->travelTo(CarbonImmutable::parse('2026-08-11 09:00', 'America/Montevideo')->addMinutes($index)->utc());
+
+        Mark::factory()->for(Goal::factory()->for($user)->create())->on('2026-08-11')->create(['note' => $note]);
+    }
+
+    // Newest first, so the last note written is the one on the cover, and the
+    // ladder proves the other two are the split card and the row.
+    $html = Livewire::actingAs($user)->test('feed')->html();
+
+    expect(feedLadder($html))->toBe([3, 2, 1])
+        ->and($html)->toContain('la segunda linea')
+        ->and($html)->toContain('la columna')
+        ->and($html)->toContain('la banda');
+});
+
+it('summarises the reactions a mark already has', function (): void {
+    feedMorning();
+
+    $ana = User::factory()->create(['name' => 'Ana']);
+    $mark = Mark::factory()->for(Goal::factory()->for($ana)->create())->on('2026-08-11')->create();
+
+    Livewire::actingAs($ana)
+        ->test('feed')
+        ->assertDontSeeHtml('data-test="reactions-'.$mark->id.'"')
+        ->call('react', $mark->id, 'clap')
+        ->assertSeeHtml('data-test="reactions-'.$mark->id.'"');
+});
 
 it('reloads when a mark lands anywhere on the page', function (): void {
     feedMorning();

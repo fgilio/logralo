@@ -136,7 +136,30 @@
 
 @utility feed-card {
     content-visibility: auto;
-    contain-intrinsic-size: auto 520px;
+    /* Once a card has been on screen the browser remembers its real size, so
+       this is only the first guess — the rung the card sits on, so a page of
+       rows does not estimate itself three times too long. */
+    contain-intrinsic-size: auto var(--card-height, 244px);
+}
+
+/*
+ * The feed's ladder.
+ *
+ * 1u is a 52px thumbnail plus its air. The taller rungs add whole units plus
+ * the 8px that separates two cards, so a cover and the three rows it replaces
+ * take up the same run of the page. A 4:3 photo at a phone's content width
+ * lands within a few pixels of 3u, which is where the number came from.
+ */
+@utility mark-1u {
+    height: 76px;
+}
+
+@utility mark-2u {
+    height: 160px;
+}
+
+@utility mark-3u {
+    height: 244px;
 }
 
 @keyframes logralo-ignite {
