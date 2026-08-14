@@ -114,23 +114,48 @@ document.addEventListener("alpine:init", () => {
     /**
      * Sharing a card to WhatsApp.
      *
-     * The blob is fetched on pointerdown, because an `await` between the tap
-     * and `navigator.share()` costs the transient activation on iOS. Files and
-     * text are never shared together: WhatsApp keeps the image and drops the
-     * caption, so the two are offered as separate actions and this one leads
-     * with the photo, falling back through link sharing, the clipboard and a
-     * wa.me deep link.
+     * A tap sends the link, and the link's own `og:image` is what draws the
+     * photo in the chat. That is the whole trick: the app used to have to
+     * choose between sending a picture with no context and sending text over a
+     * dead root URL, because `navigator.share` drops the caption when a file
+     * comes with it. Handing the unfurl the picture ends the choice.
+     *
+     * Holding sends the composed image itself instead, for a story post or for
+     * anywhere a preview will not render. That payload is fetched on
+     * pointerdown, because an `await` between the gesture and
+     * `navigator.share()` spends the transient activation on iOS and the sheet
+     * never opens.
      */
     Alpine.data("shareCard", (options = {}) => ({
+        url: options.url ?? window.location.origin,
+        text: options.text ?? "",
+        cardUrl: options.cardUrl ?? null,
         imageUrl: options.imageUrl ?? null,
         filename: options.filename ?? "logralo.jpg",
-        text: options.text ?? "",
-        url: options.url ?? window.location.origin,
 
         file: null,
+        warmed: false,
         busy: false,
 
+        /**
+         * Render the unfurl image before WhatsApp asks for it.
+         *
+         * Cards are composed on first request and cached, so without this the
+         * very first crawl pays for the compositing — and a preview that comes
+         * back slowly is a preview the sender's client gives up on, leaving a
+         * bare link in the chat.
+         */
+        warm() {
+            if (this.warmed || !this.cardUrl) return;
+
+            this.warmed = true;
+            fetch(this.cardUrl, { credentials: "same-origin" }).catch(() => {});
+        },
+
+        /** The tall card, ready to hand to the share sheet as a file. */
         async prefetch() {
+            this.warm();
+
             if (this.file || !this.imageUrl || !navigator.canShare) return;
 
             try {
@@ -149,18 +174,15 @@ document.addEventListener("alpine:init", () => {
             }
         },
 
+        /** One tap: the link, and the preview it carries. */
         async share() {
             if (this.busy) return;
             this.busy = true;
 
             try {
-                if (this.file) {
-                    await navigator.share({ title: "", files: [this.file] });
-                    return;
-                }
-
                 if (navigator.share) {
                     await navigator.share({ text: this.text, url: this.url });
+
                     return;
                 }
 
@@ -171,6 +193,41 @@ document.addEventListener("alpine:init", () => {
                 await this.fallback();
             } finally {
                 this.busy = false;
+            }
+        },
+
+        /** Hold: the picture on its own. */
+        async shareImage() {
+            if (this.busy) return;
+            this.busy = true;
+
+            try {
+                if (this.file) {
+                    await navigator.share({ title: "", files: [this.file] });
+
+                    return;
+                }
+
+                // Nothing to attach — a browser without file sharing, or a
+                // card that has not finished rendering. The link still works.
+                await this.share();
+            } catch (error) {
+                if (error?.name === "AbortError") return;
+
+                await this.fallback();
+            } finally {
+                this.busy = false;
+            }
+        },
+
+        async copy() {
+            const message = `${this.text} ${this.url}`.trim();
+
+            try {
+                await navigator.clipboard.writeText(message);
+                window.Flux?.toast?.("Copiado 📋");
+            } catch {
+                await this.fallback();
             }
         },
 

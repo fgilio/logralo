@@ -235,6 +235,11 @@ new #[Title('Hoy')] class extends Component
         <livewire:feed />
     </section>
 
+    {{-- One per page, not one per goal card: it fires a handful of times a
+         month and every card carrying its own would be twenty idle modals. --}}
+    <livewire:milestone />
+
+
     {{-- The month's table. The split bars are the scoring rule, explained. --}}
     <flux:modal
         name="standings"

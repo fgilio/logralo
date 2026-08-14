@@ -11,6 +11,7 @@ use App\Queries\GoalHistory;
 use App\Services\PhotoProcessor;
 use App\Services\PhotoRule;
 use App\Services\StreakCalculator;
+use App\Services\StreakMilestone;
 use App\ValueObjects\PhotoLinks;
 use Carbon\CarbonImmutable;
 use Flux\Flux;
@@ -164,7 +165,7 @@ new class extends Component
     private function store(): void
     {
         try {
-            resolve(MarkGoal::class)->handle(
+            $mark = resolve(MarkGoal::class)->handle(
                 goal: $this->goal,
                 day: CarbonImmutable::parse($this->date),
                 photo: $this->photo,
@@ -178,6 +179,24 @@ new class extends Component
         }
 
         $this->after();
+        $this->celebrate($mark);
+    }
+
+    /**
+     * A streak that lands on a round number is the one moment somebody wants
+     * to tell the group, so the app offers there and nowhere else.
+     *
+     * Only the streak is checked, deliberately: taking the lead in the month
+     * would be worth celebrating too, but it costs a standings query on the
+     * hottest tap in the app.
+     */
+    private function celebrate(Mark $mark): void
+    {
+        if (! resolve(StreakMilestone::class)->isMilestone($this->streak)) {
+            return;
+        }
+
+        $this->dispatch('milestone-reached', markId: $mark->id);
     }
 
     private function after(): void

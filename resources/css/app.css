@@ -137,6 +137,17 @@
 @utility feed-card {
     content-visibility: auto;
     contain-intrinsic-size: auto 520px;
+
+    /* Arriving from a shared link lands on /#mark-{id}. The scroll margin
+       clears the sticky header, and :target does the highlight in CSS so no
+       script has to run for the card to announce itself. */
+    scroll-margin-top: 7rem;
+
+    &:target {
+        outline: 2px solid var(--color-accent);
+        outline-offset: 3px;
+        animation: logralo-ignite 0.45s var(--ease-pop);
+    }
 }
 
 @keyframes logralo-ignite {

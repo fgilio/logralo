@@ -1,14 +1,11 @@
-@props(['recap'])
+@props(['entry'])
 
 @php
+    $recap = $entry->recap;
     $standings = $recap->standingEntries();
     $winners = $standings->where('rank', 1);
     $runnersUp = $standings->where('rank', 2);
-    $month = \Illuminate\Support\Str::ucfirst($recap->month->translatedFormat('F Y'));
-
-    $shareText = $winners->isEmpty()
-        ? "Cerró {$month} en Logralo"
-        : 'Ganó ' . $winners->pluck('name')->join(', ', ' y ') . " en {$month} — Logralo";
+    $month = $entry->monthName();
 @endphp
 
 <article class="feed-card relative overflow-hidden rounded-2xl bg-zinc-900 p-5 text-white ring-1 ring-white/10">
@@ -25,23 +22,7 @@
             <h2 class="font-display text-2xl tracking-wide">{{ $month }}</h2>
         </div>
 
-        <div
-            x-data="shareCard({
-                imageUrl: null,
-                text: @js($shareText),
-                url: @js(route('today')),
-            })"
-        >
-            <flux:button
-                variant="subtle"
-                size="sm"
-                square
-                icon="share"
-                aria-label="Compartir"
-                x-on:click="share()"
-                class="text-white!"
-            />
-        </div>
+        <x-share-button :entry="$entry" tone="inverse" />
     </header>
 
     @if ($winners->isNotEmpty())
