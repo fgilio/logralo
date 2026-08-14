@@ -22,8 +22,9 @@ pest()->extend(TestCase::class)
     })
     ->in('Arch', 'Feature', 'Unit');
 
-// Browser tests are grouped so `composer test:unit` can skip them and
-// `composer test:browser` can find them.
+// Browser tests live in their own PHPUnit suite, which `defaultTestSuite` in
+// phpunit.xml leaves out of the default run — a CLI `--exclude-group` would
+// switch Tia off. The group is kept for ad-hoc `--group=browser` runs.
 pest()->extend(TestCase::class)
     ->use(RefreshDatabase::class)
     ->group('browser')

@@ -64,7 +64,7 @@ jobs:
       DB_USERNAME: logralo
       DB_PASSWORD: password
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
         with:
           fetch-depth: 0 # Tia diffs against git history
       - uses: shivammathur/setup-php@v2
@@ -72,13 +72,13 @@ jobs:
           php-version: ${{ env.PHP_VERSION }}
           extensions: pdo_pgsql
           coverage: pcov # required — Tia records the graph through the coverage driver
-      - uses: actions/cache@v4
+      - uses: actions/cache@v6
         with:
           path: vendor
           key: vendor-${{ env.PHP_VERSION }}-${{ hashFiles('composer.lock') }}
       - run: composer config http-basic.composer.fluxui.dev "${{ secrets.FLUX_USERNAME }}" "${{ secrets.FLUX_LICENSE_KEY }}"
       - run: composer install --no-progress --prefer-dist --no-interaction
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with:
           node-version: 22
           cache: npm
@@ -94,7 +94,7 @@ jobs:
         id: baseline
         run: echo "path=$(vendor/bin/pest --baseline)" >> "$GITHUB_OUTPUT"
       - name: Upload the baseline
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: pest-tia-baseline
           path: ${{ steps.baseline.outputs.path }}

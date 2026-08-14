@@ -259,7 +259,7 @@ Spell out both `always()` and `locally()`. `locally()` *restricts* `always()` �
 | **On locally** (`locally()`) | Fast inner loop; `composer test:unit` picks it up with no extra flags |
 | **Off on CI** | A gate must execute the real suite. `ci.yml` never passes `--tia`, and `locally()` suppresses auto-activation there anyway |
 | **Explicit `--tia` still wins on CI** | `locally()` restricts *auto*-activation only. An explicit `--tia` takes effect regardless — which is exactly how `tia-baseline.yml` records a graph on CI without contradicting `locally()`. `--no-tia` is the reverse escape hatch |
-| **Browser tests never use it** | `test:browser` pins `--no-tia`. They are excluded from the baseline, and impact-analyzing a full-stack browser suite is the least trustworthy case |
+| **Browser tests never use it** | `phpunit.xml` keeps them out of the default suite and `test:browser` selects them by name with `--no-tia`. They stay out of the baseline, and impact-analyzing a full-stack browser suite is the least trustworthy case |
 | **Needs a coverage driver** | PCOV (preferred) or Xdebug must be enabled locally — Tia records the test↔file graph through it. Without one it cannot record, so the run falls back to a plain full run |
 | **`--fresh` after weird results** | If replays look stale or the graph is suspect, `composer test:tia-baseline` (or `vendor/bin/pest --tia --fresh`) re-records from scratch |
 | **Never trust a replay for a claim** | Before saying "tests pass" on work you are shipping, run `composer test:unit:full` (`--no-tia`) or let CI say it |
@@ -286,7 +286,7 @@ Flags worth knowing (`--tia` is only needed if the config above is absent):
 - A **failed fetch starts a 24-hour cooldown** before Pest tries again — `--tia --refetch` forces one inside that window. So a hosted session that fails the fetch once won't retry on its own for a day; not a problem for ephemeral sandboxes (each is a fresh `~`), but worth knowing on a long-lived machine that was briefly offline or logged out of `gh`.
 - Cosmetic edits (comments, docblocks, Pint/Prettier passes) normalize to the same hash and trigger zero tests. That is correct behaviour, not a broken graph.
 - The graph rebuilds itself when `composer.lock`, `phpunit.xml*`, `vite.config.*`, the Node lockfile, or the PHP version changes.
-- The baseline is recorded with `--exclude-group=browser`, matching `test:unit`. Browser tests always run in full via `composer test:browser`, which pins `--no-tia` so the global config cannot quietly start replaying them.
+- **Keep every selection flag off the default run.** `--group`, `--exclude-group`, `--filter`, `--testsuite`, `--dirty` and the rest of `Tia::PARTIAL_SELECTION_FLAGS` mark a run as partial, and Tia silently steps aside: `TIA does not apply to partial runs — running the selected tests directly`. A `test:unit` that says `--exclude-group=browser` therefore never replays, and a baseline job that says it uploads nothing. Hold browser tests out with `defaultTestSuite="Arch,Unit,Feature"` in `phpunit.xml` instead, and select them by name — `--testsuite=Browser` — in `test:browser`, which is partial on purpose and pins `--no-tia`.
 
 **Standard arch tests** (`tests/Arch/`) — create the ones whose layer exists, add the rest as layers appear:
 

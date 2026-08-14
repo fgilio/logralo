@@ -42,18 +42,18 @@ jobs:
   lint:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
       - uses: shivammathur/setup-php@v2
         with:
           php-version: ${{ env.PHP_VERSION }}
           coverage: none
-      - uses: actions/cache@v4
+      - uses: actions/cache@v6
         with:
           path: vendor
           key: vendor-${{ env.PHP_VERSION }}-${{ hashFiles('composer.lock') }}
       - run: composer config http-basic.composer.fluxui.dev "${{ secrets.FLUX_USERNAME }}" "${{ secrets.FLUX_LICENSE_KEY }}"
       - run: composer install --no-progress --prefer-dist --no-interaction
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with:
           node-version: 22
           cache: npm
@@ -63,13 +63,13 @@ jobs:
   static-analysis:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
       - uses: shivammathur/setup-php@v2
         with:
           php-version: ${{ env.PHP_VERSION }}
           coverage: none
           ini-values: memory_limit=512M
-      - uses: actions/cache@v4
+      - uses: actions/cache@v6
         with:
           path: vendor
           key: vendor-${{ env.PHP_VERSION }}-${{ hashFiles('composer.lock') }}
@@ -80,12 +80,12 @@ jobs:
   type-coverage:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
       - uses: shivammathur/setup-php@v2
         with:
           php-version: ${{ env.PHP_VERSION }}
           coverage: none
-      - uses: actions/cache@v4
+      - uses: actions/cache@v6
         with:
           path: vendor
           key: vendor-${{ env.PHP_VERSION }}-${{ hashFiles('composer.lock') }}
@@ -121,19 +121,19 @@ jobs:
       DB_USERNAME: logralo
       DB_PASSWORD: password
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
       - uses: shivammathur/setup-php@v2
         with:
           php-version: ${{ env.PHP_VERSION }}
           extensions: pdo_pgsql # not in setup-php's default set
           coverage: pcov # pest --coverage needs a driver
-      - uses: actions/cache@v4
+      - uses: actions/cache@v6
         with:
           path: vendor
           key: vendor-${{ env.PHP_VERSION }}-${{ hashFiles('composer.lock') }}
       - run: composer config http-basic.composer.fluxui.dev "${{ secrets.FLUX_USERNAME }}" "${{ secrets.FLUX_LICENSE_KEY }}"
       - run: composer install --no-progress --prefer-dist --no-interaction
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with:
           node-version: 22
           cache: npm
@@ -150,19 +150,19 @@ jobs:
   browser:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
       - uses: shivammathur/setup-php@v2
         with:
           php-version: ${{ env.PHP_VERSION }}
           extensions: sockets # pest-plugin-browser runs its own HTTP server
           coverage: none
-      - uses: actions/cache@v4
+      - uses: actions/cache@v6
         with:
           path: vendor
           key: vendor-${{ env.PHP_VERSION }}-${{ hashFiles('composer.lock') }}
       - run: composer config http-basic.composer.fluxui.dev "${{ secrets.FLUX_USERNAME }}" "${{ secrets.FLUX_LICENSE_KEY }}"
       - run: composer install --no-progress --prefer-dist --no-interaction
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with:
           node-version: 22
           cache: npm
