@@ -253,9 +253,8 @@ final readonly class ShareCardComposer
         // two, so sharing a floor left it hanging above the number.
         $height = (int) ($size * 1.3);
 
-        $canvas->place(
-            $this->images->read($this->asset('images/flame.png'))->scale(height: $height),
-            'top-left',
+        $canvas->insert(
+            $this->images->decodePath($this->asset('images/flame.png'))->scale(height: $height),
             $x,
             $middle - (int) ($height / 2),
         );
