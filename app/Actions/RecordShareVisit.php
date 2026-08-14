@@ -9,6 +9,7 @@ use App\Models\MonthlyRecap;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Context;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Str;
 use Throwable;
 
 /**
@@ -56,13 +57,16 @@ final class RecordShareVisit
                 return false;
             }
 
-            // No model events and no updated_at: a visit is not a change to
-            // the mark, and touching the timestamp would reorder the feed
-            // every time somebody opened an old link.
-            $shared::withoutTimestamps(fn () => $shared->forceFill([
-                'share_views' => $shared->share_views + 1,
-                'share_last_viewed_at' => now(),
-            ])->saveQuietly());
+            // Incremented in the database rather than from the value this
+            // request happened to load: a forwarded link arrives as a burst,
+            // and read-add-write drops every visit but the last.
+            //
+            // No updated_at either — a visit is not a change to the mark, and
+            // touching the timestamp would reorder the feed every time somebody
+            // opened an old link.
+            $shared::withoutTimestamps(
+                fn () => $shared->increment('share_views', 1, ['share_last_viewed_at' => now()])
+            );
 
             Context::add('logralo.outcome', 'counted');
             Context::add('logralo.share_views', $shared->share_views);
@@ -85,8 +89,10 @@ final class RecordShareVisit
             return true;
         }
 
+        $agent = Str::lower($userAgent);
+
         return collect(self::CRAWLERS)->contains(
-            fn (string $needle): bool => str_contains(mb_strtolower($userAgent), $needle)
+            fn (string $needle): bool => Str::contains($agent, $needle)
         );
     }
 }

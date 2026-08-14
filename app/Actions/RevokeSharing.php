@@ -38,9 +38,18 @@ final readonly class RevokeSharing
                 return;
             }
 
-            $this->cards->forget($shared->shareCardDirectory());
+            // The token goes first, and the cards after.
+            //
+            // The other order fails open: if clearing the token throws after
+            // the cards are gone, the link still resolves and the controller
+            // composes them again from the photo. Clearing first means a
+            // failure anywhere below leaves a dead link and an orphaned file,
+            // which costs bytes rather than privacy.
+            $directory = $shared->shareCardDirectory();
 
             $shared->forceFill(['share_token' => null])->saveQuietly();
+
+            $this->cards->forget($directory);
 
             Context::add('logralo.outcome', 'revoked');
         } catch (Throwable $throwable) {

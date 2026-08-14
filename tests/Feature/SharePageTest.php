@@ -116,13 +116,22 @@ it('renders the card image and keeps it', function (): void {
     expect(Storage::disk('photos')->exists("shares/{$mark->share_token}/og.jpg"))->toBeTrue();
 });
 
-it('serves the card as immutable, since a token never changes what it points at', function (): void {
+it('never lets a cache outlive a revoked card', function (): void {
     Storage::fake('photos');
 
     $mark = sharedMark();
 
-    $this->get(route('share.card', ['token' => $mark->share_token, 'format' => 'og']))
-        ->assertHeader('cache-control', 'max-age=31536000, public, immutable');
+    $response = $this->get(route('share.card', ['token' => $mark->share_token, 'format' => 'og']));
+
+    // A card can carry a private photo, so no shared cache may store it and
+    // every request has to come back through the token lookup. `immutable`
+    // would have let a CDN keep serving a revoked photo for a year.
+    $cacheControl = (string) $response->headers->get('cache-control');
+
+    expect($cacheControl)->toContain('private')
+        ->and($cacheControl)->toContain('no-cache')
+        ->and($cacheControl)->not->toContain('immutable')
+        ->and($response->headers->get('etag'))->not->toBeNull();
 });
 
 it('renders the portrait card for sending the image', function (): void {

@@ -16,14 +16,18 @@ use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
  *
  * Served from this origin rather than redirected to the bucket: production
  * signs its photo URLs and those expire, while an unfurl is fetched whenever a
- * chat client feels like it. A token URL never changes what it points at, so
- * the response is immutable and cached for a year.
+ * chat client feels like it.
+ *
+ * Never cached without revalidation, and never by a shared cache. The content
+ * behind a token really is immutable, so `public, immutable` was tempting — but
+ * a card can carry a private photo, and a CDN or proxy holding a year-long copy
+ * would keep serving it after the token was revoked, from in front of the
+ * lookup that is supposed to stop it. Revocation has to mean something, so
+ * every request revalidates and the ETag makes that cost 304 rather than the
+ * bytes.
  */
 final class ShareCardController
 {
-    /** A year, which is what `immutable` is worth telling a cache. */
-    private const int MAX_AGE = 31536000;
-
     public function __invoke(string $token, string $format, SharedEntry $shared, ShareCardRenderer $cards): Response
     {
         $shape = ShareCardFormat::tryFrom($format);
@@ -58,7 +62,8 @@ final class ShareCardController
     {
         return response($body, 200, [
             'Content-Type' => 'image/jpeg',
-            'Cache-Control' => 'public, max-age='.self::MAX_AGE.', immutable',
+            'Cache-Control' => 'private, no-cache, must-revalidate',
+            'ETag' => '"'.hash('xxh128', $body).'"',
         ]);
     }
 }

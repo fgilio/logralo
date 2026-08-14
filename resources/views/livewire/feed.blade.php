@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 use App\Actions\ToggleReaction;
 use App\Concerns\InteractsWithMember;
+use App\Concerns\ResumesSharing;
 use App\Enums\ReactionEmoji;
 use App\Models\Mark;
 use App\Queries\FeedPage;
@@ -25,6 +26,7 @@ use Livewire\Component;
 new class extends Component
 {
     use InteractsWithMember;
+    use ResumesSharing;
 
     public int $limit = 0;
 

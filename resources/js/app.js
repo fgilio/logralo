@@ -180,6 +180,42 @@ document.addEventListener("alpine:init", () => {
             this.busy = true;
 
             try {
+                await this.sendLink();
+            } finally {
+                this.busy = false;
+            }
+        },
+
+        /** Hold, then "Enviar la imagen": the picture on its own. */
+        async shareImage() {
+            if (this.busy) return;
+            this.busy = true;
+
+            try {
+                // Nothing to attach — a browser without file sharing, or a
+                // card that has not finished rendering. Falls back to the link,
+                // which is why this calls sendLink() rather than share():
+                // share() would trip over the busy flag this method just set
+                // and silently do nothing at all.
+                if (!this.file) {
+                    await this.sendLink();
+
+                    return;
+                }
+
+                await navigator.share({ title: "", files: [this.file] });
+            } catch (error) {
+                if (error?.name === "AbortError") return;
+
+                await this.fallback();
+            } finally {
+                this.busy = false;
+            }
+        },
+
+        /** The share itself, with no guard of its own. */
+        async sendLink() {
+            try {
                 if (navigator.share) {
                     await navigator.share({ text: this.text, url: this.url });
 
@@ -191,32 +227,6 @@ document.addEventListener("alpine:init", () => {
                 if (error?.name === "AbortError") return;
 
                 await this.fallback();
-            } finally {
-                this.busy = false;
-            }
-        },
-
-        /** Hold: the picture on its own. */
-        async shareImage() {
-            if (this.busy) return;
-            this.busy = true;
-
-            try {
-                if (this.file) {
-                    await navigator.share({ title: "", files: [this.file] });
-
-                    return;
-                }
-
-                // Nothing to attach — a browser without file sharing, or a
-                // card that has not finished rendering. The link still works.
-                await this.share();
-            } catch (error) {
-                if (error?.name === "AbortError") return;
-
-                await this.fallback();
-            } finally {
-                this.busy = false;
             }
         },
 

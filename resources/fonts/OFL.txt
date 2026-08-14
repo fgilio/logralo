@@ -1,4 +1,8 @@
 Copyright 2020 The Anton Project Authors (https://github.com/googlefonts/AntonFont.git)
+Copyright 2020 The Archivo Project Authors (https://github.com/Omnibus-Type/Archivo)
+
+Both families bundled in this directory are covered by the notices above:
+Anton-Regular.ttf, and Archivo-Regular.ttf with Archivo-Bold.ttf.
 
 This Font Software is licensed under the SIL Open Font License, Version 1.1.
 This license is copied below, and is also available with a FAQ at:

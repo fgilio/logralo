@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use App\Concerns\ResumesSharing;
 use App\Models\Mark;
 use App\Queries\GoalHistory;
 use App\Services\PhotoProcessor;
@@ -26,6 +27,8 @@ use Livewire\Component;
  */
 new class extends Component
 {
+    use ResumesSharing;
+
     public ?string $markId = null;
 
     #[Computed]
@@ -58,7 +61,7 @@ new class extends Component
     #[Computed]
     public function headline(): string
     {
-        return resolve(StreakMilestone::class)->headline($this->entry?->streak ?? 0);
+        return resolve(StreakMilestone::class)->headline($this->entry->streak ?? 0);
     }
 
     #[On('milestone-reached')]

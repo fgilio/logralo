@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace App\Concerns;
 
 use App\Enums\ShareCardFormat;
-use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Str;
 
 /**
@@ -31,7 +30,9 @@ trait Shareable
 
     public static function bootShareable(): void
     {
-        static::creating(function (Model $model): void {
+        // Typed `self` rather than `Model`: inside a trait that resolves to the
+        // using class, which is what carries the `share_token` annotation.
+        static::creating(function (self $model): void {
             $model->share_token ??= self::freshShareToken();
         });
     }

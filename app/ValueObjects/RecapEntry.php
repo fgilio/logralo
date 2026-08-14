@@ -56,9 +56,11 @@ final readonly class RecapEntry implements FeedEntry
                 'Campeón' => $winners->isEmpty() ? null : $champion,
                 'Del mes' => $winners->isEmpty()
                     ? null
-                    : rtrim(rtrim(number_format($winners->first()->percentage(), 1, ',', '.'), '0'), ',').'%',
+                    : mb_rtrim(mb_rtrim(number_format($winners->first()->percentage(), 1, ',', '.'), '0'), ',').'%',
+                // `??` already suppresses the null, so the nullsafe arrow would
+                // only be noise.
                 'Mejor racha' => $this->recap->best_streak_days > 0
-                    ? $this->recap->best_streak_days.' días · '.($this->recap->bestStreakUser?->name ?? '—')
+                    ? $this->recap->best_streak_days.' días · '.($this->recap->bestStreakUser->name ?? '—')
                     : null,
             ]),
         );
@@ -81,6 +83,11 @@ final readonly class RecapEntry implements FeedEntry
     public function shareable(): MonthlyRecap
     {
         return $this->recap;
+    }
+
+    public function shareKind(): string
+    {
+        return 'recap';
     }
 
     public function shareCardDirectory(): string

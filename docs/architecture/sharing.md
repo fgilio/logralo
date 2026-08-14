@@ -17,7 +17,8 @@ Everything shareable has its own public URL whose `og:image` is a composed card,
 The group is private — no registration, no invite flow — but a link preview is built by an anonymous crawler, so anything it has to draw lives outside `auth`. Marks and recaps therefore carry a `share_token`: 24 alphanumeric characters, about 143 bits.
 
 - **Minted at creation, not on the first tap.** `navigator.share()` has to be called inside the gesture that opened it; an `await` for a round trip to mint a token spends the transient activation and the sheet never opens on iOS. A token that already exists is a URL the template can print. This is the same constraint that puts the camera behind the sheet rather than the hold.
-- **Revoking clears the token** and deletes the rendered cards from the bucket. A card left behind is a photo still reachable by anyone who noted its address. Sharing again mints a new token, which is also how a link that went somewhere it should not have is replaced.
+- **Revoking clears the token** and then deletes the rendered cards from the bucket. That order matters: clearing second fails open, because a throw after the files are gone leaves a link that still resolves and a controller that will happily compose the cards again. Clearing first means any later failure costs an orphaned file rather than privacy.
+- **Sharing again mints a new token**, so changing your mind does not resurrect the address you were running from. A card that is still shared keeps the token it has — rotating there would quietly break links the group is still passing around.
 - **Revoked and never-existed both answer 404.** A 410 would confirm that a token was once real.
 - Revoking lives on the share page itself, owner-only, because that is the only screen where the member is looking at exactly what everyone they sent it to can see.
 
@@ -42,7 +43,9 @@ So `App\Services\ShareCardComposer` draws the card with Intervention over GD, wh
 | `og`       | 1200×630  | the link preview. 1.91:1 is the ratio that gets the large card rather than the thumbnail tile |
 | `portrait` | 1080×1350 | the file itself, for a story post or anywhere a preview will not render                       |
 
-Cards render on first request and are cached on the photo disk under `shares/{token}/`, and served from this origin rather than redirected to the bucket: production signs its photo URLs and those expire, while an unfurl is fetched whenever a chat client feels like it. A token never changes what it points at, so the response is `immutable`.
+Cards render on first request and are cached on the photo disk under `shares/{token}/`, and served from this origin rather than redirected to the bucket: production signs its photo URLs and those expire, while an unfurl is fetched whenever a chat client feels like it.
+
+The response itself is `private, no-cache, must-revalidate` with an ETag. `public, immutable` was tempting — the content behind a token really never changes — but a card can carry a private photo, and a CDN or browser holding a year-long copy would keep serving it after revocation, from in front of the lookup that is supposed to stop it. Revocation has to mean something, so every request revalidates and the ETag makes that cost a 304 rather than the bytes. What WhatsApp caches on its own servers after the unfurl is beyond reach, and always was.
 
 The share button `fetch()`es the unfurl card on `pointerdown` to warm it. A preview that comes back slowly is a preview the sender's own client gives up on, leaving a bare link in the chat.
 
@@ -50,14 +53,21 @@ The share button `fetch()`es the unfurl card on `pointerdown` to warm it. A prev
 
 - **Tap** the share button → the native sheet with the link. One tap, and the unfurl draws the photo.
 - **Hold** → a small menu: send the image, copy the link, see how it looks.
+- **Enter or Space** → the same as a tap, and **↓** opens the menu.
 
 The hold _opens_ the menu rather than sharing the image directly, for the same reason the goal card's hold opens a sheet instead of the camera: a press timer is not a user gesture, and a `navigator.share()` fired from one is refused on iOS.
+
+The keyboard needs its own handler because `short-press` rides on `pointerup`, which a keyboard never sends — without it, Enter did nothing at all. A click from the keyboard carries `detail === 0`, which is how the two are told apart without a tap firing both.
+
+Once a card is revoked, the button is replaced by "Compartir de nuevo" for whoever can put it back, which mints the fresh token.
 
 ## Asking at the right moment
 
 Sharing did not fail because the button was hard to find. It failed because nothing ever asked.
 
 `App\Services\StreakMilestone` marks 3, 7, 14, 21, 30, 50, 75 and 100 days, then every fifty. Landing on one opens a celebration with the card and a share button — the one moment somebody actually wants to tell the group. It is deliberately rare: a celebration on every mark is a dialog to dismiss, which is worse than no dialog.
+
+The streak it tests is the one **ending on the day that was marked**, not the one counting back from today. Inside the grace window those are different numbers, and marking yesterday at 11am would otherwise test today's run — celebrating the wrong day, or missing it.
 
 Only the streak is checked. Taking the lead in the month would be worth celebrating too, but it costs a standings query on the hottest tap in the app.
 

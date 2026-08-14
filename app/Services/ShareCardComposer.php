@@ -102,7 +102,7 @@ final readonly class ShareCardComposer
         }
 
         try {
-            return $this->images->read($photo)->cover($width, $height)->brightness(-8);
+            return $this->images->decodeBinary($photo)->cover($width, $height)->brightness(-8);
         } catch (Throwable) {
             return $this->ground($width, $height);
         }
@@ -114,7 +114,7 @@ final readonly class ShareCardComposer
      */
     private function ground(int $width, int $height): ImageInterface
     {
-        $canvas = $this->images->create($width, $height)->fill(self::GROUND);
+        $canvas = $this->images->createImage($width, $height)->fill(self::GROUND);
 
         // Concentric ellipses, largest first, each an opaque step along a ramp
         // from the ground to the ember.
@@ -135,7 +135,8 @@ final readonly class ShareCardComposer
             // Eased, so the bloom has a bright core rather than a flat disc.
             $colour = $this->mix(self::GROUND, self::BLOOM_PEAK, (1 - $distance) ** 1.8);
 
-            $canvas->drawEllipse($centerX, $centerY, function (EllipseFactory $ellipse) use ($size, $colour): void {
+            $canvas->drawEllipse(function (EllipseFactory $ellipse) use ($size, $colour, $centerX, $centerY): void {
+                $ellipse->at($centerX, $centerY);
                 $ellipse->size($size * 2, $size * 2);
                 $ellipse->background($colour);
             });
@@ -162,7 +163,8 @@ final readonly class ShareCardComposer
             $progress = ($y - $top) / max($scrimHeight - 1, 1);
             $alpha = round(0.97 * $progress ** 1.2, 4);
 
-            $canvas->drawRectangle(0, $y, function (RectangleFactory $rectangle) use ($width, $alpha): void {
+            $canvas->drawRectangle(function (RectangleFactory $rectangle) use ($width, $y, $alpha): void {
+                $rectangle->at(0, $y);
                 $rectangle->size($width, 1);
                 $rectangle->background("rgba(0, 0, 0, {$alpha})");
             });
@@ -229,10 +231,10 @@ final readonly class ShareCardComposer
     private function mix(string $from, string $to, float $amount): string
     {
         $channels = collect([0, 1, 2])->map(function (int $channel) use ($from, $to, $amount): string {
-            $start = (int) hexdec(mb_substr($from, 1 + $channel * 2, 2));
-            $end = (int) hexdec(mb_substr($to, 1 + $channel * 2, 2));
+            $start = (int) hexdec(Str::substr($from, 1 + $channel * 2, 2));
+            $end = (int) hexdec(Str::substr($to, 1 + $channel * 2, 2));
 
-            return mb_str_pad(dechex((int) round($start + ($end - $start) * $amount)), 2, '0', STR_PAD_LEFT);
+            return Str::padLeft(dechex((int) round($start + ($end - $start) * $amount)), 2, '0');
         });
 
         return '#'.$channels->implode('');
@@ -241,7 +243,8 @@ final readonly class ShareCardComposer
     /** The short ember bar over the badge. Brand, for the price of a rectangle. */
     private function rule(ImageInterface $canvas, int $x, int $y, int $width): void
     {
-        $canvas->drawRectangle($x, $y, function (RectangleFactory $rectangle) use ($width): void {
+        $canvas->drawRectangle(function (RectangleFactory $rectangle) use ($x, $y, $width): void {
+            $rectangle->at($x, $y);
             $rectangle->size((int) ($width * 0.05), max((int) ($width * 0.004), 1));
             $rectangle->background(self::EMBER);
         });
@@ -256,8 +259,7 @@ final readonly class ShareCardComposer
             $font->filename($this->display());
             $font->size($size);
             $font->color('rgba(255, 255, 255, 0.82)');
-            $font->align('right');
-            $font->valign('bottom');
+            $font->align('right', 'bottom');
         });
     }
 
@@ -283,8 +285,7 @@ final readonly class ShareCardComposer
                 $factory->filename($font);
                 $factory->size($size);
                 $factory->color($color);
-                $factory->align('left');
-                $factory->valign('bottom');
+                $factory->align('left', 'bottom');
             });
 
             return;
@@ -295,8 +296,7 @@ final readonly class ShareCardComposer
                 $factory->filename($font);
                 $factory->size($size);
                 $factory->color($color);
-                $factory->align('left');
-                $factory->valign('bottom');
+                $factory->align('left', 'bottom');
             });
 
             $x += $this->advance($character, $size, $font) + $tracking;

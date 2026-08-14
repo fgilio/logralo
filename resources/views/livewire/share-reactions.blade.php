@@ -5,7 +5,8 @@ declare(strict_types=1);
 use App\Actions\ToggleReaction;
 use App\Enums\ReactionEmoji;
 use App\Models\Mark;
-use Illuminate\Support\Collection;
+use App\Models\Reaction;
+use Illuminate\Database\Eloquent\Collection as EloquentCollection;
 use Livewire\Attributes\Computed;
 use Livewire\Attributes\Locked;
 use Livewire\Component;
@@ -23,21 +24,23 @@ new class extends Component
     #[Locked]
     public Mark $mark;
 
-    /** @return Collection<string, int> */
+    /** @return EloquentCollection<int, Reaction> */
     #[Computed]
-    public function counts(): Collection
+    public function reactions(): EloquentCollection
     {
-        return $this->mark->reactions()
-            ->get()
-            ->groupBy(fn ($reaction): string => $reaction->emoji->value)
-            ->map(fn (Collection $group): int => $group->count());
+        return $this->mark->reactions()->get();
+    }
+
+    public function countFor(ReactionEmoji $emoji): int
+    {
+        return $this->reactions->where('emoji', $emoji)->count();
     }
 
     #[Computed]
     public function mine(): ?ReactionEmoji
     {
         return auth()->check()
-            ? $this->mark->reactions()->where('user_id', auth()->id())->first()?->emoji
+            ? $this->reactions->firstWhere('user_id', auth()->id())?->emoji
             : null;
     }
 
@@ -51,7 +54,7 @@ new class extends Component
 
         resolve(ToggleReaction::class)->handle($this->mark, $user, ReactionEmoji::from($emoji));
 
-        unset($this->counts, $this->mine);
+        unset($this->reactions, $this->mine);
     }
 };
 
@@ -61,7 +64,7 @@ new class extends Component
     <div class="flex flex-wrap items-center gap-1.5">
         @foreach (ReactionEmoji::cases() as $emoji)
             @php
-                $count = $this->counts->get($emoji->value, 0);
+                $count = $this->countFor($emoji);
                 $mine = $this->mine === $emoji;
             @endphp
 

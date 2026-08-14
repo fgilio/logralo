@@ -42,6 +42,9 @@ interface FeedEntry
     /** The row the token belongs to, for counting visits and revoking. */
     public function shareable(): Mark|MonthlyRecap;
 
+    /** "mark" or "recap" — which of the two a revoked card has to be put back as. */
+    public function shareKind(): string;
+
     /** Where the rendered cards for this entry are cached. */
     public function shareCardDirectory(): string;
 

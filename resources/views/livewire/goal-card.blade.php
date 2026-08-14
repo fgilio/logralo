@@ -186,13 +186,24 @@ new class extends Component
      * A streak that lands on a round number is the one moment somebody wants
      * to tell the group, so the app offers there and nowhere else.
      *
+     * The streak counted is the one ending on the day that was just marked,
+     * not `$this->streak`, which counts back from today. Inside the grace
+     * window those are different numbers: marking yesterday at 11am while
+     * today is still unmarked would otherwise test today's run and celebrate
+     * the wrong day, or miss it.
+     *
      * Only the streak is checked, deliberately: taking the lead in the month
      * would be worth celebrating too, but it costs a standings query on the
      * hottest tap in the app.
      */
     private function celebrate(Mark $mark): void
     {
-        if (! resolve(StreakMilestone::class)->isMilestone($this->streak)) {
+        $streak = resolve(StreakCalculator::class)->endingOn(
+            resolve(GoalHistory::class)->for($this->goal)->dates(),
+            $mark->marked_on,
+        );
+
+        if (! resolve(StreakMilestone::class)->isMilestone($streak)) {
             return;
         }
 

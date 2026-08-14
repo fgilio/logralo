@@ -69,6 +69,11 @@ final readonly class MarkEntry implements FeedEntry
         return $this->mark;
     }
 
+    public function shareKind(): string
+    {
+        return 'mark';
+    }
+
     public function shareCardDirectory(): string
     {
         return $this->mark->shareCardDirectory();

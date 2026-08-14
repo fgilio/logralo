@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use App\Actions\RecordShareVisit;
+use App\Actions\ResumeSharing;
 use App\Models\Goal;
 use App\Models\Mark;
 use App\Models\User;
@@ -42,6 +43,52 @@ it('kills the link and the rendered card', function (): void {
 
     $this->get("/l/{$token}")->assertNotFound();
     $this->get(route('share.card', ['token' => $token, 'format' => 'og']))->assertNotFound();
+});
+
+it('can share again after revoking, on a link that is not the old one', function (): void {
+    Storage::fake('photos');
+
+    $user = User::factory()->create();
+    $mark = markFor($user);
+    $original = (string) $mark->share_token;
+
+    $this->actingAs($user)->post(route('share.revoke', $original));
+
+    resolve(ResumeSharing::class)->handle($mark->refresh());
+
+    // Changing your mind must not resurrect the address you were running from.
+    expect($mark->refresh()->share_token)->not->toBeNull()
+        ->and($mark->share_token)->not->toBe($original);
+
+    $this->get("/l/{$mark->share_token}")->assertOk();
+    $this->get("/l/{$original}")->assertNotFound();
+});
+
+it('leaves an already shared link alone when resuming', function (): void {
+    $mark = markFor(User::factory()->create());
+    $token = $mark->share_token;
+
+    resolve(ResumeSharing::class)->handle($mark);
+
+    // Rotating here would quietly break links the group is still passing round.
+    expect($mark->refresh()->share_token)->toBe($token);
+});
+
+it('kills the link even if the cards cannot be deleted', function (): void {
+    $user = User::factory()->create();
+    $mark = markFor($user);
+
+    // Revocation clears the token first and cleans up second, so a storage
+    // failure costs bytes rather than privacy.
+    Storage::shouldReceive('disk')->andThrow(new RuntimeException('bucket is down'));
+
+    try {
+        $this->actingAs($user)->post(route('share.revoke', $mark->share_token));
+    } catch (Throwable) {
+        // The request blowing up is fine. The link being alive is not.
+    }
+
+    expect($mark->refresh()->share_token)->toBeNull();
 });
 
 it('lets nobody but the author revoke a mark', function (): void {
@@ -99,6 +146,20 @@ it('does not count the preview crawler as a visitor', function (string $agent): 
     'telegram' => ['TelegramBot (like TwitterBot)'],
     'no agent at all' => [''],
 ]);
+
+it('keeps every visit when two people open the link at once', function (): void {
+    $mark = markFor(User::factory()->create());
+
+    // Two requests, each holding the row as it was before the other wrote.
+    // Read-add-write would drop one of these; an atomic increment keeps both.
+    $first = Mark::query()->findOrFail($mark->id);
+    $second = Mark::query()->findOrFail($mark->id);
+
+    resolve(RecordShareVisit::class)->handle($first, 'Mozilla/5.0 Safari');
+    resolve(RecordShareVisit::class)->handle($second, 'Mozilla/5.0 Safari');
+
+    expect($mark->refresh()->share_views)->toBe(2);
+});
 
 it('leaves the mark itself untouched when it counts a visit', function (): void {
     $mark = markFor(User::factory()->create());
