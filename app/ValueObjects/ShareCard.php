@@ -20,8 +20,10 @@ final readonly class ShareCard
 {
     /**
      * @param  string  $title  the loud line — a goal name, or a month
-     * @param  string|null  $badge  the accent pill above it, usually the streak
-     * @param  string  $byline  who and when, under the title
+     * @param  string|null  $badge  the accent pill above it
+     * @param  string  $byline  when, under the title
+     * @param  string|null  $highlight  the ember half of the byline, drawn after
+     *                                  it on the same line; the streak
      * @param  array<string, string>  $stats  label to value, drawn as a row of
      *                                        small blocks; the recap's podium
      */
@@ -29,6 +31,7 @@ final readonly class ShareCard
         public string $title,
         public ?string $badge,
         public string $byline,
+        public ?string $highlight = null,
         public array $stats = [],
     ) {}
 

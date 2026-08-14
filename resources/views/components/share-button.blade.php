@@ -6,6 +6,12 @@
     $shareUrl = $entry->shareUrl();
     $shareable = $entry->shareable();
     $shareText = $entry->shareText();
+
+    // The message is whatever the member typed, so it can slug to nothing at
+    // all — "🔥🔥🔥" is a perfectly good note, and "-logralo.jpg" is not a
+    // filename to hand somebody's photo roll.
+    $slug = Str::slug(Str::limit($shareText, 40, ''));
+    $filename = ($slug === '' ? 'logralo' : $slug . '-logralo') . '.jpg';
 @endphp
 
 @if ($shareUrl === null)
@@ -34,7 +40,7 @@
             text: @js($shareText),
             cardUrl: @js($shareable->shareCardUrl(ShareCardFormat::Unfurl)),
             imageUrl: @js($shareable->shareCardUrl(ShareCardFormat::Portrait)),
-            filename: @js(Str::slug(Str::limit($shareText, 40, '')) . '-logralo.jpg'),
+            filename: @js($filename),
         })"
     >
         <div

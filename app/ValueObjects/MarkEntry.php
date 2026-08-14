@@ -6,6 +6,7 @@ namespace App\ValueObjects;
 
 use App\Models\Mark;
 use Carbon\CarbonImmutable;
+use Illuminate\Support\Str;
 
 /**
  * A mark as it appears in the feed, carrying the flame count it had on its own
@@ -36,27 +37,37 @@ final readonly class MarkEntry implements FeedEntry
         return "mark-{$this->mark->id}";
     }
 
+    /**
+     * The goal, the day, and the streak beside it.
+     *
+     * No name on the card: it is sent by the person who earned it, into a
+     * chat of five people who know each other, and the photo is of them.
+     */
     public function shareCard(): ShareCard
     {
         return new ShareCard(
             title: $this->mark->goal->name,
-            badge: $this->streak > 1 ? "{$this->streak} días seguidos" : null,
-            byline: $this->mark->user->name.' · '.$this->mark->marked_on->translatedFormat('j \d\e F'),
+            badge: null,
+            byline: $this->mark->marked_on->translatedFormat('j \d\e F'),
+            highlight: $this->streak > 1 ? "{$this->streak} días seguidos" : null,
         );
     }
 
     /**
-     * Names the person. "🔥 Gimnasio — Logralo" told the chat nothing about
-     * who had been to the gym, which is the whole brag.
+     * Whatever the member typed when they marked it, and only if they typed
+     * nothing, the app's own line.
+     *
+     * "Franco marcó Gimnasio" was a caption written by software, sitting under
+     * a card that already said Gimnasio, sent by Franco. The note is the one
+     * part of a share nobody else could have written.
      */
     public function shareText(): string
     {
-        $name = $this->mark->user->name;
-        $goal = $this->mark->goal->name;
+        $note = Str::of($this->mark->note ?? '')->trim();
 
-        return $this->streak > 1
-            ? "🔥 {$name} lleva {$this->streak} días de {$goal}"
-            : "🔥 {$name} marcó {$goal}";
+        return $note->isNotEmpty()
+            ? $note->toString()
+            : "Marqué {$this->mark->goal->name}";
     }
 
     public function shareUrl(): ?string
@@ -84,7 +95,7 @@ final readonly class MarkEntry implements FeedEntry
         return $this->mark->photo_key;
     }
 
-    /** The headline the share page and the unfurl's `og:title` both use. */
+    /** The browser tab, for whoever opens the link. */
     public function shareTitle(): string
     {
         $goal = $this->mark->goal->name;
@@ -92,11 +103,6 @@ final readonly class MarkEntry implements FeedEntry
         return $this->streak > 1
             ? "{$this->mark->user->name} · {$this->streak} días de {$goal}"
             : "{$this->mark->user->name} · {$goal}";
-    }
-
-    public function shareDescription(): string
-    {
-        return 'Una prueba más en Logralo. Objetivos diarios y rachas, entre amigos.';
     }
 
     /**

@@ -22,8 +22,9 @@ use Throwable;
  *
  * A link on its own unfurls as whatever the page's `og:image` points at, so
  * this is the difference between "🔥 Ginasio — Logralo" over a grey login tile
- * and a full-bleed photo with the streak burned into the corner. It is the one
- * artefact of this app that people outside the group ever see.
+ * and a full-bleed photo with the goal shouted across it and the streak burned
+ * in underneath. It is the one artefact of this app that people outside the
+ * group ever see.
  *
  * Drawn with GD through Intervention, deliberately, rather than by
  * screenshotting a Blade view: headless Chrome would mean shipping a Chromium
@@ -175,7 +176,7 @@ final readonly class ShareCardComposer
     private function words(ImageInterface $canvas, ShareCard $card, int $width, int $height): void
     {
         $pad = (int) ($width * 0.058);
-        $titleSize = (int) ($width * 0.075);
+        $titleSize = (int) ($width * 0.088);
         $badgeSize = (int) ($width * 0.028);
         $bylineSize = (int) ($width * 0.024);
 
@@ -185,12 +186,15 @@ final readonly class ShareCardComposer
             $baseline = $this->stats($canvas, $card->stats, $pad, $baseline, $width);
         }
 
-        $this->write($canvas, $card->byline, $pad, $baseline, $bylineSize, 'rgba(255, 255, 255, 0.72)', $this->body());
+        $this->byline($canvas, $card, $pad, $baseline, $bylineSize);
         $baseline -= (int) ($bylineSize * 1.9);
 
         // Anton is drawn uppercase because it has no lowercase worth reading at
         // this size, and because a shout is the point.
-        $this->write($canvas, Str::upper($card->title), $pad, $baseline, $titleSize, '#ffffff', $this->display());
+        $title = Str::upper($card->title);
+        $titleSize = $this->fit($title, $titleSize, $width - $pad * 2, $this->display());
+
+        $this->write($canvas, $title, $pad, $baseline, $titleSize, '#ffffff', $this->display());
 
         // Anton's caps fill the whole em and the accented ones overshoot it,
         // so a single line of clearance puts Í straight through the badge.
@@ -200,8 +204,44 @@ final readonly class ShareCardComposer
             $this->write($canvas, Str::upper($card->badge), $pad, $baseline, $badgeSize, self::EMBER, $this->display(), tracking: 3);
             $this->rule($canvas, $pad, $baseline - (int) ($badgeSize * 1.5), $width);
         }
+    }
 
-        $this->wordmark($canvas, $width, $pad);
+    /**
+     * The quiet line under the title: the day, and the streak beside it.
+     *
+     * The streak sits here rather than in the badge above the title because
+     * the two would otherwise say the same thing twice, and because the date
+     * on its own left the card's most interesting number off it. Ember, since
+     * that is where the flame lives on a card GD cannot draw an emoji on.
+     */
+    private function byline(ImageInterface $canvas, ShareCard $card, int $pad, int $baseline, int $size): void
+    {
+        $this->write($canvas, $card->byline, $pad, $baseline, $size, 'rgba(255, 255, 255, 0.72)', $this->body());
+
+        if ($card->highlight === null) {
+            return;
+        }
+
+        // Measured rather than guessed: "3 de mayo" and "28 de septiembre" are
+        // most of a card's width apart.
+        $x = $pad + $this->advance($card->byline, $size, $this->body()) + (int) ($size * 0.5);
+
+        $this->write($canvas, '· '.$card->highlight, $x, $baseline, $size, self::EMBER, $this->bodyBold());
+    }
+
+    /**
+     * The largest size at or below `$size` whose line still fits `$max` wide.
+     *
+     * A goal name is allowed forty characters, and Anton at the size a
+     * three-letter one wants runs "Natación por la mañana" clean off the edge.
+     */
+    private function fit(string $text, int $size, int $max, string $font): int
+    {
+        $measured = $this->advance($text, $size, $font);
+
+        // FreeType scales linearly, so one measurement gives the whole ratio
+        // and there is nothing to iterate towards.
+        return $measured <= $max ? $size : max(12, (int) ($size * $max / $measured));
     }
 
     /**
@@ -250,19 +290,6 @@ final readonly class ShareCardComposer
         });
     }
 
-    /** "LOGRALO", top right, so the card is recognisable at thumbnail size. */
-    private function wordmark(ImageInterface $canvas, int $width, int $pad): void
-    {
-        $size = (int) ($width * 0.026);
-
-        $canvas->text('LOGRALO', $width - $pad, $pad + $size, function (FontFactory $font) use ($size): void {
-            $font->filename($this->display());
-            $font->size($size);
-            $font->color('rgba(255, 255, 255, 0.82)');
-            $font->align('right', 'bottom');
-        });
-    }
-
     /**
      * One line of text on its baseline.
      *
@@ -302,10 +329,10 @@ final readonly class ShareCardComposer
         }
     }
 
-    /** How far the pen moves after drawing one character, in pixels. */
-    private function advance(string $character, int $size, string $font): int
+    /** How far the pen moves after drawing this much text, in pixels. */
+    private function advance(string $text, int $size, string $font): int
     {
-        $box = imagettfbbox($size, 0, $font, $character);
+        $box = imagettfbbox($size, 0, $font, $text);
 
         return $box === false ? $size : (int) ($box[2] - $box[0]);
     }

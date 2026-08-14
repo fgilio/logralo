@@ -64,11 +64,15 @@ it('gives the crawler an image to draw', function (): void {
         ->assertSee(route('share.card', ['token' => $mark->share_token, 'format' => 'og']), escape: false);
 });
 
-it('names the person in the title the crawler reads', function (): void {
+it('leaves the unfurl to the picture', function (): void {
     $mark = sharedMark();
 
-    // "🔥 Gimnasio — Logralo" told the chat nothing about who had been.
-    $this->get("/l/{$mark->share_token}")->assertSee('Guido', escape: false);
+    // The card already says the goal, the day and the streak. A title naming
+    // the sender and a description pitching the app were two lines of grey
+    // under a photo that had already made the point.
+    $this->get("/l/{$mark->share_token}")
+        ->assertSee('property="og:title" content="Logralo"', escape: false)
+        ->assertDontSee('og:description', escape: false);
 });
 
 it('shows a stranger the group, not a login form', function (): void {

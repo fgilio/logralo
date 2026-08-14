@@ -31,9 +31,36 @@ function sampleCard(): ShareCard
 {
     return new ShareCard(
         title: 'Gimnasio',
-        badge: '12 días seguidos',
-        byline: 'Guido · 14 de agosto',
+        badge: null,
+        byline: '14 de agosto',
+        highlight: '12 días seguidos',
     );
+}
+
+/**
+ * Whether any pixel in the card's last column is bright enough to be text.
+ *
+ * The ground is charcoal and the bloom is a dark ember, so the only thing on
+ * a card that comes out near-white is a line of words — and a line of words
+ * reaching the edge is one that has run off it.
+ */
+function touchesRightEdge(string $jpeg): bool
+{
+    $image = imagecreatefromstring($jpeg);
+
+    expect($image)->not->toBeFalse();
+
+    $x = imagesx($image) - 1;
+
+    for ($y = 0; $y < imagesy($image); $y++) {
+        $pixel = imagecolorsforindex($image, imagecolorat($image, $x, $y));
+
+        if ($pixel['red'] > 200 && $pixel['green'] > 200 && $pixel['blue'] > 200) {
+            return true;
+        }
+    }
+
+    return false;
 }
 
 it('draws the unfurl at the ratio that gets a large preview', function (): void {
@@ -68,10 +95,26 @@ it('covers the card with the photo when there is one', function (): void {
 it('renders a card with no badge and no stats', function (): void {
     $jpeg = resolve(ShareCardComposer::class)->compose(
         ShareCardFormat::Unfurl,
-        new ShareCard(title: 'Leer', badge: null, byline: 'Franco'),
+        new ShareCard(title: 'Leer', badge: null, byline: '3 de mayo'),
     );
 
     expect(composedSize($jpeg)['width'])->toBe(1200);
+});
+
+it('shrinks a title that would otherwise run off the card', function (): void {
+    // Forty characters is exactly what a goal name is allowed, and Anton at
+    // the size a short one wants puts the tail of this one past the edge.
+    $jpeg = resolve(ShareCardComposer::class)->compose(
+        ShareCardFormat::Unfurl,
+        new ShareCard(
+            title: 'Natación por la mañana antes del trabajo',
+            badge: null,
+            byline: '3 de mayo',
+        ),
+    );
+
+    expect(touchesRightEdge($jpeg))->toBeFalse()
+        ->and(composedSize($jpeg)['width'])->toBe(1200);
 });
 
 it('renders the recap stats row', function (): void {
@@ -113,7 +156,12 @@ it('ships the fonts it draws with', function (): void {
 it('survives an accent, which is most of the Spanish it draws', function (): void {
     $jpeg = resolve(ShareCardComposer::class)->compose(
         ShareCardFormat::Unfurl,
-        new ShareCard(title: 'Natación', badge: '21 días seguidos', byline: 'Martín · 3 de diciembre'),
+        new ShareCard(
+            title: 'Natación',
+            badge: null,
+            byline: '3 de diciembre',
+            highlight: '21 días seguidos',
+        ),
     );
 
     expect(composedSize($jpeg)['mime'])->toBe('image/jpeg');

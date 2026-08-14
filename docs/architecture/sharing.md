@@ -33,8 +33,28 @@ It needs Node **and a Chrome binary**. Laravel Cloud has no Chrome binary, and g
 So `App\Services\ShareCardComposer` draws the card with Intervention over GD, which is already the photo pipeline. The costs are real and worth knowing:
 
 - **Layout is arithmetic.** Everything scales off the card's width, so the wide unfurl and the tall portrait share one routine.
-- **No emoji.** GD renders one TTF at a time and has no colour-glyph support, so an emoji comes out as a hollow box. `ShareCard` carries no emoji by construction; the flame is the badge's colour instead of a character. The share _text_ may carry emoji — that is text in WhatsApp, not a glyph anyone has to draw.
+- **No emoji.** GD renders one TTF at a time and has no colour-glyph support, so an emoji comes out as a hollow box. `ShareCard` carries no emoji by construction; the flame is the ember the streak is written in rather than a character. The share _text_ may carry emoji — that is text in WhatsApp, not a glyph anyone has to draw.
 - **The fonts are committed.** `resources/fonts/` holds Anton and Archivo as TTF because FreeType cannot read a woff2 and `@fontsource` ships nothing else. Both are OFL.
+
+## What the card says, and what it stopped saying
+
+A mark's card is the goal name, as loud as it fits, over the day it was marked and the streak beside it in ember. That is all of it.
+
+Three things came off, and each was saying something the card's own reader already knew:
+
+- **The wordmark.** "LOGRALO" in the top corner was branding a picture that arrives under a link to `logralo.fgilio.com`, in a chat where the same card has landed a dozen times. The site name is in the unfurl; it does not need to be in the photo too.
+- **The member's name.** It is sent by the person who earned it, into a group of five who know each other, and the photo is usually of them. `share/partials/mark.blade.php` still names them on the page itself, where a stranger who followed the link needs it.
+- **The badge.** It carried the streak, above a title, which is where the streak now sits beside the date. A card saying "12 días seguidos" twice reads as a bug. The recap keeps its badge, because "Cerró el mes" is not repeated anywhere else on it.
+
+The title is drawn at 8.8% of the card's width, and shrunk from there if it would not fit. A goal name is allowed forty characters, and Anton at the size "Leer" wants would run "Natación por la mañana antes del trabajo" off the edge. FreeType scales linearly, so `fit()` measures once and takes the ratio rather than stepping the size down.
+
+## What goes in the chat
+
+The line above the link is **what the member typed when they marked it**, and only if they typed nothing, `Marqué {goal}`.
+
+"Franco marcó Gimnasio" was a caption written by software, sent by Franco, over a card that already said Gimnasio in ninety-point type. The note is the one part of a share nobody else could have written — it is where the 6am and the rain go — so it is the part that gets sent. The fallback is first person and carries no name, for the same reason the card does not.
+
+The unfurl's own text is then deliberately almost empty: `og:title` is the site name and there is no `og:description` at all. The picture carries the goal, the day and the streak; a title repeating them and a description pitching the app were two lines of grey under something that had already made the point. `partials/head.blade.php` drops the description tags entirely when a page passes an empty one, because an empty `content` attribute is not the same as no tag.
 
 ## The two shapes
 
