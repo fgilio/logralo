@@ -41,7 +41,7 @@ final readonly class MarkEntry implements FeedEntry
         return new ShareCard(
             title: $this->mark->goal->name,
             badge: $this->streak > 1 ? "{$this->streak} días seguidos" : null,
-            byline: $this->mark->user->name.' · '.$this->day()->translatedFormat('j \d\e F'),
+            byline: $this->mark->user->name.' · '.$this->mark->marked_on->translatedFormat('j \d\e F'),
         );
     }
 

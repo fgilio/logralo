@@ -31,10 +31,17 @@ final class ShareCardController
 {
     public function __invoke(string $token, string $format, SharedEntry $shared, ShareCardRenderer $cards): Response
     {
+        // Two guards rather than one: the format is checked first so an
+        // unknown one never reaches the database, and checking both in a
+        // single condition made the second half unreachable — an entry only
+        // exists once the format has parsed.
         $shape = ShareCardFormat::tryFrom($format);
-        $entry = $shape instanceof ShareCardFormat ? $shared->find($token) : null;
 
-        throw_if(! $entry instanceof FeedEntry || ! $shape instanceof ShareCardFormat, NotFoundHttpException::class);
+        throw_if(! $shape instanceof ShareCardFormat, NotFoundHttpException::class);
+
+        $entry = $shared->find($token);
+
+        throw_if(! $entry instanceof FeedEntry, NotFoundHttpException::class);
 
         return $this->jpeg($cards->render(
             $entry->shareCardDirectory(),
