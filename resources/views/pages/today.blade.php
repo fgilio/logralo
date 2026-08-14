@@ -168,6 +168,15 @@ new #[Title('Hoy')] class extends Component
         </div>
     </header>
 
+    {{-- Whatever a full page POST wants to say on its way back — revoking a
+         shared link is the only one so far. Toasts need a Livewire component
+         to dispatch onto, and a plain controller has none. --}}
+    @if (session('status'))
+        <flux:callout variant="success" icon="check-circle" class="mt-3" data-test="status">
+            <flux:callout.text>{{ session('status') }}</flux:callout.text>
+        </flux:callout>
+    @endif
+
     @if ($this->graceGoals->isNotEmpty())
         <flux:callout variant="warning" icon="clock" class="mt-3" data-test="grace-banner">
             {{-- Everything goes in the default slot: passing an x-slot:content
@@ -234,6 +243,11 @@ new #[Title('Hoy')] class extends Component
     <section class="mt-8" aria-label="Lo que hizo el grupo">
         <livewire:feed />
     </section>
+
+    {{-- One per page, not one per goal card: it fires a handful of times a
+         month and every card carrying its own would be twenty idle modals. --}}
+    <livewire:milestone />
+
 
     {{-- The month's table. The split bars are the scoring rule, explained. --}}
     <flux:modal

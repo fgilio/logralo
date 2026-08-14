@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Models;
 
 use App\Casts\LocalDate;
+use App\Concerns\Shareable;
 use App\ValueObjects\Standing;
 use Carbon\CarbonImmutable;
 use Database\Factories\MonthlyRecapFactory;
@@ -28,6 +29,9 @@ use Illuminate\Support\Collection;
  * @property string|null $best_streak_goal_id
  * @property int $best_streak_days
  * @property array<int, array<string, mixed>> $standings
+ * @property string|null $share_token
+ * @property int $share_views
+ * @property CarbonImmutable|null $share_last_viewed_at
  * @property CarbonImmutable|null $created_at
  * @property CarbonImmutable|null $updated_at
  * @property-read User|null $winner
@@ -51,6 +55,7 @@ final class MonthlyRecap extends Model
     use HasFactory;
 
     use HasUlids;
+    use Shareable;
 
     /** @return BelongsTo<User, $this> */
     public function winner(): BelongsTo
@@ -90,6 +95,8 @@ final class MonthlyRecap extends Model
             'posted_on' => LocalDate::class,
             'best_streak_days' => 'integer',
             'standings' => 'array',
+            'share_views' => 'integer',
+            'share_last_viewed_at' => 'immutable_datetime',
             'created_at' => 'immutable_datetime',
             'updated_at' => 'immutable_datetime',
         ];

@@ -8,12 +8,16 @@
         ->groupBy(fn ($reaction) => $reaction->emoji->value)
         ->map(fn ($group) => $group->count());
 
-    $shareText = $entry->streak > 1
-        ? "🔥 {$entry->streak} días seguidos de {$mark->goal->name} — Logralo"
-        : "🔥 {$mark->goal->name} — Logralo";
+    $isOwner = $mark->isManagedBy(auth()->user());
 @endphp
 
-<article class="feed-card overflow-hidden rounded-2xl bg-white shadow-sm ring-1 ring-zinc-200/80 dark:bg-white/5 dark:ring-white/10">
+{{-- The id is what a shared link lands on: /#mark-{id} scrolls here and
+     :target lights the card up, so arriving from WhatsApp puts you on the
+     photo you were sent rather than at the top of the feed. --}}
+<article
+    id="mark-{{ $mark->id }}"
+    class="feed-card overflow-hidden rounded-2xl bg-white shadow-sm ring-1 ring-zinc-200/80 dark:bg-white/5 dark:ring-white/10"
+>
     <header class="flex items-center gap-3 px-3 py-2.5">
         <flux:avatar
             :name="$mark->user->name"
@@ -36,27 +40,6 @@
         </div>
 
         <x-flame :days="$entry->streak" size="sm" />
-
-        <div
-            x-data="shareCard({
-                imageUrl: @js($entry->photo?->fallbackUrl),
-                filename: @js(Str::slug($mark->goal->name) . '-logralo.jpg'),
-                text: @js($shareText),
-                url: @js(route('today')),
-            })"
-        >
-            <flux:button
-                variant="subtle"
-                size="sm"
-                square
-                icon="share"
-                aria-label="Compartir"
-                x-on:pointerdown="prefetch()"
-                x-on:click="share()"
-                :loading="false"
-                data-test="share"
-            />
-        </div>
     </header>
 
     @if ($entry->photo !== null)
@@ -130,5 +113,23 @@
                 @endif
             </button>
         @endforeach
+
+        <div class="ml-auto flex items-center gap-2">
+            {{-- Only the person who shared it sees the count, and only once
+                 somebody has actually opened the link. It is there to tell
+                 them the message landed, not to turn the feed into a
+                 leaderboard of who gets clicked. --}}
+            @if ($isOwner && $mark->share_views > 0)
+                <span
+                    class="text-xs text-zinc-400 tabular-nums dark:text-zinc-500"
+                    title="Gente que abrió el link que compartiste"
+                    data-test="share-views"
+                >
+                    {{ $mark->share_views }} {{ Str::plural('visita', $mark->share_views) }}
+                </span>
+            @endif
+
+            <x-share-button :entry="$entry" />
+        </div>
     </footer>
 </article>

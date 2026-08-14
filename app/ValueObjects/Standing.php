@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\ValueObjects;
 
+use Illuminate\Support\Str;
+
 /**
  * One member's line in the monthly standings.
  *
@@ -55,6 +57,23 @@ final readonly class Standing
     public function percentage(): float
     {
         return round($this->score() * 100, 1);
+    }
+
+    /**
+     * The score as every screen writes it: a comma for the decimal, and no
+     * trailing zero on a round number.
+     *
+     * Here rather than in the templates because the share card is drawn by GD
+     * from a value object, so the standings row, the recap card and the image
+     * that lands in WhatsApp have exactly one place to agree.
+     */
+    public function percentageLabel(): string
+    {
+        return Str::of(number_format($this->percentage(), 1, ',', '.'))
+            ->rtrim('0')
+            ->rtrim(',')
+            ->append('%')
+            ->toString();
     }
 
     /** The solid segment of the standings bar. */

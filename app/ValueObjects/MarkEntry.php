@@ -35,4 +35,78 @@ final readonly class MarkEntry implements FeedEntry
     {
         return "mark-{$this->mark->id}";
     }
+
+    public function shareCard(): ShareCard
+    {
+        return new ShareCard(
+            title: $this->mark->goal->name,
+            badge: $this->streak > 1 ? "{$this->streak} días seguidos" : null,
+            byline: $this->mark->user->name.' · '.$this->mark->marked_on->translatedFormat('j \d\e F'),
+        );
+    }
+
+    /**
+     * Names the person. "🔥 Gimnasio — Logralo" told the chat nothing about
+     * who had been to the gym, which is the whole brag.
+     */
+    public function shareText(): string
+    {
+        $name = $this->mark->user->name;
+        $goal = $this->mark->goal->name;
+
+        return $this->streak > 1
+            ? "🔥 {$name} lleva {$this->streak} días de {$goal}"
+            : "🔥 {$name} marcó {$goal}";
+    }
+
+    public function shareUrl(): ?string
+    {
+        return $this->mark->shareUrl();
+    }
+
+    public function shareable(): Mark
+    {
+        return $this->mark;
+    }
+
+    public function shareKind(): string
+    {
+        return 'mark';
+    }
+
+    public function shareCardDirectory(): string
+    {
+        return $this->mark->shareCardDirectory();
+    }
+
+    public function sharePhotoKey(): ?string
+    {
+        return $this->mark->photo_key;
+    }
+
+    /** The headline the share page and the unfurl's `og:title` both use. */
+    public function shareTitle(): string
+    {
+        $goal = $this->mark->goal->name;
+
+        return $this->streak > 1
+            ? "{$this->mark->user->name} · {$this->streak} días de {$goal}"
+            : "{$this->mark->user->name} · {$goal}";
+    }
+
+    public function shareDescription(): string
+    {
+        return 'Una prueba más en Logralo. Objetivos diarios y rachas, entre amigos.';
+    }
+
+    /**
+     * The `id` the feed card carries, so "Abrir en Logralo" lands on it.
+     *
+     * Narrower than the interface's `?string` on purpose: a mark always has a
+     * row to scroll to, and only the month recap has nothing.
+     */
+    public function shareAnchor(): string
+    {
+        return "mark-{$this->mark->id}";
+    }
 }

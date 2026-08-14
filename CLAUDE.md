@@ -24,14 +24,16 @@ The layering is the thing to keep. It is enforced by `tests/Arch/`.
 - `ScoreCalculator` — ordering and the shared podium
 - `PhotoRule` — "pics or it didn't happen": when the next mark owes a photo
 - `PhotoProcessor` — uploads to feed derivatives, EXIF stripped
+- `ShareCardComposer` / `ShareCardRenderer` — the WhatsApp unfurl image, drawn and cached
+- `StreakMilestone` — which streaks are worth interrupting somebody for
 
 ### `app/Queries/` — the read side, where Eloquent lives
 
-- `GroupPulse`, `MonthlyStandings`, `FeedPage`, `GoalHistory`
+- `GroupPulse`, `MonthlyStandings`, `FeedPage`, `GoalHistory`, `SharedEntry`, `MarkEntries`
 
 ### `app/Actions/` — the write side, one unit of work each
 
-- `MarkGoal`, `UnmarkGoal`, `ToggleReaction`, `CreateGoal`, `RenameGoal`, `ArchiveGoal`, `RestoreGoal`, `CloseMonth`, `IssueMagicLink`
+- `MarkGoal`, `UnmarkGoal`, `ToggleReaction`, `CreateGoal`, `RenameGoal`, `ArchiveGoal`, `RestoreGoal`, `CloseMonth`, `IssueMagicLink`, `RecordShareVisit`, `RevokeSharing`
 
 ### `app/ValueObjects/` — final readonly
 
@@ -81,7 +83,22 @@ Prefer Laravel utilities over native PHP equivalents:
 
 One canonical `Log::info()` per unit of work, emitted in `finally`, with no manual context array. Data goes through `Context::add('logralo.*', …)`. Warnings always carry a `reason`. No `Log::debug()`. Event names are lowercase and dot-separated: `mark.create.handled`, `month.close.handled`.
 
+A unit of work is an **Action** — plus the two entry points that own one without an Action behind them, `CloseMonthsCommand` and `MagicLinkController`. Queries and Services do not log: a read runs on every render and every anonymous crawler fetch, and logging those buries the events that carry an outcome. Review bots read the rule above and ask for a log in `SharedEntry` or `ShareCardRenderer` — that is the rule applied a layer too wide.
+
 Key context keys: `logralo.user_id`, `logralo.goal_id`, `logralo.mark_id`, `logralo.marked_on`, `logralo.outcome`, `logralo.reject_reason`.
+
+## Pull Request Review Comments
+
+Every review comment gets a reply and a resolved thread before the PR is considered ready — including the ones you decline. An unanswered thread reads as unnoticed, and a silently-resolved one reads as dismissed.
+
+1. Read the threads with `pull_request_read` / `method: get_review_comments`, which carries `is_resolved` and the thread's `PRRT_…` node id.
+2. Reply on the comment's numeric id (`#discussion_r…`), then resolve the thread by its node id. Both steps, every thread.
+3. **Fixed** → name the commit and say what changed, in one or two sentences. Not "done".
+4. **Declined** → say so plainly and give the reason from this codebase: the arch test, the convention, the measurement. Verify the claim first — bots cite `CLAUDE.md` rules they have over-applied, and the answer has to be checkable rather than asserted.
+5. **Partly** → say which part, and why the rest was left. A deviation nobody explains gets re-reported next review.
+6. End every reply with the Claude Code attribution footer.
+
+Two recurring false positives, both from misreading rules above: a log demanded in a Query or Service (see Observability), and `Storage` called a layering violation in `app/Services` (`tests/Arch/ServicesTest.php` bans Eloquent and `DB`, not the filesystem — `PhotoProcessor` has always written derivatives).
 
 ## Deploy and Verify
 

@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Models;
 
 use App\Casts\LocalDate;
+use App\Concerns\Shareable;
 use App\Enums\MarkKind;
 use Carbon\CarbonImmutable;
 use Database\Factories\MarkFactory;
@@ -25,6 +26,9 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
  * @property int|null $photo_width
  * @property int|null $photo_height
  * @property string|null $note
+ * @property string|null $share_token
+ * @property int $share_views
+ * @property CarbonImmutable|null $share_last_viewed_at
  * @property CarbonImmutable|null $created_at
  * @property CarbonImmutable|null $updated_at
  * @property-read Goal $goal
@@ -38,6 +42,7 @@ final class Mark extends Model
     use HasFactory;
 
     use HasUlids;
+    use Shareable;
 
     /** @return BelongsTo<Goal, $this> */
     public function goal(): BelongsTo
@@ -72,6 +77,12 @@ final class Mark extends Model
         return $this->kind() === MarkKind::Ghost;
     }
 
+    /** A mark is one person's, so only they can take its link back. */
+    public function isManagedBy(?User $member): bool
+    {
+        return $member instanceof User && $this->user_id === $member->id;
+    }
+
     /** @return array<string, string> */
     protected function casts(): array
     {
@@ -79,6 +90,8 @@ final class Mark extends Model
             'marked_on' => LocalDate::class,
             'photo_width' => 'integer',
             'photo_height' => 'integer',
+            'share_views' => 'integer',
+            'share_last_viewed_at' => 'immutable_datetime',
             'created_at' => 'immutable_datetime',
             'updated_at' => 'immutable_datetime',
         ];
