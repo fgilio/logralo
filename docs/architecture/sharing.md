@@ -33,12 +33,14 @@ It needs Node **and a Chrome binary**. Laravel Cloud has no Chrome binary, and g
 So `App\Services\ShareCardComposer` draws the card with Intervention over GD, which is already the photo pipeline. The costs are real and worth knowing:
 
 - **Layout is arithmetic.** Everything scales off the card's width, so the wide unfurl and the tall portrait share one routine.
-- **No emoji.** GD renders one TTF at a time and has no colour-glyph support, so an emoji comes out as a hollow box. `ShareCard` carries no emoji by construction; the flame is the ember the streak is written in rather than a character. The share _text_ may carry emoji — that is text in WhatsApp, not a glyph anyone has to draw.
-- **The fonts are committed.** `resources/fonts/` holds Anton and Archivo as TTF because FreeType cannot read a woff2 and `@fontsource` ships nothing else. Both are OFL.
+- **No emoji.** GD renders one TTF at a time and has no colour-glyph support, so an emoji comes out as a hollow box. `ShareCard` carries no emoji by construction. The flame after the streak is a picture rather than a character: `resources/images/flame.png` is the PWA icon with its flat ground keyed out, so the card ends "14 de agosto · 12 🔥" without ever asking GD to draw a 🔥. The share _text_ may carry emoji — that is text in WhatsApp, not a glyph anyone has to draw.
+- **The fonts and the flame are committed.** `resources/fonts/` holds Anton and Archivo as TTF because FreeType cannot read a woff2 and `@fontsource` ships nothing else; both are OFL. `resources/images/flame.png` is there for the same reason — the brand mark is an SVG, and nothing in the pipeline can rasterise one.
 
 ## What the card says, and what it stopped saying
 
-A mark's card is the goal name, as loud as it fits, over the day it was marked and the streak beside it in ember. That is all of it.
+A mark's card is the goal name, as loud as it fits, over the day it was marked and the streak beside it — a number in ember, then the flame. That is all of it.
+
+The streak is written the same way everywhere now: `x-flame` puts the number before the mark on the feed, the goal card and the share page, because "12 🔥" is how somebody would type it into the chat this is competing with.
 
 Three things came off, and each was saying something the card's own reader already knew:
 
@@ -94,6 +96,8 @@ The streak it tests is the one **ending on the day that was marked**, not the on
 Only the streak is checked. Taking the lead in the month would be worth celebrating too, but it costs a standings query on the hottest tap in the app.
 
 ## The way back
+
+The page under the picture says each thing once. The goal name was the heading, then the sub-line under the avatar, then the photo's alt text — three times, over a photograph of the thing. It is the heading; the sub-line is the member's name and nothing else, the day is in the header, and the note gets the ember rule, because it is the one line on the page nobody else could have written.
 
 - A member arriving from a link lands on `/#mark-{id}`; the feed card carries that id, and `:target` scrolls and highlights it in CSS with no script.
 - Reactions live on the share page too, so a tap from WhatsApp becomes a reaction without loading the feed. Members react; everyone sees the counts.

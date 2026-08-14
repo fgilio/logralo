@@ -33,7 +33,7 @@ function sampleCard(): ShareCard
         title: 'Gimnasio',
         badge: null,
         byline: '14 de agosto',
-        highlight: '12 días seguidos',
+        highlight: '12',
     );
 }
 
@@ -144,13 +144,15 @@ it('falls back to the plain ground when the photo will not decode', function ():
     expect(composedSize($jpeg))->toBe(['width' => 1200, 'height' => 630, 'mime' => 'image/jpeg']);
 });
 
-it('ships the fonts it draws with', function (): void {
-    // FreeType cannot read a woff2, and @fontsource ships nothing else, so
-    // these two are committed. Losing them breaks every share card and
-    // nothing else, which is exactly the kind of break nobody notices locally.
+it('ships everything it draws with', function (): void {
+    // FreeType cannot read a woff2 and @fontsource ships nothing else, and GD
+    // has no colour-glyph support so the flame has to arrive as pixels. All
+    // four are committed. Losing one breaks every share card and nothing else,
+    // which is exactly the kind of break nobody notices locally.
     expect(File::exists(resource_path('fonts/Anton-Regular.ttf')))->toBeTrue()
         ->and(File::exists(resource_path('fonts/Archivo-Regular.ttf')))->toBeTrue()
-        ->and(File::exists(resource_path('fonts/Archivo-Bold.ttf')))->toBeTrue();
+        ->and(File::exists(resource_path('fonts/Archivo-Bold.ttf')))->toBeTrue()
+        ->and(File::exists(resource_path('images/flame.png')))->toBeTrue();
 });
 
 it('survives an accent, which is most of the Spanish it draws', function (): void {
@@ -160,7 +162,7 @@ it('survives an accent, which is most of the Spanish it draws', function (): voi
             title: 'Natación',
             badge: null,
             byline: '3 de diciembre',
-            highlight: '21 días seguidos',
+            highlight: '21',
         ),
     );
 

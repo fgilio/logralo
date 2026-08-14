@@ -49,7 +49,9 @@ final readonly class MarkEntry implements FeedEntry
             title: $this->mark->goal->name,
             badge: null,
             byline: $this->mark->marked_on->translatedFormat('j \d\e F'),
-            highlight: $this->streak > 1 ? "{$this->streak} días seguidos" : null,
+            // Just the number: the composer draws the flame after it, the way
+            // the feed does.
+            highlight: $this->streak > 1 ? (string) $this->streak : null,
         );
     }
 

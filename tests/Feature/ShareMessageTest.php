@@ -48,7 +48,7 @@ it('keeps the streak out of the message and on the card', function (): void {
     $entry = markEntryWith(null, streak: 12);
 
     expect($entry->shareText())->toBe('Marqué Gimnasio')
-        ->and($entry->shareCard()->highlight)->toBe('12 días seguidos');
+        ->and($entry->shareCard()->highlight)->toBe('12');
 });
 
 it('draws the day and the goal, and no name at all', function (): void {

@@ -10,8 +10,13 @@
 
 <span
     {{ $attributes->class(['inline-flex items-baseline gap-1 tabular-nums', 'opacity-45' => $dim || $days === 0]) }}
-    @if ($days > 0) title="{{ $days }} {{ \Illuminate\Support\Str::plural('día', $days) }} seguidos" @endif
+    {{-- Spelled out: Str::plural is an English inflector, and the one Spanish
+         word it was asked to bend that it could not is what put "7 7 vezs" on
+         the share page. --}}
+    @if ($days > 0) title="{{ $days }} {{ $days === 1 ? 'día' : 'días' }} seguidos" @endif
 >
-    <x-brand-mark :muted="$dim || $days === 0" class="{{ $scale['icon'] }} translate-y-px self-center" />
+    {{-- Number first, then the flame, the way it is written on the share card
+         and the way anyone types it in a chat: "12 🔥", not "🔥 12". --}}
     <span class="font-display {{ $scale['text'] }} leading-none">{{ $days }}</span>
+    <x-brand-mark :muted="$dim || $days === 0" class="{{ $scale['icon'] }} translate-y-px self-center" />
 </span>

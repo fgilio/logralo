@@ -12,13 +12,19 @@
     @endif
 
     <div class="p-5">
-        @if ($entry->streak > 1)
-            <p class="font-display text-sm tracking-[0.2em] text-accent uppercase">
-                {{ $entry->streak }} días seguidos
-            </p>
-        @endif
+        {{-- The goal and the streak on one line, the way the card the visitor
+             just saw in the chat has them. The name used to appear three times
+             on this page — as the heading, again under the avatar, and again in
+             the photo's alt text — over a picture of the thing itself. --}}
+        <div class="flex items-start justify-between gap-4">
+            <h1 class="font-display text-3xl tracking-wide">
+                {{ $mark->goal->emoji }} {{ $mark->goal->name }}
+            </h1>
 
-        <h1 class="mt-1 font-display text-3xl tracking-wide">{{ $mark->goal->name }}</h1>
+            @if ($entry->streak > 1)
+                <x-flame :days="$entry->streak" size="lg" class="mt-1 shrink-0" />
+            @endif
+        </div>
 
         <div class="mt-4 flex items-center gap-3">
             <flux:avatar
@@ -29,18 +35,15 @@
                 circle
                 size="sm"
             />
-            <div class="min-w-0 leading-tight">
-                <p class="truncate text-sm font-semibold">{{ $mark->user->name }}</p>
-                <p class="truncate text-xs text-zinc-400">
-                    {{ $mark->goal->emoji }} {{ $mark->goal->name }}
-                    <span aria-hidden="true">·</span>
-                    {{ $entry->day()->translatedFormat('j \d\e F') }}
-                </p>
-            </div>
+            <p class="min-w-0 truncate text-sm font-semibold">{{ $mark->user->name }}</p>
         </div>
 
-        @if ($mark->note !== null)
-            <p class="mt-4 text-sm text-zinc-300">{{ $mark->note }}</p>
+        {{-- The one line on the page nobody else could have written, so it gets
+             the ember rule rather than another paragraph of grey. --}}
+        @if (filled($mark->note))
+            <p class="mt-4 border-l-2 border-accent/50 pl-3 text-base text-zinc-200 italic">
+                {{ $mark->note }}
+            </p>
         @endif
 
         {{-- A tap from WhatsApp becomes a reaction without ever loading the

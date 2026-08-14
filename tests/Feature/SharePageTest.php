@@ -75,6 +75,28 @@ it('leaves the unfurl to the picture', function (): void {
         ->assertDontSee('og:description', escape: false);
 });
 
+it('counts the opens in Spanish', function (): void {
+    $mark = sharedMark();
+    $mark->forceFill(['share_views' => 7])->save();
+
+    // Str::plural is an English inflector, and its third argument is
+    // prependCount rather than the plural form, which is how this line shipped
+    // reading "La abrieron 7 7 vezs".
+    $this->actingAs($mark->user)
+        ->get("/l/{$mark->share_token}")
+        ->assertSee('La abrieron 7 veces.')
+        ->assertDontSee('vezs');
+});
+
+it('counts a single open in the singular', function (): void {
+    $mark = sharedMark();
+    $mark->forceFill(['share_views' => 1])->save();
+
+    $this->actingAs($mark->user)
+        ->get("/l/{$mark->share_token}")
+        ->assertSee('La abrieron una vez.');
+});
+
 it('shows a stranger the group, not a login form', function (): void {
     $mark = sharedMark();
 

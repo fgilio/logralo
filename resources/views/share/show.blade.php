@@ -65,11 +65,14 @@
                     </flux:button>
 
                     @if ($shareable->isManagedBy($member))
+                        {{-- Spelled out rather than run through Str::plural:
+                             that is an English inflector, and asking it for the
+                             plural of "vez" got "7 7 vezs" — its third argument
+                             is prependCount, not the plural form. --}}
                         <p class="mt-6 text-xs text-zinc-500">
                             Cualquiera con este link ve esta página.
                             @if ($shareable->share_views > 0)
-                                La abrieron {{ $shareable->share_views }}
-                                {{ Str::plural('vez', $shareable->share_views, 'veces') }}.
+                                {{ $shareable->share_views === 1 ? 'La abrieron una vez.' : 'La abrieron ' . $shareable->share_views . ' veces.' }}
                             @endif
                         </p>
 

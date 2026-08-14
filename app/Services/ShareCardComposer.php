@@ -224,9 +224,34 @@ final readonly class ShareCardComposer
 
         // Measured rather than guessed: "3 de mayo" and "28 de septiembre" are
         // most of a card's width apart.
+        $streak = '· '.$card->highlight;
         $x = $pad + $this->advance($card->byline, $size, $this->body()) + (int) ($size * 0.5);
 
-        $this->write($canvas, '· '.$card->highlight, $x, $baseline, $size, self::EMBER, $this->bodyBold());
+        $this->write($canvas, $streak, $x, $baseline, $size, self::EMBER, $this->bodyBold());
+
+        $this->flame($canvas, $x + $this->advance($streak, $size, $this->bodyBold()) + (int) ($size * 0.4), $baseline, $size);
+    }
+
+    /**
+     * The brand flame, sitting after the streak the way 🔥 would.
+     *
+     * A picture rather than a character, for the same reason the whole card is
+     * one: GD draws a single TTF at a time with no colour-glyph support, so an
+     * emoji comes out a hollow box. `resources/images/flame.png` is the app
+     * icon with its ground keyed out, committed like the fonts are.
+     */
+    private function flame(ImageInterface $canvas, int $x, int $baseline, int $size): void
+    {
+        // A shade taller than the words beside it, which is how an icon reads
+        // as an icon rather than as a letter that went wrong.
+        $height = (int) ($size * 1.3);
+
+        $canvas->place(
+            $this->images->read($this->asset('images/flame.png'))->scale(height: $height),
+            'top-left',
+            $x,
+            $baseline - $height,
+        );
     }
 
     /**
@@ -359,10 +384,22 @@ final readonly class ShareCardComposer
      */
     private function font(string $name): string
     {
-        $path = resource_path('fonts/'.$name);
+        return $this->asset('fonts/'.$name);
+    }
 
-        throw_if(! File::exists($path), RuntimeException::class, "Missing share card font: {$name}");
+    /**
+     * Something the card is drawn with, committed to the repository.
+     *
+     * Losing one of these breaks every share card and nothing else, which is
+     * exactly the kind of break nobody notices locally — so it raises here
+     * rather than drawing a card with a hole in it.
+     */
+    private function asset(string $path): string
+    {
+        $full = resource_path($path);
 
-        return $path;
+        throw_if(! File::exists($full), RuntimeException::class, "Missing share card asset: {$path}");
+
+        return $full;
     }
 }

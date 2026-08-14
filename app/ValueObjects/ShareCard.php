@@ -23,7 +23,8 @@ final readonly class ShareCard
      * @param  string|null  $badge  the accent pill above it
      * @param  string  $byline  when, under the title
      * @param  string|null  $highlight  the ember half of the byline, drawn after
-     *                                  it on the same line; the streak
+     *                                  it on the same line and followed by the
+     *                                  flame; the streak, as a bare number
      * @param  array<string, string>  $stats  label to value, drawn as a row of
      *                                        small blocks; the recap's podium
      */

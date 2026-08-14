@@ -125,7 +125,7 @@
                     title="Gente que abrió el link que compartiste"
                     data-test="share-views"
                 >
-                    {{ $mark->share_views }} {{ Str::plural('visita', $mark->share_views) }}
+                    {{ $mark->share_views === 1 ? '1 visita' : $mark->share_views . ' visitas' }}
                 </span>
             @endif
 
