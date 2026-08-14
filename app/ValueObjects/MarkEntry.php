@@ -99,8 +99,13 @@ final readonly class MarkEntry implements FeedEntry
         return 'Una prueba más en Logralo. Objetivos diarios y rachas, entre amigos.';
     }
 
-    /** The `id` the feed card carries, so "Abrir en Logralo" lands on it. */
-    public function shareAnchor(): ?string
+    /**
+     * The `id` the feed card carries, so "Abrir en Logralo" lands on it.
+     *
+     * Narrower than the interface's `?string` on purpose: a mark always has a
+     * row to scroll to, and only the month recap has nothing.
+     */
+    public function shareAnchor(): string
     {
         return "mark-{$this->mark->id}";
     }
