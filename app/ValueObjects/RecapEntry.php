@@ -49,6 +49,31 @@ final readonly class RecapEntry implements FeedEntry
         return $this->winners()->pluck('name')->join(', ', ' y ');
     }
 
+    /**
+     * "23 días · Guido", or null for a month nobody strung two days together
+     * in — which is the same month that has no podium either.
+     *
+     * Written once and read by both the card and the page, because they sit a
+     * tap apart: the recap unfurls in the chat and the page is what opening it
+     * shows, and the two disagreeing on a word is exactly the kind of thing
+     * somebody notices and nobody reports.
+     */
+    public function bestStreakLabel(): ?string
+    {
+        $days = $this->recap->best_streak_days;
+
+        if ($days < 1) {
+            return null;
+        }
+
+        // Spelled out rather than inflected. `Str::plural` is an English
+        // inflector whose third argument is prependCount rather than the plural
+        // form, which is how "La abrieron 7 7 vezs" reached the group chat.
+        $unit = $days === 1 ? 'día' : 'días';
+
+        return "{$days} {$unit} · ".($this->recap->bestStreakUser->name ?? '—');
+    }
+
     public function shareCard(): ShareCard
     {
         $champion = $this->winnerNames();
@@ -62,11 +87,7 @@ final readonly class RecapEntry implements FeedEntry
             stats: array_filter([
                 'Campeón' => $champion,
                 'Del mes' => $this->winners()->first()?->percentageLabel(),
-                // `??` already suppresses the null, so the nullsafe arrow would
-                // only be noise.
-                'Mejor racha' => $this->recap->best_streak_days > 0
-                    ? $this->recap->best_streak_days.' días · '.($this->recap->bestStreakUser->name ?? '—')
-                    : null,
+                'Mejor racha' => $this->bestStreakLabel(),
             ]),
         );
     }
