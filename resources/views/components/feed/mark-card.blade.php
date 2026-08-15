@@ -125,6 +125,8 @@
                     title="Gente que abrió el link que compartiste"
                     data-test="share-views"
                 >
+                    {{-- Spelled out rather than inflected, for the reason
+                         share/show.blade.php gives. --}}
                     {{ $mark->share_views }} {{ $mark->share_views === 1 ? 'visita' : 'visitas' }}
                 </span>
             @endif

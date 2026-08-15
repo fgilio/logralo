@@ -8,6 +8,7 @@ use App\Enums\ShareCardFormat;
 use App\Models\Goal;
 use App\Models\Mark;
 use App\Models\User;
+use App\Services\ShareCardRenderer;
 use Illuminate\Support\Facades\Storage;
 
 /**
@@ -37,7 +38,7 @@ it('kills the link and the rendered card', function (): void {
     // Asked for by name rather than spelled out: the design version is part of
     // it, so a redesign that bumps the version should not read as a test that
     // has to be edited to keep passing.
-    $card = "shares/{$token}/".ShareCardFormat::Unfurl->filename();
+    $card = "shares/{$token}/".ShareCardRenderer::filename(ShareCardFormat::Unfurl);
 
     $this->get(route('share.card', ['token' => $token, 'format' => 'og']))->assertOk();
     expect(Storage::disk('photos')->exists($card))->toBeTrue();

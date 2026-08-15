@@ -33,14 +33,14 @@ It needs Node **and a Chrome binary**. Laravel Cloud has no Chrome binary, and g
 So `App\Services\ShareCardComposer` draws the card with Intervention over GD, which is already the photo pipeline. The costs are real and worth knowing:
 
 - **Layout is arithmetic.** Everything scales off the card's width, so the wide unfurl and the tall portrait share one routine.
-- **No emoji.** GD renders one TTF at a time and has no colour-glyph support, so an emoji comes out as a hollow box. `ShareCard` carries no emoji by construction. The flame after the streak is a picture rather than a character: `resources/images/flame.png` is the PWA icon with its flat ground keyed out, so the card ends "14 de agosto · 12 🔥" without ever asking GD to draw a 🔥. The share _text_ may carry emoji — that is text in WhatsApp, not a glyph anyone has to draw.
-- **The fonts and the flame are committed.** `resources/fonts/` holds Anton and Archivo as TTF because FreeType cannot read a woff2 and `@fontsource` ships nothing else; both are OFL. `resources/images/flame.png` is there for the same reason — the brand mark is an SVG, and nothing in the pipeline can rasterise one.
+- **No emoji.** GD renders one TTF at a time and has no colour-glyph support, so an emoji comes out as a hollow box. `ShareCard` carries no emoji by construction. The flame after the streak is a picture rather than a character, so the card ends "14 de agosto · 12 🔥" without ever asking GD to draw a 🔥. The share _text_ may carry emoji — that is text in WhatsApp, not a glyph anyone has to draw.
+- **The fonts and the flame are committed.** `resources/fonts/` holds Anton and Archivo as TTF because FreeType cannot read a woff2 and `@fontsource` ships nothing else; both are OFL. `resources/images/flame.png` is committed for the same reason a deploy never rasterises the app icons: it comes from `resources/branding/flame.svg` — the mark with no ground behind it, trimmed to its own ink — through the `rsvg-convert` line `scripts/branding.sh` already runs for everything else. Change the mark and one script re-cuts the icons, the splashes and the card's flame together, which is the point: the share card is the only one of them anybody outside the group ever sees.
 
 ## What the card says, and what it stopped saying
 
 A mark's card is the goal name, as loud as it fits, over the day it was marked and the streak beside it — a number in ember, then the flame. That is all of it.
 
-The streak is written the same way everywhere now: `x-flame` puts the number before the mark on the feed, the goal card and the share page, because "12 🔥" is how somebody would type it into the chat this is competing with.
+A member's own streak is written the same way everywhere now: `x-flame` puts the number before the mark on the feed, the goal card and the share page, because "12 🔥" is how somebody would type it into the chat this is competing with. The month recap is the exception, and stays one — its best-streak line names a person as well as a count, so it reads as the sentence it is rather than as a number with a flame after it.
 
 Three things came off, and each was saying something the card's own reader already knew:
 

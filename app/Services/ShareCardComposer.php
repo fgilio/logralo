@@ -39,6 +39,23 @@ use Throwable;
  */
 final readonly class ShareCardComposer
 {
+    /**
+     * The version of everything below, and half of a rendered card's filename.
+     *
+     * Bump it whenever this class changes what it draws. A card is composed
+     * once and kept: `ShareCardRenderer` hands back whatever is already on the
+     * disk without asking whether this would still draw the same thing, so
+     * without a bump a redesign reaches new shares only — every link anybody
+     * has already sent keeps unfurling the old picture, in the chats where this
+     * feature actually lives.
+     *
+     * It goes in the filename rather than the directory because revoking is a
+     * `deleteDirectory` on the share token, and that has to take every version
+     * of the card with it: a stale copy left behind after a revoke is a private
+     * photo still sitting in the bucket.
+     */
+    public const int DESIGN = 2;
+
     /** The warm charcoal the app sits on, for cards with no photo. */
     private const string GROUND = '#0f0a07';
 
@@ -246,8 +263,9 @@ final readonly class ShareCardComposer
      *
      * A picture rather than a character, for the same reason the whole card is
      * one: GD draws a single TTF at a time with no colour-glyph support, so an
-     * emoji comes out a hollow box. `resources/images/flame.png` is the app
-     * icon with its ground keyed out, committed like the fonts are.
+     * emoji comes out a hollow box. `resources/images/flame.png` is cut from
+     * the same mark as the app icons, by the same `scripts/branding.sh`, and
+     * committed like the fonts are.
      */
     private function flame(ImageInterface $canvas, int $x, int $middle, int $size): void
     {

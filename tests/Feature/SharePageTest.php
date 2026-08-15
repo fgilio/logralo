@@ -7,6 +7,7 @@ use App\Models\Goal;
 use App\Models\Mark;
 use App\Models\MonthlyRecap;
 use App\Models\User;
+use App\Services\ShareCardRenderer;
 use Illuminate\Support\Facades\Storage;
 
 /**
@@ -140,7 +141,7 @@ it('renders the card image and keeps it', function (): void {
 
     // Composed once and cached on the photo disk, because an unfurl is fetched
     // whenever a chat client feels like it.
-    expect(Storage::disk('photos')->exists("shares/{$mark->share_token}/".ShareCardFormat::Unfurl->filename()))->toBeTrue();
+    expect(Storage::disk('photos')->exists("shares/{$mark->share_token}/".ShareCardRenderer::filename(ShareCardFormat::Unfurl)))->toBeTrue();
 });
 
 it('does not keep serving a card an older design drew', function (): void {
@@ -184,7 +185,7 @@ it('renders the portrait card for sending the image', function (): void {
 
     $this->get(route('share.card', ['token' => $mark->share_token, 'format' => 'portrait']))->assertOk();
 
-    expect(Storage::disk('photos')->exists("shares/{$mark->share_token}/".ShareCardFormat::Portrait->filename()))->toBeTrue();
+    expect(Storage::disk('photos')->exists("shares/{$mark->share_token}/".ShareCardRenderer::filename(ShareCardFormat::Portrait)))->toBeTrue();
 });
 
 it('refuses a card format it does not draw', function (): void {
