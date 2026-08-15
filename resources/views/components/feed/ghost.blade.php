@@ -27,6 +27,7 @@
         <p
             aria-hidden="true"
             class="max-w-full px-1 text-center text-caption tracking-wide text-zinc-600 uppercase dark:text-zinc-400"
+            data-test="ghost-caption"
         >
             {{ $caption }}
         </p>

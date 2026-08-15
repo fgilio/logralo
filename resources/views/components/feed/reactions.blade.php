@@ -63,7 +63,7 @@
     @endif
 
     @if ($interactive)
-        {{-- The ring stays 24px so it fits a row; the finger gets 44. --}}
+        {{-- The ring stays 24px so it fits a row. The finger gets 44. --}}
         <button
             type="button"
             x-on:pointerdown.stop

@@ -42,8 +42,6 @@
         <x-flame :days="$entry->streak" size="sm" class="shrink-0" />
     </div>
 
-    {{-- A labelled pill beside the name would leave nothing of the name on a
-         narrow phone, so sharing sits at the foot of the card. --}}
     <div
         @class([
             'pointer-events-none absolute inset-x-0 bottom-0 flex items-center justify-between gap-2 px-3 pt-8 pb-3',
@@ -57,8 +55,6 @@
 </div>
 
 @if ($mark->note !== null)
-    {{-- The one place a card is taller than its rung: the note gets a band
-         rather than a corner of the photo. --}}
     <p
         x-data="{ full: false }"
         x-on:pointerdown.stop

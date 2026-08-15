@@ -5,9 +5,10 @@
 {{-- Built on first open rather than left hidden: five buttons on every card of
      every day is most of the feed's DOM, and none of it is on screen. --}}
 <template x-if="showing">
+    {{-- No x-transition: it needs an x-show to drive it, and x-if is what
+         keeps the bar out of the DOM until it is asked for. --}}
     <div
         id="reactions-bar-{{ $mark->id }}"
-        x-transition
         x-on:pointerdown.stop
         x-on:click.outside="close()"
         x-on:keydown.escape.window="close()"

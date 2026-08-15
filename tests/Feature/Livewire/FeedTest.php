@@ -371,7 +371,7 @@ it('drops the ghost count on a row, where there is no line for it', function ():
     $html = Livewire::actingAs($user)->test('feed')->html();
 
     expect(feedLadder($html))->toBe([3, 2, 1])
-        ->and(mb_substr_count($html, 'sin foto ·'))->toBe(2);
+        ->and(mb_substr_count($html, 'data-test="ghost-caption"'))->toBe(2);
 });
 
 it('keys every card, and gives it the id a shared link lands on', function (): void {

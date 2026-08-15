@@ -26,9 +26,8 @@
     x-on:click.capture="onClick($event)"
     x-on:reaction-bar-opened.window="$event.detail !== markId && close()"
     {{ $attributes->class(['tap-target feed-card relative overflow-hidden rounded-2xl bg-white shadow-sm ring-1 ring-zinc-200/80 dark:bg-white/5 dark:ring-white/10']) }}
-    {{-- The compositor decides at the first move whether it is panning, and
-         nothing after that wins the gesture back. Vertical is the page's,
-         sideways along the bar is the picker's. --}}
+    {{-- The compositor decides at the first move and nothing wins it back
+         after that. Vertical is the page's, sideways is the picker's. --}}
     style="--card-height: {{ $height }}; touch-action: pan-y"
     data-rung="{{ $rung }}"
 >

@@ -19,8 +19,6 @@
 @endphp
 
 @if ($fill)
-    {{-- Fills whatever box it is dropped into, which has to say how wide it
-         really is: the default assumes half a phone. --}}
     <picture
         {{ $attributes->class(['absolute inset-0 block size-full overflow-hidden bg-zinc-200 dark:bg-zinc-900']) }}
     >
