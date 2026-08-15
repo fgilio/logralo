@@ -12,6 +12,7 @@ use App\Services\PhotoProcessor;
 use App\Services\PhotoRule;
 use App\Services\StreakCalculator;
 use App\Services\StreakMilestone;
+use App\ValueObjects\MarkHistory;
 use App\ValueObjects\PhotoLinks;
 use Carbon\CarbonImmutable;
 use Flux\Flux;

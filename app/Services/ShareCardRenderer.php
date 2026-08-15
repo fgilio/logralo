@@ -52,7 +52,7 @@ final readonly class ShareCardRenderer
         // chat the link was pasted into. An empty read composes instead.
         $cached = $disk->exists($path) ? $disk->get($path) : null;
 
-        if (is_string($cached) && $cached !== '') {
+        if ($cached !== null && $cached !== '') {
             return $cached;
         }
 

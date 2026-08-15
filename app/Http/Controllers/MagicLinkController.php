@@ -12,6 +12,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Context;
 use Illuminate\Support\Facades\Log;
+use Throwable;
 
 /**
  * Joining the group from the link sent over WhatsApp.
@@ -96,10 +97,9 @@ final class MagicLinkController
         return hash_equals($user->magic_link_token, hash('sha256', $token));
     }
 
-    private function reject(string $step): RedirectResponse
+    /** The one answer every rejection gets, whichever kind it was. */
+    private function deadLink(): RedirectResponse
     {
-        Log::warning('magic_link.rejected', ['reason' => 'token_invalid_or_used', 'step' => $step]);
-
         return to_route('login')
             ->with('status', 'Ese enlace ya no sirve. Entrá con tu email y contraseña.');
     }

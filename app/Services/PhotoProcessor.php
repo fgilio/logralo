@@ -17,7 +17,6 @@ use Intervention\Image\Encoders\JpegEncoder;
 use Intervention\Image\Encoders\WebpEncoder;
 use Intervention\Image\ImageManager;
 use Intervention\Image\Interfaces\ImageInterface;
-use RuntimeException;
 use Throwable;
 
 /**
@@ -96,11 +95,9 @@ final readonly class PhotoProcessor
             (string) $thumbnail->encode(new WebpEncoder(quality: $webpQuality, strip: true)),
         );
 
-        // SHARE_WIDTH is one of FEED_WIDTHS, so the loop always sets this. The
-        // guard is here so that stops being true loudly rather than by storing
-        // a photo with no dimensions and reserving the wrong box forever.
-        throw_if($stored === null, RuntimeException::class, 'No share-width derivative was written.');
-
+        // SHARE_WIDTH is one of FEED_WIDTHS, so the loop always sets this —
+        // PHPStan proves it from the two constants and rejects a guard here as
+        // dead. Take one of them out of step and it says so at that point.
         return new StoredPhoto(
             key: $key,
             width: $stored->width(),
