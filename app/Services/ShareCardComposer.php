@@ -54,7 +54,7 @@ final readonly class ShareCardComposer
      * of the card with it: a stale copy left behind after a revoke is a private
      * photo still sitting in the bucket.
      */
-    public const int DESIGN = 2;
+    public const int DESIGN = 3;
 
     /** The warm charcoal the app sits on, for cards with no photo. */
     private const string GROUND = '#0f0a07';

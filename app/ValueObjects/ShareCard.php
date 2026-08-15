@@ -23,7 +23,8 @@ final readonly class ShareCard
      * @param  string|null  $badge  the accent pill above it
      * @param  string  $byline  when, under the title
      * @param  int|null  $streak  drawn in ember at the end of the byline, with
-     *                            the flame after it
+     *                            the flame after it; null only for a card that
+     *                            counts no days at all, which is the recap
      * @param  array<string, string>  $stats  label to value, drawn as a row of
      *                                        small blocks; the recap's podium
      */
