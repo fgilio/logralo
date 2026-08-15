@@ -6,9 +6,15 @@
 
     // Reached only through a live token, so the card and the link are never
     // null here — `SharedEntry` matches on `share_token` and revoking clears it.
+    //
+    // The unfurl is the picture and nothing else. The card already says the
+    // goal, the day and the streak, so a title repeating it and a description
+    // pitching the app were two lines of grey under a photo that had already
+    // made the point. Only the site name stays, which is what tells the reader
+    // where the link goes.
     $og = [
-        'title' => $entry->shareTitle(),
-        'description' => $entry->shareDescription(),
+        'title' => 'Logralo',
+        'description' => '',
         'image' => $shareable->shareCardUrl(),
         'type' => 'article',
         'url' => $entry->shareUrl(),
@@ -23,7 +29,9 @@
      in, and the photos blaze out of the charcoal. --}}
 <html lang="es" class="dark scroll-smooth">
     <head>
-        @include('partials.head', ['og' => $og, 'title' => $og['title']])
+        {{-- The tab still names what the reader is looking at; only the unfurl
+             goes quiet. --}}
+        @include('partials.head', ['og' => $og, 'title' => $entry->shareTitle()])
     </head>
 
     <body class="min-h-dvh bg-zinc-950 font-sans text-zinc-100 antialiased">
@@ -57,11 +65,16 @@
                     </flux:button>
 
                     @if ($shareable->isManagedBy($member))
+                        {{-- Spelled out rather than run through Str::plural:
+                             that is an English inflector, and asking it for the
+                             plural of "vez" got "7 7 vezs" — its third argument
+                             is prependCount, not the plural form. --}}
                         <p class="mt-6 text-xs text-zinc-500">
                             Cualquiera con este link ve esta página.
-                            @if ($shareable->share_views > 0)
-                                La abrieron {{ $shareable->share_views }}
-                                {{ Str::plural('vez', $shareable->share_views, 'veces') }}.
+                            @if ($shareable->share_views === 1)
+                                La abrieron una vez.
+                            @elseif ($shareable->share_views > 1)
+                                La abrieron {{ $shareable->share_views }} veces.
                             @endif
                         </p>
 

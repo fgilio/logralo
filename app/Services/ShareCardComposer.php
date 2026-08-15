@@ -22,8 +22,9 @@ use Throwable;
  *
  * A link on its own unfurls as whatever the page's `og:image` points at, so
  * this is the difference between "🔥 Ginasio — Logralo" over a grey login tile
- * and a full-bleed photo with the streak burned into the corner. It is the one
- * artefact of this app that people outside the group ever see.
+ * and a full-bleed photo with the goal shouted across it and the streak burned
+ * in underneath. It is the one artefact of this app that people outside the
+ * group ever see.
  *
  * Drawn with GD through Intervention, deliberately, rather than by
  * screenshotting a Blade view: headless Chrome would mean shipping a Chromium
@@ -38,6 +39,23 @@ use Throwable;
  */
 final readonly class ShareCardComposer
 {
+    /**
+     * The version of everything below, and half of a rendered card's filename.
+     *
+     * Bump it whenever this class changes what it draws. A card is composed
+     * once and kept: `ShareCardRenderer` hands back whatever is already on the
+     * disk without asking whether this would still draw the same thing, so
+     * without a bump a redesign reaches new shares only — every link anybody
+     * has already sent keeps unfurling the old picture, in the chats where this
+     * feature actually lives.
+     *
+     * It goes in the filename rather than the directory because revoking is a
+     * `deleteDirectory` on the share token, and that has to take every version
+     * of the card with it: a stale copy left behind after a revoke is a private
+     * photo still sitting in the bucket.
+     */
+    public const int DESIGN = 2;
+
     /** The warm charcoal the app sits on, for cards with no photo. */
     private const string GROUND = '#0f0a07';
 
@@ -175,7 +193,7 @@ final readonly class ShareCardComposer
     private function words(ImageInterface $canvas, ShareCard $card, int $width, int $height): void
     {
         $pad = (int) ($width * 0.058);
-        $titleSize = (int) ($width * 0.075);
+        $titleSize = (int) ($width * 0.088);
         $badgeSize = (int) ($width * 0.028);
         $bylineSize = (int) ($width * 0.024);
 
@@ -185,23 +203,98 @@ final readonly class ShareCardComposer
             $baseline = $this->stats($canvas, $card->stats, $pad, $baseline, $width);
         }
 
-        $this->write($canvas, $card->byline, $pad, $baseline, $bylineSize, 'rgba(255, 255, 255, 0.72)', $this->body());
+        $this->byline($canvas, $card->byline, $card->streak, $pad, $baseline, $bylineSize);
         $baseline -= (int) ($bylineSize * 1.9);
+
+        $display = $this->display();
 
         // Anton is drawn uppercase because it has no lowercase worth reading at
         // this size, and because a shout is the point.
-        $this->write($canvas, Str::upper($card->title), $pad, $baseline, $titleSize, '#ffffff', $this->display());
+        $title = Str::upper($card->title);
+        $titleSize = $this->fit($title, $titleSize, $width - $pad * 2, $display);
+
+        $this->write($canvas, $title, $pad, $baseline, $titleSize, '#ffffff', $display);
 
         // Anton's caps fill the whole em and the accented ones overshoot it,
         // so a single line of clearance puts Í straight through the badge.
         $baseline -= (int) ($titleSize * 1.38);
 
         if ($card->badge !== null) {
-            $this->write($canvas, Str::upper($card->badge), $pad, $baseline, $badgeSize, self::EMBER, $this->display(), tracking: 3);
+            $this->write($canvas, Str::upper($card->badge), $pad, $baseline, $badgeSize, self::EMBER, $display, tracking: 3);
             $this->rule($canvas, $pad, $baseline - (int) ($badgeSize * 1.5), $width);
         }
+    }
 
-        $this->wordmark($canvas, $width, $pad);
+    /**
+     * The quiet line under the title: the day, and the streak beside it.
+     *
+     * The streak sits here rather than in the badge above the title because
+     * the two would otherwise say the same thing twice, and because the date
+     * on its own left the card's most interesting number off it. Ember, since
+     * that is where the flame lives on a card GD cannot draw an emoji on.
+     */
+    private function byline(ImageInterface $canvas, string $byline, ?int $streak, int $pad, int $baseline, int $size): void
+    {
+        $body = $this->body();
+
+        $this->write($canvas, $byline, $pad, $baseline, $size, 'rgba(255, 255, 255, 0.72)', $body);
+
+        if ($streak === null) {
+            return;
+        }
+
+        // Measured rather than guessed: "3 de mayo" and "28 de septiembre" are
+        // most of a card's width apart.
+        $bold = $this->bodyBold();
+        $run = '· '.$streak;
+        $x = $pad + $this->advance($byline, $size, $body) + (int) ($size * 0.5);
+
+        $this->write($canvas, $run, $x, $baseline, $size, self::EMBER, $bold);
+
+        // One measurement, both numbers off it: where the pen ended up, and
+        // where the middle of the digits is for the flame to line up with.
+        $ink = $this->ink($run, $size, $bold);
+
+        $this->flame($canvas, $x + $ink['advance'] + (int) ($size * 0.4), $baseline + $ink['middle'], $size);
+    }
+
+    /**
+     * The brand flame, sitting after the streak the way 🔥 would.
+     *
+     * A picture rather than a character, for the same reason the whole card is
+     * one: GD draws a single TTF at a time with no colour-glyph support, so an
+     * emoji comes out a hollow box. `resources/images/flame.png` is cut from
+     * the same mark as the app icons, by the same `scripts/branding.sh`, and
+     * committed like the fonts are.
+     */
+    private function flame(ImageInterface $canvas, int $x, int $middle, int $size): void
+    {
+        // A shade taller than the digits beside it, which is how an icon reads
+        // as an icon rather than as a letter that went wrong. Centred on their
+        // ink and not stood on the baseline: the flame is the taller of the
+        // two, so sharing a floor left it hanging above the number.
+        $height = (int) ($size * 1.3);
+
+        $canvas->insert(
+            $this->images->decodePath($this->asset('images/flame.png'))->scale(height: $height),
+            $x,
+            $middle - (int) ($height / 2),
+        );
+    }
+
+    /**
+     * The largest size at or below `$size` whose line still fits `$max` wide.
+     *
+     * A goal name is allowed forty characters, and Anton at the size a
+     * three-letter one wants runs "Natación por la mañana" clean off the edge.
+     */
+    private function fit(string $text, int $size, int $max, string $font): int
+    {
+        $measured = $this->advance($text, $size, $font);
+
+        // FreeType scales linearly, so one measurement gives the whole ratio
+        // and there is nothing to iterate towards.
+        return $measured <= $max ? $size : max(12, (int) ($size * $max / $measured));
     }
 
     /**
@@ -250,19 +343,6 @@ final readonly class ShareCardComposer
         });
     }
 
-    /** "LOGRALO", top right, so the card is recognisable at thumbnail size. */
-    private function wordmark(ImageInterface $canvas, int $width, int $pad): void
-    {
-        $size = (int) ($width * 0.026);
-
-        $canvas->text('LOGRALO', $width - $pad, $pad + $size, function (FontFactory $font) use ($size): void {
-            $font->filename($this->display());
-            $font->size($size);
-            $font->color('rgba(255, 255, 255, 0.82)');
-            $font->align('right', 'bottom');
-        });
-    }
-
     /**
      * One line of text on its baseline.
      *
@@ -302,12 +382,34 @@ final readonly class ShareCardComposer
         }
     }
 
-    /** How far the pen moves after drawing one character, in pixels. */
-    private function advance(string $character, int $size, string $font): int
+    /** How far the pen moves after drawing this much text, in pixels. */
+    private function advance(string $text, int $size, string $font): int
     {
-        $box = imagettfbbox($size, 0, $font, $character);
+        return $this->ink($text, $size, $font)['advance'];
+    }
 
-        return $box === false ? $size : (int) ($box[2] - $box[0]);
+    /**
+     * One line, measured once: how far the pen moves drawing it, and how far
+     * above its baseline the middle of the ink sits.
+     *
+     * The middle comes out negative, since a bounding box measures upwards from
+     * the baseline. It is the middle of what the eye actually sees rather than
+     * of the em the font reserves — digits have no descender and Archivo's caps
+     * do not overshoot — which is what the flame is centred on.
+     *
+     * Both numbers come off the same box because shaping the same string twice
+     * to read two of its corners is the kind of thing that quietly stops being
+     * the same string.
+     *
+     * @return array{advance: int, middle: int}
+     */
+    private function ink(string $text, int $size, string $font): array
+    {
+        $box = imagettfbbox($size, 0, $font, $text);
+
+        return $box === false
+            ? ['advance' => $size, 'middle' => (int) (-$size * 0.35)]
+            : ['advance' => (int) ($box[2] - $box[0]), 'middle' => (int) (($box[1] + $box[7]) / 2)];
     }
 
     private function display(): string
@@ -332,10 +434,22 @@ final readonly class ShareCardComposer
      */
     private function font(string $name): string
     {
-        $path = resource_path('fonts/'.$name);
+        return $this->asset('fonts/'.$name);
+    }
 
-        throw_if(! File::exists($path), RuntimeException::class, "Missing share card font: {$name}");
+    /**
+     * Something the card is drawn with, committed to the repository.
+     *
+     * Losing one of these breaks every share card and nothing else, which is
+     * exactly the kind of break nobody notices locally — so it raises here
+     * rather than drawing a card with a hole in it.
+     */
+    private function asset(string $path): string
+    {
+        $full = resource_path($path);
 
-        return $path;
+        throw_if(! File::exists($full), RuntimeException::class, "Missing share card asset: {$path}");
+
+        return $full;
     }
 }

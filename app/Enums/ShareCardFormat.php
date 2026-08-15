@@ -32,10 +32,4 @@ enum ShareCardFormat: string
             self::Portrait => 1350,
         };
     }
-
-    /** The name the derivative is stored under, and the one the sheet sends. */
-    public function filename(): string
-    {
-        return "{$this->value}.jpg";
-    }
 }

@@ -71,7 +71,7 @@ final readonly class RecapEntry implements FeedEntry
         );
     }
 
-    /** The headline the share page and the unfurl's `og:title` both use. */
+    /** The browser tab, for whoever opens the link. */
     public function shareTitle(): string
     {
         $champion = $this->winnerNames();
@@ -79,11 +79,6 @@ final readonly class RecapEntry implements FeedEntry
         return $champion === ''
             ? "Cerró {$this->monthName()}"
             : "Ganó {$champion} en {$this->monthName()}";
-    }
-
-    public function shareDescription(): string
-    {
-        return 'Cómo terminó el mes en Logralo.';
     }
 
     /** A month has no row in the feed to scroll to. */

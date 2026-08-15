@@ -36,11 +36,14 @@ interface FeedEntry
      */
     public function shareText(): string;
 
-    /** The share page's headline, and the unfurl's `og:title`. */
+    /**
+     * The share page's `<title>`, for the tab of whoever opens it.
+     *
+     * Not the unfurl's `og:title`: the preview's picture already carries the
+     * goal, the day and the streak, and repeating them underneath it in two
+     * lines of grey was the noise this replaced.
+     */
     public function shareTitle(): string;
-
-    /** What the preview says under the headline. */
-    public function shareDescription(): string;
 
     /**
      * The fragment "Abrir en Logralo" appends, so a member arriving from the

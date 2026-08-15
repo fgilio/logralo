@@ -84,7 +84,7 @@
         </div>
     @endif
 
-    @if ($mark->note !== null)
+    @if (filled($mark->note))
         <p class="px-3 pt-3 text-sm text-zinc-700 dark:text-zinc-200">{{ $mark->note }}</p>
     @endif
 
@@ -125,7 +125,9 @@
                     title="Gente que abrió el link que compartiste"
                     data-test="share-views"
                 >
-                    {{ $mark->share_views }} {{ Str::plural('visita', $mark->share_views) }}
+                    {{-- Spelled out rather than inflected, for the reason
+                         share/show.blade.php gives. --}}
+                    {{ $mark->share_views }} {{ $mark->share_views === 1 ? 'visita' : 'visitas' }}
                 </span>
             @endif
 

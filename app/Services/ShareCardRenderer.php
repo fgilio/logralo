@@ -17,6 +17,10 @@ use App\ValueObjects\ShareCard;
  * Rendering is lazy, on the first request for the card rather than when the
  * mark is made. Most marks are never shared, and composing every one of them
  * would double the work the camera button does for nothing.
+ *
+ * A card already on the disk is returned as it is, without asking the composer
+ * whether it would still draw that — which is why the composer's design version
+ * is part of the filename. See `ShareCardComposer::DESIGN`.
  */
 final readonly class ShareCardRenderer
 {
@@ -25,13 +29,19 @@ final readonly class ShareCardRenderer
         private PhotoProcessor $photos,
     ) {}
 
+    /** What a card of this format is stored as, for the design drawing it now. */
+    public static function filename(ShareCardFormat $format): string
+    {
+        return $format->value.'-'.ShareCardComposer::DESIGN.'.jpg';
+    }
+
     /**
      * @param  string|null  $photoKey  the mark's photo directory, or null for a
      *                                 ghost mark or a month recap
      */
     public function render(string $directory, ShareCardFormat $format, ShareCard $card, ?string $photoKey = null): string
     {
-        $path = "{$directory}/{$format->filename()}";
+        $path = $directory.'/'.self::filename($format);
         $disk = $this->photos->disk();
 
         if ($disk->exists($path)) {

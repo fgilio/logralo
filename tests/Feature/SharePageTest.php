@@ -2,10 +2,12 @@
 
 declare(strict_types=1);
 
+use App\Enums\ShareCardFormat;
 use App\Models\Goal;
 use App\Models\Mark;
 use App\Models\MonthlyRecap;
 use App\Models\User;
+use App\Services\ShareCardRenderer;
 use Illuminate\Support\Facades\Storage;
 
 /**
@@ -64,11 +66,37 @@ it('gives the crawler an image to draw', function (): void {
         ->assertSee(route('share.card', ['token' => $mark->share_token, 'format' => 'og']), escape: false);
 });
 
-it('names the person in the title the crawler reads', function (): void {
+it('leaves the unfurl to the picture', function (): void {
     $mark = sharedMark();
 
-    // "🔥 Gimnasio — Logralo" told the chat nothing about who had been.
-    $this->get("/l/{$mark->share_token}")->assertSee('Guido', escape: false);
+    // The card already says the goal, the day and the streak. A title naming
+    // the sender and a description pitching the app were two lines of grey
+    // under a photo that had already made the point.
+    $this->get("/l/{$mark->share_token}")
+        ->assertSee('property="og:title" content="Logralo"', escape: false)
+        ->assertDontSee('og:description', escape: false);
+});
+
+it('counts the opens in Spanish', function (): void {
+    $mark = sharedMark();
+    $mark->forceFill(['share_views' => 7])->save();
+
+    // Str::plural is an English inflector, and its third argument is
+    // prependCount rather than the plural form, which is how this line shipped
+    // reading "La abrieron 7 7 vezs".
+    $this->actingAs($mark->user)
+        ->get("/l/{$mark->share_token}")
+        ->assertSee('La abrieron 7 veces.')
+        ->assertDontSee('vezs');
+});
+
+it('counts a single open in the singular', function (): void {
+    $mark = sharedMark();
+    $mark->forceFill(['share_views' => 1])->save();
+
+    $this->actingAs($mark->user)
+        ->get("/l/{$mark->share_token}")
+        ->assertSee('La abrieron una vez.');
 });
 
 it('shows a stranger the group, not a login form', function (): void {
@@ -113,7 +141,23 @@ it('renders the card image and keeps it', function (): void {
 
     // Composed once and cached on the photo disk, because an unfurl is fetched
     // whenever a chat client feels like it.
-    expect(Storage::disk('photos')->exists("shares/{$mark->share_token}/og.jpg"))->toBeTrue();
+    expect(Storage::disk('photos')->exists("shares/{$mark->share_token}/".ShareCardRenderer::filename(ShareCardFormat::Unfurl)))->toBeTrue();
+});
+
+it('does not keep serving a card an older design drew', function (): void {
+    Storage::fake('photos');
+
+    $mark = sharedMark();
+
+    // What the previous design left on the disk, under the name that design
+    // stored it as. Cards are composed once and kept, so without a version in
+    // the name every link already sent to a chat would unfurl this forever.
+    Storage::disk('photos')->put("shares/{$mark->share_token}/og.jpg", 'drawn last year');
+
+    $response = $this->get(route('share.card', ['token' => $mark->share_token, 'format' => 'og']));
+
+    $response->assertOk()->assertHeader('content-type', 'image/jpeg');
+    expect($response->getContent())->not->toBe('drawn last year');
 });
 
 it('never lets a cache outlive a revoked card', function (): void {
@@ -141,7 +185,7 @@ it('renders the portrait card for sending the image', function (): void {
 
     $this->get(route('share.card', ['token' => $mark->share_token, 'format' => 'portrait']))->assertOk();
 
-    expect(Storage::disk('photos')->exists("shares/{$mark->share_token}/portrait.jpg"))->toBeTrue();
+    expect(Storage::disk('photos')->exists("shares/{$mark->share_token}/".ShareCardRenderer::filename(ShareCardFormat::Portrait)))->toBeTrue();
 });
 
 it('refuses a card format it does not draw', function (): void {

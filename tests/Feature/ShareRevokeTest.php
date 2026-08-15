@@ -4,9 +4,11 @@ declare(strict_types=1);
 
 use App\Actions\RecordShareVisit;
 use App\Actions\ResumeSharing;
+use App\Enums\ShareCardFormat;
 use App\Models\Goal;
 use App\Models\Mark;
 use App\Models\User;
+use App\Services\ShareCardRenderer;
 use Illuminate\Support\Facades\Storage;
 
 /**
@@ -33,13 +35,18 @@ it('kills the link and the rendered card', function (): void {
     $mark = markFor($user);
     $token = (string) $mark->share_token;
 
+    // Asked for by name rather than spelled out: the design version is part of
+    // it, so a redesign that bumps the version should not read as a test that
+    // has to be edited to keep passing.
+    $card = "shares/{$token}/".ShareCardRenderer::filename(ShareCardFormat::Unfurl);
+
     $this->get(route('share.card', ['token' => $token, 'format' => 'og']))->assertOk();
-    expect(Storage::disk('photos')->exists("shares/{$token}/og.jpg"))->toBeTrue();
+    expect(Storage::disk('photos')->exists($card))->toBeTrue();
 
     $this->actingAs($user)->post(route('share.revoke', $token))->assertRedirect(route('today'));
 
     expect($mark->refresh()->share_token)->toBeNull()
-        ->and(Storage::disk('photos')->exists("shares/{$token}/og.jpg"))->toBeFalse();
+        ->and(Storage::disk('photos')->exists($card))->toBeFalse();
 
     $this->get("/l/{$token}")->assertNotFound();
     $this->get(route('share.card', ['token' => $token, 'format' => 'og']))->assertNotFound();

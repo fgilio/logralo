@@ -33,8 +33,30 @@ It needs Node **and a Chrome binary**. Laravel Cloud has no Chrome binary, and g
 So `App\Services\ShareCardComposer` draws the card with Intervention over GD, which is already the photo pipeline. The costs are real and worth knowing:
 
 - **Layout is arithmetic.** Everything scales off the card's width, so the wide unfurl and the tall portrait share one routine.
-- **No emoji.** GD renders one TTF at a time and has no colour-glyph support, so an emoji comes out as a hollow box. `ShareCard` carries no emoji by construction; the flame is the badge's colour instead of a character. The share _text_ may carry emoji — that is text in WhatsApp, not a glyph anyone has to draw.
-- **The fonts are committed.** `resources/fonts/` holds Anton and Archivo as TTF because FreeType cannot read a woff2 and `@fontsource` ships nothing else. Both are OFL.
+- **No emoji.** GD renders one TTF at a time and has no colour-glyph support, so an emoji comes out as a hollow box. `ShareCard` carries no emoji by construction. The flame after the streak is a picture rather than a character, so the card ends "14 de agosto · 12 🔥" without ever asking GD to draw a 🔥. The share _text_ may carry emoji — that is text in WhatsApp, not a glyph anyone has to draw.
+- **The fonts and the flame are committed.** `resources/fonts/` holds Anton and Archivo as TTF because FreeType cannot read a woff2 and `@fontsource` ships nothing else; both are OFL. `resources/images/flame.png` is committed for the same reason a deploy never rasterises the app icons: it comes from `resources/branding/flame.svg` — the mark with no ground behind it, trimmed to its own ink — through the `rsvg-convert` line `scripts/branding.sh` already runs for everything else. Change the mark and one script re-cuts the icons, the splashes and the card's flame together, which is the point: the share card is the only one of them anybody outside the group ever sees.
+
+## What the card says, and what it stopped saying
+
+A mark's card is the goal name, as loud as it fits, over the day it was marked and the streak beside it — a number in ember, then the flame. That is all of it.
+
+A member's own streak is written the same way everywhere now: `x-flame` puts the number before the mark on the feed, the goal card and the share page, because "12 🔥" is how somebody would type it into the chat this is competing with. The month recap is the exception, and stays one — its best-streak line names a person as well as a count, so it reads as the sentence it is rather than as a number with a flame after it.
+
+Three things came off, and each was saying something the card's own reader already knew:
+
+- **The wordmark.** "LOGRALO" in the top corner was branding a picture that arrives under a link to `logralo.fgilio.com`, in a chat where the same card has landed a dozen times. The site name is in the unfurl; it does not need to be in the photo too.
+- **The member's name.** It is sent by the person who earned it, into a group of five who know each other, and the photo is usually of them. `share/partials/mark.blade.php` still names them on the page itself, where a stranger who followed the link needs it.
+- **The badge.** It carried the streak, above a title, which is where the streak now sits beside the date. A card saying "12 días seguidos" twice reads as a bug. The recap keeps its badge, because "Cerró el mes" is not repeated anywhere else on it.
+
+The title is drawn at 8.8% of the card's width, and shrunk from there if it would not fit. A goal name is allowed forty characters, and Anton at the size "Leer" wants would run "Natación por la mañana antes del trabajo" off the edge. FreeType scales linearly, so `fit()` measures once and takes the ratio rather than stepping the size down.
+
+## What goes in the chat
+
+The line above the link is **what the member typed when they marked it**, and only if they typed nothing, `Marqué {goal}`.
+
+"Franco marcó Gimnasio" was a caption written by software, sent by Franco, over a card that already said Gimnasio in ninety-point type. The note is the one part of a share nobody else could have written — it is where the 6am and the rain go — so it is the part that gets sent. The fallback is first person and carries no name, for the same reason the card does not.
+
+The unfurl's own text is then deliberately almost empty: `og:title` is the site name and there is no `og:description` at all. The picture carries the goal, the day and the streak; a title repeating them and a description pitching the app were two lines of grey under something that had already made the point. `partials/head.blade.php` drops the description tags entirely when a page passes an empty one, because an empty `content` attribute is not the same as no tag.
 
 ## The two shapes
 
@@ -44,6 +66,8 @@ So `App\Services\ShareCardComposer` draws the card with Intervention over GD, wh
 | `portrait` | 1080×1350 | the file itself, for a story post or anywhere a preview will not render                       |
 
 Cards render on first request and are cached on the photo disk under `shares/{token}/`, and served from this origin rather than redirected to the bucket: production signs its photo URLs and those expire, while an unfurl is fetched whenever a chat client feels like it.
+
+A card is composed once and kept, and the renderer hands back whatever is on the disk without asking the composer whether it would still draw that. So the file is named `og-{design}.jpg`, after `ShareCardFormat::DESIGN` — the redesign above would otherwise have reached new shares only, while every link already sitting in a chat kept unfurling the wordmark and the member's name. The version is in the filename rather than the directory because revoking is a `deleteDirectory` on the token, and it has to take the older cards with it: one left behind is a private photo still in the bucket. Live shares keep their superseded copies until they are revoked, which costs a few kilobytes and no privacy.
 
 The response itself is `private, no-cache, must-revalidate` with an ETag. `public, immutable` was tempting — the content behind a token really never changes — but a card can carry a private photo, and a CDN or browser holding a year-long copy would keep serving it after revocation, from in front of the lookup that is supposed to stop it. Revocation has to mean something, so every request revalidates and the ETag makes that cost a 304 rather than the bytes. What WhatsApp caches on its own servers after the unfurl is beyond reach, and always was.
 
@@ -74,6 +98,8 @@ The streak it tests is the one **ending on the day that was marked**, not the on
 Only the streak is checked. Taking the lead in the month would be worth celebrating too, but it costs a standings query on the hottest tap in the app.
 
 ## The way back
+
+The page under the picture says each thing once. The goal name was the heading, then the sub-line under the avatar, then the photo's alt text — three times, over a photograph of the thing. It is the heading; the sub-line is the member's name and nothing else, the day is in the header, and the note gets the ember rule, because it is the one line on the page nobody else could have written.
 
 - A member arriving from a link lands on `/#mark-{id}`; the feed card carries that id, and `:target` scrolls and highlights it in CSS with no script.
 - Reactions live on the share page too, so a tap from WhatsApp becomes a reaction without loading the feed. Members react; everyone sees the counts.

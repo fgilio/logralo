@@ -19,10 +19,18 @@
         'url' => url()->current(),
         'type' => 'website',
     ];
+
+    // A page may pass an empty description to say it wants none: the share page
+    // lets its picture do the talking, and an empty content attribute is not
+    // the same as no tag — a crawler prints it as a blank line under the image.
+    $hasDescription = filled($og['description']);
 @endphp
 
 <title>{{ $pageTitle }}</title>
-<meta name="description" content="{{ $og['description'] }}">
+
+@if ($hasDescription)
+    <meta name="description" content="{{ $og['description'] }}">
+@endif
 
 {{-- WhatsApp reads the OpenGraph tags and nothing else. It only draws the
      large preview when og:image is present with its dimensions declared;
@@ -30,7 +38,9 @@
 <meta property="og:site_name" content="Logralo">
 <meta property="og:type" content="{{ $og['type'] }}">
 <meta property="og:title" content="{{ $og['title'] }}">
-<meta property="og:description" content="{{ $og['description'] }}">
+@if ($hasDescription)
+    <meta property="og:description" content="{{ $og['description'] }}">
+@endif
 <meta property="og:url" content="{{ $og['url'] }}">
 <meta property="og:image" content="{{ $og['image'] }}">
 <meta property="og:image:width" content="{{ $og['width'] }}">
@@ -39,7 +49,9 @@
 
 <meta name="twitter:card" content="summary_large_image">
 <meta name="twitter:title" content="{{ $og['title'] }}">
-<meta name="twitter:description" content="{{ $og['description'] }}">
+@if ($hasDescription)
+    <meta name="twitter:description" content="{{ $og['description'] }}">
+@endif
 <meta name="twitter:image" content="{{ $og['image'] }}">
 
 <link rel="manifest" href="/manifest.webmanifest">
