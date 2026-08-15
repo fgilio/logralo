@@ -230,7 +230,11 @@ new class extends Component
     private function after(): void
     {
         $this->reset('photo', 'note');
-        unset($this->mark, $this->streak, $this->requiresPhoto, $this->photoLinks);
+        // `history` belongs in here with the rest: `press()` reads it through
+        // requiresPhoto BEFORE store() writes the mark, so leaving it cached
+        // rerenders the flame off the history from a moment ago and the
+        // streak stays a day behind until some later request clears it.
+        unset($this->mark, $this->history, $this->streak, $this->requiresPhoto, $this->photoLinks);
 
         $this->modal($this->sheetName)->close();
         $this->dispatch('mark-updated');

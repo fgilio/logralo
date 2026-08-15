@@ -38,7 +38,13 @@ final readonly class UnmarkGoal
             }
 
             $photoKey = $mark->photo_key;
-            $cards = $mark->shareCardDirectory();
+
+            // Only while there is a token to build a directory out of.
+            // `shareCardDirectory()` is 'shares/'.$share_token, so on a mark
+            // whose link was already revoked it is the bare parent — and
+            // handing that to `forget()` is a `deleteDirectory('shares/')`
+            // that takes every card in the bucket, everybody's, with it.
+            $cards = $mark->isShareable() ? $mark->shareCardDirectory() : null;
 
             $mark->delete();
 
@@ -48,7 +54,9 @@ final readonly class UnmarkGoal
             // them, so leaving them is the thing `RevokeSharing` exists to
             // prevent — a picture of somebody still on the bucket after the
             // mark it belonged to is gone.
-            $this->cards->forget($cards);
+            if ($cards !== null) {
+                $this->cards->forget($cards);
+            }
 
             Context::add('logralo.outcome', 'completed');
         } catch (UserFacingException $exception) {

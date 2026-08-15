@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 use App\Actions\RecordShareVisit;
 use App\Actions\ResumeSharing;
+use App\Actions\UnmarkGoal;
 use App\Enums\ShareCardFormat;
 use App\Models\Goal;
 use App\Models\Mark;
@@ -50,6 +51,29 @@ it('kills the link and the rendered card', function (): void {
 
     $this->get("/l/{$token}")->assertNotFound();
     $this->get(route('share.card', ['token' => $token, 'format' => 'og']))->assertNotFound();
+});
+
+it('takes only its own cards when an already-revoked mark is undone', function (): void {
+    Storage::fake('photos');
+
+    $author = User::factory()->create();
+    $mine = markFor($author);
+    $mine->forceFill(['marked_on' => $author->clock()->today()->toDateString()])->save();
+
+    $theirs = markFor(User::factory()->create());
+    $keep = "shares/{$theirs->share_token}/".ShareCardRenderer::filename(ShareCardFormat::Unfurl);
+
+    $this->get(route('share.card', ['token' => $theirs->share_token, 'format' => 'og']))->assertOk();
+    expect(Storage::disk('photos')->exists($keep))->toBeTrue();
+
+    // Revoking first is what makes this dangerous: with the token gone,
+    // shareCardDirectory() is the bare 'shares/' parent, and a deleteDirectory
+    // on that would empty the bucket for the whole group.
+    $this->actingAs($author)->post(route('share.revoke', $mine->share_token));
+
+    resolve(UnmarkGoal::class)->handle($mine->refresh());
+
+    expect(Storage::disk('photos')->exists($keep))->toBeTrue();
 });
 
 it('can share again after revoking, on a link that is not the old one', function (): void {
