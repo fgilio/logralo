@@ -11,7 +11,7 @@ use Illuminate\Support\Str;
 /**
  * A mark as it appears in the feed, carrying the flame count it had on its own
  * day rather than the goal's flame today, and the ghost run behind the
- * "2ᵃ vez seguida" line.
+ * "2ᵃ seguida" line.
  */
 final readonly class MarkEntry implements FeedEntry
 {

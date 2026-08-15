@@ -105,4 +105,4 @@ The page under the picture says each thing once. The goal name was the heading, 
 
 - A member arriving from a link lands on `/#mark-{id}`; the feed card carries that id, and `:target` scrolls and highlights it in CSS with no script.
 - Reactions live on the share page too, so a tap from WhatsApp becomes a reaction without loading the feed. Members react; everyone sees the counts.
-- The visit count goes back on the card in the feed, visible only to whoever shared it. Crawlers do not count — WhatsApp fetches a link once to build its preview, and counting that would report a view for every message sent whether or not anyone opened it.
+- The visit count goes back on the card in the feed, visible only to whoever shared it, and only where the card has room for it: the cover and an opened row, not the 2u split card (`docs/architecture/feed-cascade.md`). Crawlers do not count — WhatsApp fetches a link once to build its preview, and counting that would report a view for every message sent whether or not anyone opened it.

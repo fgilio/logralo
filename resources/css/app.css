@@ -42,6 +42,12 @@
     --spacing-safe-t: env(safe-area-inset-top, 0px);
     --spacing-safe-b: env(safe-area-inset-bottom, 0px);
 
+    /* A member's own words on a card, and the captions around them. */
+    --text-note: 13px;
+    --text-note--line-height: 18px;
+    --text-caption: 11px;
+    --text-caption--line-height: 1;
+
     --ease-pop: cubic-bezier(0.34, 1.56, 0.64, 1);
 }
 
@@ -134,9 +140,27 @@
     );
 }
 
+/*
+ * The feed's ladder, and the only place its arithmetic is written down. The
+ * rungs are `static` because a card publishes its own height through an inline
+ * style, which the class scanner cannot see.
+ */
+@theme static {
+    --rung-gap: calc(var(--spacing) * 2);
+    /* A 52px thumbnail plus its air. */
+    --rung-1: calc(var(--spacing) * 19);
+    /* Whole units plus the gap between the cards they replace, so a cover and
+       the three rows it stands in for take up the same run of the page. */
+    --rung-2: calc(2 * var(--rung-1) + var(--rung-gap));
+    --rung-3: calc(3 * var(--rung-1) + 2 * var(--rung-gap));
+    --rung-note: calc(var(--spacing) * 11);
+}
+
 @utility feed-card {
     content-visibility: auto;
-    contain-intrinsic-size: auto 520px;
+    /* Every card publishes the rung it stands on, so a page of rows is not
+       estimated three times too long before it paints. */
+    contain-intrinsic-size: auto var(--card-height, var(--rung-3));
 
     /* Arriving from a shared link lands on /#mark-{id}. The scroll margin
        clears the sticky header, and :target does the highlight in CSS so no
@@ -148,6 +172,18 @@
         outline-offset: 3px;
         animation: logralo-ignite 0.45s var(--ease-pop);
     }
+}
+
+@utility mark-1u {
+    height: var(--rung-1);
+}
+
+@utility mark-2u {
+    height: var(--rung-2);
+}
+
+@utility mark-3u {
+    height: var(--rung-3);
 }
 
 @keyframes logralo-ignite {

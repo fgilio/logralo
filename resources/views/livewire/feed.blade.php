@@ -10,6 +10,7 @@ use App\Models\Mark;
 use App\Queries\FeedPage;
 use App\ValueObjects\FeedEntry;
 use App\ValueObjects\FeedResult;
+use App\ValueObjects\MarkEntry;
 use Illuminate\Support\Collection;
 use Livewire\Attributes\Computed;
 use Livewire\Attributes\On;
@@ -48,6 +49,34 @@ new class extends Component
         return $this->page->entries->groupBy(fn (FeedEntry $entry): string => $entry->day()->toDateString());
     }
 
+    /**
+     * The rung each mark stands on, keyed by entry. Inside a day the newest
+     * mark is the cover, the one behind it half of that, and everything older
+     * a row. A recap card sits in the day without taking a rung.
+     *
+     * @return Collection<string, int>
+     */
+    #[Computed]
+    public function rungs(): Collection
+    {
+        return $this->days->flatMap(fn (Collection $entries): Collection => $entries
+            ->filter(fn (FeedEntry $entry): bool => $entry instanceof MarkEntry)
+            ->values()
+            ->mapWithKeys(fn (FeedEntry $entry, int $index): array => [$entry->key() => max(3 - $index, 1)]));
+    }
+
+    #[Computed]
+    public function today(): string
+    {
+        return $this->member()->clock()->today()->toDateString();
+    }
+
+    #[Computed]
+    public function yesterday(): string
+    {
+        return $this->member()->clock()->yesterday()->toDateString();
+    }
+
     public function loadMore(): void
     {
         if (! $this->page->hasMore) {
@@ -56,7 +85,7 @@ new class extends Component
 
         $this->limit += (int) config('logralo.feed.page_size');
 
-        unset($this->page, $this->days);
+        $this->refresh();
     }
 
     public function react(string $markId, string $emoji): void
@@ -65,62 +94,75 @@ new class extends Component
 
         resolve(ToggleReaction::class)->handle($mark, $this->member(), ReactionEmoji::from($emoji));
 
-        unset($this->page, $this->days);
+        $this->refresh();
     }
 
     /** A mark anywhere on the page changes what the feed should be showing. */
     #[On('mark-updated')]
     public function reload(): void
     {
-        unset($this->page, $this->days);
+        $this->refresh();
+    }
+
+    private function refresh(): void
+    {
+        unset($this->page, $this->days, $this->rungs);
     }
 };
 
 ?>
 
-@php
-    $clock = $this->member()->clock();
-    $today = $clock->today()->toDateString();
-    $yesterday = $clock->yesterday()->toDateString();
-    $first = true;
-@endphp
+@use('App\ValueObjects\RecapEntry')
 
-<div class="flex flex-col gap-3">
-    @forelse ($this->days as $date => $entries)
-        <x-day-divider :day="$entries->first()->day()" :today="$today" :yesterday="$yesterday" />
+<div class="flex flex-col gap-2">
+    @forelse ($this->days as $entries)
+        <x-day-divider :day="$entries->first()->day()" :today="$this->today" :yesterday="$this->yesterday" />
 
         @foreach ($entries as $entry)
-            @if ($entry instanceof App\ValueObjects\RecapEntry)
+            @if ($entry instanceof RecapEntry)
                 <x-feed.recap-card :entry="$entry" wire:key="{{ $entry->key() }}" />
             @else
+                @php
+                    $rung = $this->rungs[$entry->key()];
+                    $reacted = $entry->mark->reactions->firstWhere('user_id', auth()->id())?->emoji;
+                @endphp
+
+                {{-- Keyed by rung as well: as marks arrive a cover becomes a
+                     split card, and that is a different card rather than the
+                     same one patched in place. --}}
                 <x-feed.mark-card
                     :entry="$entry"
-                    :eager="$first"
-                    :reacted="$entry->mark->reactions->firstWhere('user_id', auth()->id())?->emoji"
-                    wire:key="{{ $entry->key() }}"
+                    :rung="$rung"
+                    :eager="$this->rungs->keys()->first() === $entry->key()"
+                    :reacted="$reacted"
+                    wire:key="{{ $entry->key() }}-{{ $rung }}"
                 />
-                @php $first = false; @endphp
             @endif
         @endforeach
     @empty
         <div class="rounded-2xl border border-dashed border-zinc-300 p-10 text-center dark:border-white/10">
-            <flux:icon name="fire" class="mx-auto size-8 text-zinc-400" />
+            <x-brand-mark muted class="mx-auto size-8" />
             <flux:heading class="mt-3">Todavía no hay nada</flux:heading>
             <flux:text class="mt-1">Marcá tu primer objetivo y arrancá la racha.</flux:text>
         </div>
     @endforelse
 
     @if ($this->page->hasMore)
-        <div
+        {{-- The button is the only way in for anyone whose browser never fires
+             the intersection, and the sentinel is what everyone else gets. --}}
+        <button
+            type="button"
             x-intersect.margin.400px="$wire.loadMore()"
-            wire:loading.class="opacity-100"
+            wire:click="loadMore"
             wire:target="loadMore"
-            class="grid h-20 place-items-center"
+            class="tap-target grid h-20 place-items-center text-xs tracking-[0.2em] text-zinc-400 uppercase dark:text-zinc-500"
+            data-test="feed-more"
         >
-            <flux:icon name="loading" class="animate-spin text-zinc-400" />
-        </div>
+            <span wire:loading.remove wire:target="loadMore">Ver más</span>
+            <flux:icon name="loading" class="animate-spin text-zinc-400" wire:loading wire:target="loadMore" />
+        </button>
     @elseif ($this->page->entries->isNotEmpty())
-        <p class="py-8 text-center text-xs tracking-[0.2em] text-zinc-400 uppercase dark:text-zinc-600">
+        <p class="py-8 text-center text-xs tracking-[0.2em] text-zinc-500 uppercase dark:text-zinc-400">
             Hasta acá llega la historia
         </p>
     @endif
