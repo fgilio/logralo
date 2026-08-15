@@ -73,8 +73,13 @@ it('locks the member out after five failures and announces it', function (): voi
 
     $locked = attemptWithWrongPassword()->assertOnlyHasErrors('email');
 
+    // Spelled out rather than re-derived through __(): building the expectation
+    // with the same call the page makes means the test passes whatever the
+    // catalogue says, including an unreplaced ":unit" — which is exactly what
+    // it did when the unit became a placeholder so that the last second of the
+    // window would stop reading "en 1 segundos".
     expect($locked->errors()->first('email'))
-        ->toBe(__('auth.throttle', ['seconds' => 60, 'minutes' => 1]));
+        ->toBe('Demasiados intentos. Probá de nuevo en 60 segundos.');
 
     Event::assertDispatched(Lockout::class);
     $this->assertGuest();
