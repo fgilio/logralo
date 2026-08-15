@@ -8,7 +8,11 @@
     $month = $entry->monthName();
 @endphp
 
-<article class="feed-card relative overflow-hidden rounded-2xl bg-zinc-900 p-5 text-white ring-1 ring-white/10">
+{{-- No published height: a recap runs from 245px to well past 340 once the
+     table opens, so the browser's own correction beats any number here. --}}
+<article
+    {{ $attributes->class(['feed-card relative overflow-hidden rounded-2xl bg-zinc-900 p-5 text-white ring-1 ring-white/10']) }}
+>
     <div
         aria-hidden="true"
         class="pointer-events-none absolute -top-24 -right-16 size-56 rounded-full bg-accent/25 blur-3xl"

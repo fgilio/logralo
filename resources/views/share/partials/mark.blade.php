@@ -6,9 +6,7 @@
     @if ($entry->photo !== null)
         <x-photo :links="$entry->photo" :alt="$mark->goal->name" eager />
     @else
-        <div class="flex aspect-4/3 items-center justify-center bg-ghost/10">
-            <span class="text-6xl">🌫️</span>
-        </div>
+        <x-feed.ghost :entry="$entry" class="aspect-4/3 w-full" />
     @endif
 
     <div class="p-5">

@@ -10,9 +10,12 @@
 
 <span
     {{ $attributes->class(['inline-flex items-baseline gap-1 tabular-nums', 'opacity-45' => $dim || $days === 0]) }}
+    role="img"
     {{-- Spelled out rather than inflected, for the reason share/show.blade.php
-         gives — and the adjective goes with the noun, which the first pass at
-         this missed: it read "1 día seguidos" on the first day of every goal. --}}
+         gives. `title` never appears on a phone, so the name carries it — and
+         the adjective goes with the noun, which the first pass at the title
+         missed: it read "1 día seguidos" on the first day of every goal. --}}
+    aria-label="{{ $days > 0 ? "Racha de {$days} " . ($days === 1 ? 'día' : 'días') : 'Sin racha' }}"
     @if ($days > 0) title="{{ $days }} {{ $days === 1 ? 'día seguido' : 'días seguidos' }}" @endif
 >
     {{-- Number first, then the flame, the way it is written on the share card

@@ -27,6 +27,14 @@ function feedMorning(): void
     test()->travelTo(CarbonImmutable::parse('2026-08-11 09:00', 'America/Montevideo')->utc());
 }
 
+/** @return list<int> */
+function feedLadder(string $html): array
+{
+    preg_match_all('/data-rung="(\d)"/', $html, $matches);
+
+    return array_map(intval(...), $matches[1]);
+}
+
 it('renders the marks of every member', function (): void {
     feedMorning();
 
@@ -277,7 +285,7 @@ it('keeps one reaction per member on the same card', function (): void {
     // The card counts them together and marks the reader's own as pressed.
     Livewire::actingAs($bruno)
         ->test('feed')
-        ->assertSeeHtml('data-test="react-fire"')
+        ->assertSeeHtml('data-test="react-'.$mark->id.'-fire"')
         ->assertSeeHtml('aria-pressed="true"');
 });
 
@@ -288,6 +296,170 @@ it('refuses to react to a mark that is not there', function (): void {
         ->test('feed')
         ->call('react', '01HZZNOTAMARK', 'fire');
 })->throws(ModelNotFoundException::class);
+
+it('gives the newest mark of a day the cover, the next one half of it, and the rest rows', function (): void {
+    feedMorning();
+
+    $user = User::factory()->create();
+
+    // One goal per mark: a goal can only be marked once on a given day.
+    foreach (range(1, 4) as $minute) {
+        $this->travelTo(CarbonImmutable::parse('2026-08-11 09:00', 'America/Montevideo')->addMinutes($minute)->utc());
+
+        Mark::factory()->for(Goal::factory()->for($user)->create())->on('2026-08-11')->create();
+    }
+
+    // Yesterday gets a cover of its own: the ladder restarts at every divider.
+    Mark::factory()->for(Goal::factory()->for($user)->create())->on('2026-08-10')->create();
+
+    $html = Livewire::actingAs($user)->test('feed')->html();
+
+    expect(feedLadder($html))->toBe([3, 2, 1, 1, 3]);
+});
+
+it('lets a recap card sit in a day without taking a rung', function (): void {
+    feedMorning();
+
+    $user = User::factory()->create(['name' => 'Ana']);
+
+    Mark::factory()->for(Goal::factory()->for($user)->create())->on('2026-07-31')->create();
+    Mark::factory()->for(Goal::factory()->for($user)->create())->on('2026-07-31')->create();
+
+    // Posted after both marks, so it sorts above them and the cover it does not
+    // take is the one below it.
+    $this->travelTo(CarbonImmutable::parse('2026-08-11 09:05', 'America/Montevideo')->utc());
+
+    MonthlyRecap::factory()->create([
+        'month' => '2026-07-01',
+        'posted_on' => '2026-07-31',
+        'best_streak_days' => 0,
+        'standings' => [],
+    ]);
+
+    $html = Livewire::actingAs($user)->test('feed')->html();
+
+    expect(feedLadder($html))->toBe([3, 2])
+        ->and(mb_strpos($html, 'Cerró el mes'))->toBeLessThan(mb_strpos($html, 'data-rung="3"'));
+});
+
+it('stands the goal emoji in for a mark that has no photo', function (): void {
+    feedMorning();
+
+    $user = User::factory()->create();
+    $goal = Goal::factory()->for($user)->create(['name' => 'Natacion', 'emoji' => '🏊']);
+
+    Mark::factory()->for($goal)->on('2026-08-11')->create();
+    Mark::factory()->for($goal)->on('2026-08-10')->create();
+
+    Livewire::actingAs($user)
+        ->test('feed')
+        ->assertSee('🏊')
+        ->assertSeeHtml('aria-label="Natacion, sin foto · 2ᵃ vez seguida"');
+});
+
+it('drops the ghost caption on a collapsed row, and brings it back when the row opens', function (): void {
+    feedMorning();
+
+    $user = User::factory()->create();
+
+    foreach (range(1, 3) as $minute) {
+        $this->travelTo(CarbonImmutable::parse('2026-08-11 09:00', 'America/Montevideo')->addMinutes($minute)->utc());
+
+        Mark::factory()->for(Goal::factory()->for($user)->create())->on('2026-08-11')->create();
+    }
+
+    $html = Livewire::actingAs($user)->test('feed')->html();
+
+    // Four ghost faces for three marks: the cover, the split card, the 1u row
+    // and the panel it opens. Only the row itself has no line for the caption.
+    expect(feedLadder($html))->toBe([3, 2, 1])
+        ->and(mb_substr_count($html, 'hatched'))->toBe(4)
+        ->and(mb_substr_count($html, 'data-test="ghost-caption"'))->toBe(3);
+});
+
+it('keys every card, and gives it the id a shared link lands on', function (): void {
+    feedMorning();
+
+    $user = User::factory()->create();
+    $mark = Mark::factory()->for(Goal::factory()->for($user)->create())->on('2026-08-11')->create();
+
+    Livewire::actingAs($user)
+        ->test('feed')
+        ->assertSeeHtml('wire:key="mark-'.$mark->id.'-3"')
+        ->assertSeeHtml('id="mark-'.$mark->id.'"');
+});
+
+it('shows the view count to the owner on a cover, and to nobody on a split card', function (): void {
+    feedMorning();
+
+    $ana = User::factory()->create(['name' => 'Ana']);
+
+    foreach (range(1, 2) as $minute) {
+        $this->travelTo(CarbonImmutable::parse('2026-08-11 09:00', 'America/Montevideo')->addMinutes($minute)->utc());
+
+        Mark::factory()->for(Goal::factory()->for($ana)->create())->on('2026-08-11')->create(['share_views' => 3]);
+    }
+
+    $html = Livewire::actingAs($ana)->test('feed')->html();
+
+    expect(mb_substr_count($html, 'data-test="share-views"'))->toBe(1);
+
+    Livewire::actingAs(User::factory()->create())
+        ->test('feed')
+        ->assertDontSeeHtml('data-test="share-views"');
+});
+
+it('offers the cover the whole page, and the split card the box it really is', function (): void {
+    feedMorning();
+
+    $user = User::factory()->create();
+
+    foreach (range(1, 3) as $minute) {
+        $this->travelTo(CarbonImmutable::parse('2026-08-11 09:00', 'America/Montevideo')->addMinutes($minute)->utc());
+
+        Mark::factory()->for(Goal::factory()->for($user)->create())->on('2026-08-11')->withPhoto()->create();
+    }
+
+    $html = Livewire::actingAs($user)->test('feed')->html();
+
+    expect($html)->toContain('sizes="100vw"')
+        ->and($html)->toContain('sizes="(max-width: 359px) 112px, 140px"')
+        ->and($html)->toContain('sizes="52px"');
+});
+
+it('carries the note at every height', function (): void {
+    feedMorning();
+
+    $user = User::factory()->create();
+
+    foreach (['la banda', 'la columna', 'la segunda linea'] as $index => $note) {
+        $this->travelTo(CarbonImmutable::parse('2026-08-11 09:00', 'America/Montevideo')->addMinutes($index)->utc());
+
+        Mark::factory()->for(Goal::factory()->for($user)->create())->on('2026-08-11')->create(['note' => $note]);
+    }
+
+    // Newest first, so the last note written is the one on the cover, and the
+    // ladder proves the other two are the split card and the row.
+    $html = Livewire::actingAs($user)->test('feed')->html();
+
+    expect(feedLadder($html))->toBe([3, 2, 1])
+        ->and($html)->toContain('la segunda linea')
+        ->and($html)->toContain('la columna')
+        ->and($html)->toContain('la banda');
+});
+
+it('summarises the reactions a mark already has', function (): void {
+    feedMorning();
+
+    $ana = User::factory()->create(['name' => 'Ana']);
+    $mark = Mark::factory()->for(Goal::factory()->for($ana)->create())->on('2026-08-11')->create();
+
+    Livewire::actingAs($ana)
+        ->test('feed')
+        ->assertDontSeeHtml('data-test="reactions-'.$mark->id.'"')
+        ->call('react', $mark->id, 'clap')
+        ->assertSeeHtml('data-test="reactions-'.$mark->id.'"');
+});
 
 it('reloads when a mark lands anywhere on the page', function (): void {
     feedMorning();

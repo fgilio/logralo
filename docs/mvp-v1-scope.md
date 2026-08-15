@@ -36,7 +36,7 @@ No tabs and no menus. Goal management, timezone, and logout live behind the prof
 
 ## Feed, reactions, notes, and sharing
 
-- **Feed cards** show avatar, name, goal emoji and name, relative time, the photo full-bleed (or the ghost treatment: "marcó sin foto 🌫️ · 2ᵃ vez seguida"), the flame count, and the note if present. Photos tap to full-screen.
+- **Feed cards** show avatar, name, goal emoji and name, relative time, the photo full-bleed (or the ghost treatment), the flame count, and the note if present. Photos tap to full-screen. What each height carries, and what the ghost treatment is, are superseded by `docs/architecture/feed-cascade.md`.
 - **Reactions.** One-tap emoji from a small fixed set (💪 🔥 👏 😂 🫵), one reaction per user per card, tap again to remove. Counts show on the card. No notifications. Reactions are discovered by looking.
 - **Sharing.** A share action on every feed card and on the month-end recap. WhatsApp is the expected target. If sharing gets heavy use, comments come in v1.1. _Superseded in the detail by `docs/architecture/sharing.md`: what gets sent is a link whose unfurl carries a composed card, because `navigator.share()` drops the caption when a file comes with it._
 - **Live-ness.** The feed refreshes on pull. No websockets and no polling.

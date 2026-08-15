@@ -30,7 +30,7 @@ final readonly class MarkHistory
 
     /**
      * How many ghost marks in a row end on a day, that day included. This is
-     * the "2ᵃ vez seguida" line on a ghost feed card.
+     * the "2ᵃ seguida" line under a mark with no photo.
      */
     public function ghostRunEndingOn(string $date): int
     {
