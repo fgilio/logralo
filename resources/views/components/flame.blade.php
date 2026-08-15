@@ -10,8 +10,10 @@
 
 <span
     {{ $attributes->class(['inline-flex items-baseline gap-1 tabular-nums', 'opacity-45' => $dim || $days === 0]) }}
+    role="img"
     {{-- Spelled out rather than inflected, for the reason share/show.blade.php
-         gives. --}}
+         gives. `title` never appears on a phone, so the name carries it. --}}
+    aria-label="{{ $days > 0 ? "Racha de {$days} " . ($days === 1 ? 'día' : 'días') : 'Sin racha' }}"
     @if ($days > 0) title="{{ $days }} {{ $days === 1 ? 'día' : 'días' }} seguidos" @endif
 >
     {{-- Number first, then the flame, the way it is written on the share card

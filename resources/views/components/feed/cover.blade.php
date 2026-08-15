@@ -3,27 +3,26 @@
 @php
     $mark = $entry->mark;
 
-    // White on a scrim is only legible over a photograph. A mark without one
-    // keeps the same furniture in the same places, in the card's own colours.
+    // A scrim is only legible over a photograph, so a mark without one wears
+    // the card's own colours.
     $onPhoto = $entry->photo !== null;
-    $tone = $onPhoto ? 'scrim' : 'plain';
+    $tone = $onPhoto ? 'inverse' : 'default';
+    $alt = $mark->user->name . ': ' . $mark->goal->name;
 @endphp
 
-{{-- 3u: the day's most recent mark. The photo fills the card and the furniture
-     rides two scrims over it, so the picture is never cropped to make room. --}}
 <div class="mark-3u relative">
     @if ($onPhoto)
-        <x-feed.viewer :links="$entry->photo" :alt="$mark->goal->name" class="size-full">
-            <x-photo :links="$entry->photo" :alt="$mark->goal->name" :eager="$eager" fill wide />
+        <x-feed.viewer :links="$entry->photo" :alt="$alt" class="size-full">
+            <x-photo :links="$entry->photo" :alt="$alt" :eager="$eager" fill wide />
         </x-feed.viewer>
     @else
-        <x-feed.no-photo :entry="$entry" size="lg" class="size-full rounded-2xl" />
+        <x-feed.ghost :entry="$entry" size="lg" class="size-full" />
     @endif
 
     <div
         @class([
             'pointer-events-none absolute inset-x-0 top-0 flex items-center gap-2.5 px-3 pt-3 pb-8',
-            'bg-linear-to-b from-black/65 to-transparent text-white' => $onPhoto,
+            'bg-linear-to-b from-black/70 via-black/25 to-transparent text-white [text-shadow:0_1px_2px_rgb(0_0_0/0.45)]' => $onPhoto,
         ])
     >
         <flux:avatar
@@ -37,19 +36,18 @@
 
         <div class="min-w-0 flex-1 leading-tight">
             <p class="truncate text-sm font-semibold">{{ $mark->user->name }}</p>
-            <x-feed.goal-line :mark="$mark" :class="$onPhoto ? 'text-white/75' : 'text-zinc-500 dark:text-zinc-400'" />
+            <x-feed.goal-line :mark="$mark" :class="$onPhoto ? 'text-white/90' : 'text-zinc-500 dark:text-zinc-400'" />
         </div>
 
         <x-flame :days="$entry->streak" size="sm" class="shrink-0" />
     </div>
 
-    {{-- Sharing sits at the foot of the card rather than in the top scrim: the
-         button carries its own word, and a labelled pill beside the name would
-         leave nothing of the name on a narrow phone. --}}
+    {{-- A labelled pill beside the name would leave nothing of the name on a
+         narrow phone, so sharing sits at the foot of the card. --}}
     <div
         @class([
             'pointer-events-none absolute inset-x-0 bottom-0 flex items-center justify-between gap-2 px-3 pt-8 pb-3',
-            'bg-linear-to-t from-black/60 to-transparent' => $onPhoto,
+            'bg-linear-to-t from-black/70 via-black/25 to-transparent' => $onPhoto,
         ])
     >
         <x-feed.reactions :mark="$mark" :reacted="$reacted" :tone="$tone" class="pointer-events-auto" />
@@ -59,9 +57,14 @@
 </div>
 
 @if ($mark->note !== null)
-    {{-- The one place a card's height depends on what is in it: the note gets a
-         band of its own rather than a corner of the photo. --}}
-    <p class="flex h-11 items-center px-3 text-[13px] leading-4.5 text-zinc-700 dark:text-zinc-200">
-        <span class="line-clamp-2">{{ $mark->note }}</span>
+    {{-- The one place a card is taller than its rung: the note gets a band
+         rather than a corner of the photo. --}}
+    <p
+        x-data="{ full: false }"
+        x-on:pointerdown.stop
+        x-on:click="full = ! full"
+        class="flex min-h-(--rung-note) items-center px-3 py-1.5 text-note text-zinc-700 select-text dark:text-zinc-200"
+    >
+        <span :class="full || 'line-clamp-2'">{{ $mark->note }}</span>
     </p>
 @endif

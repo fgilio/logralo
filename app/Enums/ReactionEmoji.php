@@ -26,4 +26,19 @@ enum ReactionEmoji: string
             self::Point => '🫵',
         };
     }
+
+    /**
+     * What a screen reader says. Left to the emoji, it would read the Unicode
+     * name in the browser's own language, and 🫵 has no useful one at all.
+     */
+    public function label(): string
+    {
+        return match ($this) {
+            self::Muscle => 'Fuerza',
+            self::Fire => 'Fuego',
+            self::Clap => 'Aplausos',
+            self::Laugh => 'Risa',
+            self::Point => 'Sos vos',
+        };
+    }
 }

@@ -9,8 +9,7 @@ document.addEventListener("alpine:init", () => {
      * on pointerdown, drop it when the finger travels, and swallow the click
      * the press emits afterwards so a card never fires both.
      *
-     * Pointer events only, so touch, mouse and pen take one code path. Whoever
-     * spreads this in owes it a `cancel()`.
+     * Whoever spreads this in owes it a `cancel()`.
      */
     const holdGesture = (options = {}) => ({
         delay: options.delay ?? 420,
@@ -21,22 +20,43 @@ document.addEventListener("alpine:init", () => {
         startX: 0,
         startY: 0,
         suppressClick: false,
+        onScroll: null,
 
-        init() {
-            // On iOS a scroll begun elsewhere can steal the gesture without
-            // ever firing pointercancel.
-            this.onScroll = () => this.cancel();
+        destroy() {
+            this.cancel();
+        },
+
+        /**
+         * A scroll begun elsewhere steals the gesture on iOS without ever
+         * firing pointercancel. The listener lives only as long as the press
+         * does, so a page of cards does not run one per card per frame.
+         */
+        arm(event) {
+            this.pointerId = event.pointerId;
+            this.startX = event.clientX;
+            this.startY = event.clientY;
+            this.suppressClick = false;
+
+            this.onScroll ??= () => this.cancel();
             window.addEventListener("scroll", this.onScroll, {
                 capture: true,
                 passive: true,
             });
         },
 
-        destroy() {
-            window.removeEventListener("scroll", this.onScroll, {
-                capture: true,
-            });
-            this.clearTimer();
+        disarm() {
+            if (this.timer !== null) {
+                clearTimeout(this.timer);
+                this.timer = null;
+            }
+
+            if (this.onScroll !== null) {
+                window.removeEventListener("scroll", this.onScroll, {
+                    capture: true,
+                });
+            }
+
+            this.pointerId = null;
         },
 
         /** A finger that travels this far was scrolling, not holding. */
@@ -45,13 +65,6 @@ document.addEventListener("alpine:init", () => {
                 Math.abs(event.clientX - this.startX) > this.moveTolerance ||
                 Math.abs(event.clientY - this.startY) > this.moveTolerance
             );
-        },
-
-        clearTimer() {
-            if (this.timer !== null) {
-                clearTimeout(this.timer);
-                this.timer = null;
-            }
         },
 
         onClick(event) {
@@ -64,8 +77,8 @@ document.addEventListener("alpine:init", () => {
     });
 
     /**
-     * Tap and hold on the same element, without a library. Announces itself
-     * with `long-press` and `short-press`, and leaves the deciding to the card.
+     * Tap and hold on the same element. Announces itself with `long-press` and
+     * `short-press`, and leaves the deciding to the card.
      */
     Alpine.data("longPress", (options = {}) => ({
         ...holdGesture(options),
@@ -77,9 +90,7 @@ document.addEventListener("alpine:init", () => {
             if (event.button !== undefined && event.button !== 0) return;
             if (this.pointerId !== null) return this.cancel();
 
-            this.pointerId = event.pointerId;
-            this.startX = event.clientX;
-            this.startY = event.clientY;
+            this.arm(event);
             this.fired = false;
             this.pressing = true;
 
@@ -110,17 +121,14 @@ document.addEventListener("alpine:init", () => {
         end() {
             const wasArmed = this.timer !== null;
 
-            this.clearTimer();
-            this.pressing = false;
-            this.pointerId = null;
+            this.cancel();
 
             if (wasArmed && !this.fired) this.$dispatch("short-press");
         },
 
         cancel() {
-            this.clearTimer();
+            this.disarm();
             this.pressing = false;
-            this.pointerId = null;
         },
     }));
 
@@ -281,32 +289,25 @@ document.addEventListener("alpine:init", () => {
      * Reacting to someone else's card.
      *
      * Two ways into one bar: the ＋ button opens it, and holding the card opens
-     * it under the finger, which can then slide onto an emoji and let go. The
-     * hit test runs on coordinates rather than on hover, because a touch
-     * pointer captured by the card never fires pointerenter on the bar.
-     *
-     * The bar is a selector, not a set of checkboxes: one reaction per member
-     * per mark, and choosing the current one takes it away.
+     * it under the finger, which can then slide onto an emoji and let go.
      */
     Alpine.data("reactionPicker", (options = {}) => ({
-        ...holdGesture({ delay: 380, ...options }),
+        ...holdGesture({ delay: 380 }),
 
-        markId: options.markId ?? null,
+        markId: options.markId,
 
         showing: false,
         active: null,
 
-        press(event) {
+        start(event) {
             if (event.button !== undefined && event.button !== 0) return;
             if (this.pointerId !== null) return this.cancel();
 
-            this.pointerId = event.pointerId;
-            this.startX = event.clientX;
-            this.startY = event.clientY;
+            this.arm(event);
 
             this.timer = setTimeout(() => {
                 this.timer = null;
-                this.showing = true;
+                this.open();
                 // The click this press will emit belongs to the gesture, not to
                 // whatever is underneath it.
                 this.suppressClick = true;
@@ -315,11 +316,10 @@ document.addEventListener("alpine:init", () => {
             }, this.delay);
         },
 
-        track(event) {
+        move(event) {
             if (this.pointerId === null || event.pointerId !== this.pointerId)
                 return;
 
-            // Still waiting on the timer: a finger that travels is a scroll.
             if (this.timer !== null) {
                 if (this.travelled(event)) this.cancel();
 
@@ -331,10 +331,16 @@ document.addEventListener("alpine:init", () => {
             this.active = this.emojiAt(event.clientX, event.clientY);
         },
 
-        release() {
-            // Only a finger dragging over the bar ever sets `active`, so it is
-            // both the choice and the proof that there was one.
-            const chosen = this.active;
+        end(event) {
+            if (this.pointerId === null || event.pointerId !== this.pointerId)
+                return;
+
+            // Where the finger actually let go, rather than the last position
+            // a pointermove reported: a mouse dragged off the card stops
+            // sending them, and the stale one would react for you.
+            const chosen = this.showing
+                ? this.emojiAt(event.clientX, event.clientY)
+                : null;
 
             this.cancel();
 
@@ -344,8 +350,7 @@ document.addEventListener("alpine:init", () => {
         },
 
         cancel() {
-            this.clearTimer();
-            this.pointerId = null;
+            this.disarm();
             this.active = null;
         },
 
@@ -358,32 +363,25 @@ document.addEventListener("alpine:init", () => {
         choose(emoji) {
             this.close();
 
-            if (this.markId) this.$wire.react(this.markId, emoji);
+            if (navigator.vibrate) navigator.vibrate(8);
+
+            this.$wire.react(this.markId, emoji);
+        },
+
+        /** One bar at a time: the others hear this and shut. */
+        open() {
+            this.showing = true;
+            this.$dispatch("reaction-bar-opened", this.markId);
         },
 
         toggle() {
-            this.showing = !this.showing;
+            this.showing ? this.close() : this.open();
             this.active = null;
         },
 
         close() {
             this.showing = false;
             this.active = null;
-        },
-
-        clearTimer() {
-            if (this.timer !== null) {
-                clearTimeout(this.timer);
-                this.timer = null;
-            }
-        },
-
-        onClick(event) {
-            if (!this.suppressClick) return;
-
-            this.suppressClick = false;
-            event.preventDefault();
-            event.stopPropagation();
         },
     }));
 

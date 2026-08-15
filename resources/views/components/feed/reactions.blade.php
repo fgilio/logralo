@@ -1,58 +1,54 @@
-@props(['mark', 'reacted' => null, 'interactive' => true, 'summary' => true, 'tone' => 'plain'])
+@props(['mark', 'reacted' => null, 'interactive' => true, 'summary' => true, 'take' => 3, 'tone' => 'default'])
+
+@use('App\Enums\ReactionEmoji')
 
 @php
-    use App\Enums\ReactionEmoji;
-
-    // Ordered by how many people picked it, so the stack leads with the loudest
-    // thing anyone said about the mark. A card that already shows the summary
-    // elsewhere — an opened row, whose collapsed line still carries it — asks
-    // for the button on its own.
     $counts = $summary
         ? $mark->reactions
-            ->groupBy(fn ($reaction): string => $reaction->emoji->value)
-            ->map(fn ($group): int => $group->count())
+            ->countBy(fn ($reaction): string => $reaction->emoji->value)
             ->sortDesc()
         : collect();
 
-    // Three at most: the stack is a glance, not an inventory, and the total
-    // beside it stays exact however many kinds are behind it. The viewer's own
-    // reaction holds its place even when three louder ones would push it out,
-    // because the ring on it is how the card says you reacted.
-    $shown = $counts->keys()->take(3);
+    // The viewer's own reaction holds its place even when louder ones would
+    // push it out, because the ring on it is how the card says you reacted.
+    $shown = $counts->keys()->take($take);
 
     if ($reacted !== null && $counts->has($reacted->value) && ! $shown->contains($reacted->value)) {
-        $shown = $shown->take(2)->push($reacted->value);
+        $shown = $shown->take($take - 1)->push($reacted->value);
     }
 
-    $scrim = $tone === 'scrim';
+    $tally = $counts
+        ->map(fn (int $count, string $value): string => ReactionEmoji::from($value)->label() . ' ' . $count)
+        ->join(', ');
 
-    $pill = $scrim
+    $inverse = $tone === 'inverse';
+
+    $pill = $inverse
         ? 'bg-black/40 text-white ring-white/15'
         : 'bg-zinc-100 text-zinc-600 ring-zinc-200 dark:bg-white/10 dark:text-zinc-300 dark:ring-white/10';
 
-    $chip = $scrim ? 'bg-white/15' : 'bg-white dark:bg-zinc-800';
+    $chip = $inverse ? 'bg-white/15' : 'bg-white dark:bg-zinc-800';
 
-    $add = $scrim
+    $add = $inverse
         ? 'border-white/25 bg-black/40 text-white'
         : 'border-zinc-200 text-zinc-500 dark:border-white/15 dark:text-zinc-400';
 @endphp
 
-{{-- Showing and adding are two different problems. The summary costs about
-     20px, which is what lets it survive on a 1u row; adding happens in the bar,
-     which is opened from here or by holding the card. --}}
 <div {{ $attributes->class(['flex items-center gap-1.5']) }}>
     @if ($counts->isNotEmpty())
         <span
             class="flex items-center gap-1 rounded-full px-1.5 py-0.5 ring-1 {{ $pill }}"
+            role="img"
+            aria-label="{{ $mark->reactions->count() }} reacciones: {{ $tally }}"
             data-test="reactions-{{ $mark->id }}"
         >
-            <span class="flex -space-x-1">
+            <span aria-hidden="true" class="flex -space-x-1">
                 @foreach ($shown as $value)
                     @php $emoji = ReactionEmoji::from($value); @endphp
 
                     <span
                         @class([
-                            'grid size-4.5 place-items-center rounded-full text-[11px] leading-none',
+                            'grid size-4.5 place-items-center rounded-full text-caption leading-none',
                             $chip,
                             'ring-2 ring-accent' => $reacted === $emoji,
                         ])
@@ -62,17 +58,21 @@
                 @endforeach
             </span>
 
-            <span class="text-xs font-medium tabular-nums">{{ $mark->reactions->count() }}</span>
+            <span aria-hidden="true" class="text-xs font-medium tabular-nums">{{ $mark->reactions->count() }}</span>
         </span>
     @endif
 
     @if ($interactive)
+        {{-- The ring stays 24px so it fits a row; the finger gets 44. --}}
         <button
             type="button"
             x-on:pointerdown.stop
             x-on:click="toggle()"
-            class="tap-target grid size-6 place-items-center rounded-full border transition active:scale-90 {{ $add }}"
+            class="tap-target relative grid size-6 place-items-center rounded-full border transition before:absolute before:-inset-2.5 before:content-[''] active:scale-90 {{ $add }}"
             aria-label="Reaccionar"
+            aria-haspopup="true"
+            :aria-expanded="showing"
+            aria-controls="reactions-bar-{{ $mark->id }}"
             data-test="react-open-{{ $mark->id }}"
         >
             <flux:icon name="plus" variant="micro" />

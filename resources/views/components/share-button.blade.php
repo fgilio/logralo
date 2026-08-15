@@ -49,8 +49,15 @@
         })"
     >
         <div
-            x-data="{ open: false }"
-            @click.outside="open = false"
+            x-data="{
+                open: false,
+                anchor: null,
+                show() {
+                    this.anchor = this.$refs.trigger.getBoundingClientRect();
+                    this.open = true;
+                    this.prefetch();
+                },
+            }"
             @keydown.escape.window="open = false"
         >
             {{-- Tap shares the link. Holding opens the rest, and the rest is
@@ -60,6 +67,7 @@
                  sheet instead of the camera. --}}
             <button
                 type="button"
+                x-ref="trigger"
                 x-data="longPress({ delay: 420 })"
                 {{-- Only the unfurl is warmed on touch: it is what the crawler
                      will ask for the moment the link is sent. The tall card is
@@ -73,24 +81,22 @@
                 @contextmenu.prevent
                 @click.capture="onClick($event)"
                 @short-press="share()"
-                @long-press="open = true; prefetch()"
+                @long-press="show()"
                 {{-- `short-press` rides on pointerup, which a keyboard never
                      sends, so without this Enter and Space did nothing at all.
                      detail is 0 only for keyboard-activated clicks, so a tap
                      cannot double-fire through here. --}}
                 @click="$event.detail === 0 && share()"
                 {{-- And the arrow key reaches the menu the hold opens. --}}
-                @keydown.down.prevent="open = true; prefetch()"
+                @keydown.down.prevent="show()"
                 aria-haspopup="menu"
                 :aria-expanded="open ? 'true' : 'false'"
-                {{-- Without the word it is a round button, not a pill with the
-                     word cut off. --}}
                 @class([
-                    'tap-target flex items-center gap-1.5 rounded-full border py-1 text-sm transition',
+                    'tap-target flex min-h-11 items-center gap-1.5 rounded-full border py-1 text-sm transition',
                     'px-3' => $label,
-                    'px-1.5' => ! $label,
+                    'px-2' => ! $label,
                     'border-zinc-200 text-zinc-500 dark:border-white/10 dark:text-zinc-400' => $tone === 'default',
-                    'border-white/15 text-white/70' => $tone === 'inverse',
+                    'border-white/25 bg-black/40 text-white' => $tone === 'inverse',
                 ])
                 :class="pressing && 'scale-95'"
                 aria-label="Compartir"
@@ -102,42 +108,52 @@
                 @endif
             </button>
 
-            <div
-                x-show="open"
-                x-cloak
-                x-transition.opacity.duration.150ms
-                {{-- No focus trap: the items are ordinary buttons sitting
-                     after the trigger in the DOM, so Tab reaches them once the
-                     menu is shown, without depending on Alpine's focus plugin
-                     being registered. --}}
-                class="absolute right-0 bottom-full z-20 mb-2 w-56 overflow-hidden rounded-xl bg-white shadow-lg ring-1 ring-zinc-200 dark:bg-zinc-800 dark:ring-white/10"
-            >
-                <button
-                    type="button"
-                    @click="open = false; shareImage()"
-                    class="block w-full px-4 py-2.5 text-left text-sm hover:bg-zinc-100 dark:hover:bg-white/5"
-                    data-test="share-image"
+            {{-- A feed card contains its own paint, so a menu drawn inside one
+                 is cut off at the card's edge. It is positioned against the
+                 trigger instead, and the first item takes focus because the
+                 teleport moves it out of Tab order. --}}
+            <template x-teleport="body">
+                <div
+                    x-show="open"
+                    x-cloak
+                    x-transition.opacity.duration.150ms
+                    x-on:click.outside="open = false"
+                    x-on:scroll.window="open = false"
+                    x-effect="open && $nextTick(() => $el.querySelector('button').focus())"
+                    :style="anchor && `right: ${innerWidth - anchor.right}px; bottom: ${innerHeight - anchor.top + 8}px`"
+                    class="fixed z-50 w-56 overflow-hidden rounded-xl bg-white shadow-lg ring-1 ring-zinc-200 dark:bg-zinc-800 dark:ring-white/10"
+                    role="menu"
                 >
-                    Enviar la imagen
-                </button>
+                    <button
+                        type="button"
+                        role="menuitem"
+                        @click="open = false; shareImage()"
+                        class="block w-full px-4 py-2.5 text-left text-sm hover:bg-zinc-100 dark:hover:bg-white/5"
+                        data-test="share-image"
+                    >
+                        Enviar la imagen
+                    </button>
 
-                <button
-                    type="button"
-                    @click="open = false; copy()"
-                    class="block w-full px-4 py-2.5 text-left text-sm hover:bg-zinc-100 dark:hover:bg-white/5"
-                    data-test="share-copy"
-                >
-                    Copiar el link
-                </button>
+                    <button
+                        type="button"
+                        role="menuitem"
+                        @click="open = false; copy()"
+                        class="block w-full px-4 py-2.5 text-left text-sm hover:bg-zinc-100 dark:hover:bg-white/5"
+                        data-test="share-copy"
+                    >
+                        Copiar el link
+                    </button>
 
-                <a
-                    href="{{ $shareUrl }}"
-                    class="block w-full px-4 py-2.5 text-left text-sm hover:bg-zinc-100 dark:hover:bg-white/5"
-                    data-test="share-open"
-                >
-                    Ver cómo se ve
-                </a>
-            </div>
+                    <a
+                        href="{{ $shareUrl }}"
+                        role="menuitem"
+                        class="block w-full px-4 py-2.5 text-left text-sm hover:bg-zinc-100 dark:hover:bg-white/5"
+                        data-test="share-open"
+                    >
+                        Ver cómo se ve
+                    </a>
+                </div>
+            </template>
         </div>
     </div>
 @endif

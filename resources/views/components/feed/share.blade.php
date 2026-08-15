@@ -1,40 +1,34 @@
-@props(['entry', 'tone' => 'plain', 'compact' => false])
+@props(['entry', 'tone' => 'default', 'label' => true])
 
 @php
     $mark = $entry->mark;
+    $views = $mark->share_views;
 
-    // The 2u column is 118px on a narrow phone, which is not enough for the
-    // reaction summary and a pill that says a word. There the button keeps its
-    // icon and drops both the word and the count; the cover and the opened row
-    // have the room for them.
-    $isOwner = ! $compact && $mark->isManagedBy(auth()->user());
+    // The 2u column is 146px at its narrowest, which fits neither the word nor
+    // the count beside the reaction summary.
+    $showsViews = $label && $views > 0 && $mark->isManagedBy(auth()->user());
 @endphp
 
-{{-- The press never reaches the card: holding the share button opens its own
-     menu, and that hold is not a reaction gesture. --}}
+{{-- Holding this opens its own menu, so the press must not reach the card. --}}
 <div x-on:pointerdown.stop {{ $attributes->class(['pointer-events-auto flex items-center gap-2']) }}>
-    {{-- Only the person who shared it sees the count, and only once somebody
-         has actually opened the link. It is there to tell them the message
-         landed, not to turn the feed into a leaderboard of who gets clicked. --}}
-    @if ($isOwner && $mark->share_views > 0)
+    {{-- Only the owner sees it, and only once somebody opened the link. --}}
+    @if ($showsViews)
         <span
             @class([
                 'text-xs tabular-nums',
-                'text-white/60' => $tone === 'scrim',
-                'text-zinc-400 dark:text-zinc-500' => $tone !== 'scrim',
+                'text-white/80' => $tone === 'inverse',
+                'text-zinc-500 dark:text-zinc-400' => $tone !== 'inverse',
             ])
-            title="Gente que abrió el link que compartiste"
             data-test="share-views"
         >
             {{-- Spelled out rather than inflected, for the reason
                  share/show.blade.php gives. --}}
-            {{ $mark->share_views }} {{ $mark->share_views === 1 ? 'visita' : 'visitas' }}
+            <span aria-hidden="true">{{ $views }} {{ $views === 1 ? 'visita' : 'visitas' }}</span>
+            <span class="sr-only">
+                {{ $views }} {{ $views === 1 ? 'persona abrió' : 'personas abrieron' }} el link que compartiste
+            </span>
         </span>
     @endif
 
-    <x-share-button
-        :entry="$entry"
-        :tone="$tone === 'scrim' ? 'inverse' : 'default'"
-        :label="! $compact"
-    />
+    <x-share-button :entry="$entry" :tone="$tone" :label="$label" />
 </div>

@@ -32,7 +32,7 @@ final readonly class FeedPage
     public function load(int $limit): FeedResult
     {
         $marks = Mark::query()
-            ->with(['user', 'goal', 'reactions.user'])
+            ->with(['user', 'goal', 'reactions'])
             ->latest('marked_on')->latest()
             ->orderByDesc('id')
             ->limit($limit + 1)

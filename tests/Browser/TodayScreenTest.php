@@ -55,13 +55,13 @@ it('reacts to a card from the bar the plus button opens', function (): void {
 
     $this->actingAs($ana);
 
-    // The other way in — holding the card and dragging onto an emoji — is a
-    // gesture no assertion can honestly stand in for.
     visit('/')->on()->iPhone15Pro()
         ->assertSee('Guitarra')
         ->click('@react-open-'.$mark->id)
-        ->click('@react-clap')
         ->wait(1)
+        ->click('@react-'.$mark->id.'-clap')
+        ->wait(1)
+        ->assertVisible('@reactions-'.$mark->id)
         ->assertNoJavaScriptErrors();
 
     $reaction = Reaction::query()->sole();
