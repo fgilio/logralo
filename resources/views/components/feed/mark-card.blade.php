@@ -30,9 +30,8 @@
     x-on:pointercancel="cancel()"
     x-on:contextmenu.prevent
     x-on:click.capture="onClick($event)"
-    class="tap-target feed-card relative overflow-hidden rounded-2xl bg-white shadow-sm ring-1 ring-zinc-200/80 dark:bg-white/5 dark:ring-white/10"
+    {{ $attributes->class(['tap-target feed-card relative overflow-hidden rounded-2xl bg-white shadow-sm ring-1 ring-zinc-200/80 dark:bg-white/5 dark:ring-white/10']) }}
     style="--card-height: {{ $rung }}px"
-    data-test="mark-{{ $mark->id }}"
     data-height="{{ $height }}"
 >
     @if ($height === 3)
