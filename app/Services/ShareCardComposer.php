@@ -186,22 +186,24 @@ final readonly class ShareCardComposer
             $baseline = $this->stats($canvas, $card->stats, $pad, $baseline, $width);
         }
 
-        $this->byline($canvas, $card, $pad, $baseline, $bylineSize);
+        $this->byline($canvas, $card->byline, $card->streak, $pad, $baseline, $bylineSize);
         $baseline -= (int) ($bylineSize * 1.9);
+
+        $display = $this->display();
 
         // Anton is drawn uppercase because it has no lowercase worth reading at
         // this size, and because a shout is the point.
         $title = Str::upper($card->title);
-        $titleSize = $this->fit($title, $titleSize, $width - $pad * 2, $this->display());
+        $titleSize = $this->fit($title, $titleSize, $width - $pad * 2, $display);
 
-        $this->write($canvas, $title, $pad, $baseline, $titleSize, '#ffffff', $this->display());
+        $this->write($canvas, $title, $pad, $baseline, $titleSize, '#ffffff', $display);
 
         // Anton's caps fill the whole em and the accented ones overshoot it,
         // so a single line of clearance puts Í straight through the badge.
         $baseline -= (int) ($titleSize * 1.38);
 
         if ($card->badge !== null) {
-            $this->write($canvas, Str::upper($card->badge), $pad, $baseline, $badgeSize, self::EMBER, $this->display(), tracking: 3);
+            $this->write($canvas, Str::upper($card->badge), $pad, $baseline, $badgeSize, self::EMBER, $display, tracking: 3);
             $this->rule($canvas, $pad, $baseline - (int) ($badgeSize * 1.5), $width);
         }
     }
@@ -214,27 +216,29 @@ final readonly class ShareCardComposer
      * on its own left the card's most interesting number off it. Ember, since
      * that is where the flame lives on a card GD cannot draw an emoji on.
      */
-    private function byline(ImageInterface $canvas, ShareCard $card, int $pad, int $baseline, int $size): void
+    private function byline(ImageInterface $canvas, string $byline, ?int $streak, int $pad, int $baseline, int $size): void
     {
-        $this->write($canvas, $card->byline, $pad, $baseline, $size, 'rgba(255, 255, 255, 0.72)', $this->body());
+        $body = $this->body();
 
-        if ($card->highlight === null) {
+        $this->write($canvas, $byline, $pad, $baseline, $size, 'rgba(255, 255, 255, 0.72)', $body);
+
+        if ($streak === null) {
             return;
         }
 
         // Measured rather than guessed: "3 de mayo" and "28 de septiembre" are
         // most of a card's width apart.
-        $streak = '· '.$card->highlight;
-        $x = $pad + $this->advance($card->byline, $size, $this->body()) + (int) ($size * 0.5);
+        $bold = $this->bodyBold();
+        $run = '· '.$streak;
+        $x = $pad + $this->advance($byline, $size, $body) + (int) ($size * 0.5);
 
-        $this->write($canvas, $streak, $x, $baseline, $size, self::EMBER, $this->bodyBold());
+        $this->write($canvas, $run, $x, $baseline, $size, self::EMBER, $bold);
 
-        $this->flame(
-            $canvas,
-            $x + $this->advance($streak, $size, $this->bodyBold()) + (int) ($size * 0.4),
-            $baseline + $this->inkMiddle($streak, $size, $this->bodyBold()),
-            $size,
-        );
+        // One measurement, both numbers off it: where the pen ended up, and
+        // where the middle of the digits is for the flame to line up with.
+        $ink = $this->ink($run, $size, $bold);
+
+        $this->flame($canvas, $x + $ink['advance'] + (int) ($size * 0.4), $baseline + $ink['middle'], $size);
     }
 
     /**
@@ -258,21 +262,6 @@ final readonly class ShareCardComposer
             $x,
             $middle - (int) ($height / 2),
         );
-    }
-
-    /**
-     * Half way up the ink of a line, relative to its baseline — so negative,
-     * since a bounding box measures upwards from there.
-     *
-     * Digits have no descender and Archivo's caps do not overshoot, so this is
-     * the middle of what the eye actually sees rather than the middle of the
-     * em the font reserves for letters this line does not use.
-     */
-    private function inkMiddle(string $text, int $size, string $font): int
-    {
-        $box = imagettfbbox($size, 0, $font, $text);
-
-        return $box === false ? (int) (-$size * 0.35) : (int) (($box[1] + $box[7]) / 2);
     }
 
     /**
@@ -378,9 +367,31 @@ final readonly class ShareCardComposer
     /** How far the pen moves after drawing this much text, in pixels. */
     private function advance(string $text, int $size, string $font): int
     {
+        return $this->ink($text, $size, $font)['advance'];
+    }
+
+    /**
+     * One line, measured once: how far the pen moves drawing it, and how far
+     * above its baseline the middle of the ink sits.
+     *
+     * The middle comes out negative, since a bounding box measures upwards from
+     * the baseline. It is the middle of what the eye actually sees rather than
+     * of the em the font reserves — digits have no descender and Archivo's caps
+     * do not overshoot — which is what the flame is centred on.
+     *
+     * Both numbers come off the same box because shaping the same string twice
+     * to read two of its corners is the kind of thing that quietly stops being
+     * the same string.
+     *
+     * @return array{advance: int, middle: int}
+     */
+    private function ink(string $text, int $size, string $font): array
+    {
         $box = imagettfbbox($size, 0, $font, $text);
 
-        return $box === false ? $size : (int) ($box[2] - $box[0]);
+        return $box === false
+            ? ['advance' => $size, 'middle' => (int) (-$size * 0.35)]
+            : ['advance' => (int) ($box[2] - $box[0]), 'middle' => (int) (($box[1] + $box[7]) / 2)];
     }
 
     private function display(): string

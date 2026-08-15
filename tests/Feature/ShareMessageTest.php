@@ -48,7 +48,7 @@ it('keeps the streak out of the message and on the card', function (): void {
     $entry = markEntryWith(null, streak: 12);
 
     expect($entry->shareText())->toBe('Marqué Gimnasio')
-        ->and($entry->shareCard()->highlight)->toBe('12');
+        ->and($entry->shareCard()->streak)->toBe(12);
 });
 
 it('draws the day and the goal, and no name at all', function (): void {
@@ -59,7 +59,7 @@ it('draws the day and the goal, and no name at all', function (): void {
     // beside the date, and a badge saying the same thing twice reads as a bug.
     expect($card->title)->toBe('Gimnasio')
         ->and($card->badge)->toBeNull()
-        ->and($card->highlight)->toBeNull()
+        ->and($card->streak)->toBeNull()
         ->and($card->byline)->toBe($entry->mark->marked_on->translatedFormat('j \d\e F'))
         ->and($card->byline)->not->toContain('Guido');
 });

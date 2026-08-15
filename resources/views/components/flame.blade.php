@@ -10,9 +10,8 @@
 
 <span
     {{ $attributes->class(['inline-flex items-baseline gap-1 tabular-nums', 'opacity-45' => $dim || $days === 0]) }}
-    {{-- Spelled out: Str::plural is an English inflector, and the one Spanish
-         word it was asked to bend that it could not is what put "7 7 vezs" on
-         the share page. --}}
+    {{-- Spelled out rather than inflected, for the reason share/show.blade.php
+         gives. --}}
     @if ($days > 0) title="{{ $days }} {{ $days === 1 ? 'día' : 'días' }} seguidos" @endif
 >
     {{-- Number first, then the flame, the way it is written on the share card

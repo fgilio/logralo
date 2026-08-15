@@ -14,6 +14,9 @@ namespace App\Enums;
  */
 enum ShareCardFormat: string
 {
+    case Unfurl = 'og';
+    case Portrait = 'portrait';
+
     /**
      * Bumped whenever `ShareCardComposer` changes what it draws.
      *
@@ -30,9 +33,6 @@ enum ShareCardFormat: string
      * still sitting in the bucket.
      */
     public const int DESIGN = 2;
-
-    case Unfurl = 'og';
-    case Portrait = 'portrait';
 
     public function width(): int
     {

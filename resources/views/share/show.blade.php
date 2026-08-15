@@ -71,8 +71,10 @@
                              is prependCount, not the plural form. --}}
                         <p class="mt-6 text-xs text-zinc-500">
                             Cualquiera con este link ve esta página.
-                            @if ($shareable->share_views > 0)
-                                {{ $shareable->share_views === 1 ? 'La abrieron una vez.' : 'La abrieron ' . $shareable->share_views . ' veces.' }}
+                            @if ($shareable->share_views === 1)
+                                La abrieron una vez.
+                            @elseif ($shareable->share_views > 1)
+                                La abrieron {{ $shareable->share_views }} veces.
                             @endif
                         </p>
 

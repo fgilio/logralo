@@ -9,12 +9,12 @@ namespace App\ValueObjects;
  *
  * The compositor draws these and nothing else, which is what keeps it a pure
  * service: the mark, the streak and the member are read on the query side and
- * arrive here as four strings.
+ * arrive here as plain values.
  *
  * Nothing here may carry an emoji. The card is drawn by GD, which renders one
  * TTF at a time and has no colour-glyph support, so an emoji would come out as
- * a hollow box. The flame lives in the badge's colour instead of in a
- * character.
+ * a hollow box — which is why the streak arrives as a bare number, and the
+ * flame after it is a picture the compositor inserts rather than a character.
  */
 final readonly class ShareCard
 {
@@ -22,9 +22,8 @@ final readonly class ShareCard
      * @param  string  $title  the loud line — a goal name, or a month
      * @param  string|null  $badge  the accent pill above it
      * @param  string  $byline  when, under the title
-     * @param  string|null  $highlight  the ember half of the byline, drawn after
-     *                                  it on the same line and followed by the
-     *                                  flame; the streak, as a bare number
+     * @param  int|null  $streak  drawn in ember at the end of the byline, with
+     *                            the flame after it
      * @param  array<string, string>  $stats  label to value, drawn as a row of
      *                                        small blocks; the recap's podium
      */
@@ -32,7 +31,7 @@ final readonly class ShareCard
         public string $title,
         public ?string $badge,
         public string $byline,
-        public ?string $highlight = null,
+        public ?int $streak = null,
         public array $stats = [],
     ) {}
 

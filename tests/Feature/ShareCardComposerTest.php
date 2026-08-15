@@ -33,7 +33,7 @@ function sampleCard(): ShareCard
         title: 'Gimnasio',
         badge: null,
         byline: '14 de agosto',
-        highlight: '12',
+        streak: 12,
     );
 }
 
@@ -162,7 +162,7 @@ it('survives an accent, which is most of the Spanish it draws', function (): voi
             title: 'Natación',
             badge: null,
             byline: '3 de diciembre',
-            highlight: '21',
+            streak: 21,
         ),
     );
 
