@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use App\Enums\ShareCardFormat;
 use App\Models\Goal;
 use App\Models\Mark;
 use App\Models\MonthlyRecap;
@@ -139,7 +140,23 @@ it('renders the card image and keeps it', function (): void {
 
     // Composed once and cached on the photo disk, because an unfurl is fetched
     // whenever a chat client feels like it.
-    expect(Storage::disk('photos')->exists("shares/{$mark->share_token}/og.jpg"))->toBeTrue();
+    expect(Storage::disk('photos')->exists("shares/{$mark->share_token}/".ShareCardFormat::Unfurl->filename()))->toBeTrue();
+});
+
+it('does not keep serving a card an older design drew', function (): void {
+    Storage::fake('photos');
+
+    $mark = sharedMark();
+
+    // What the previous design left on the disk, under the name that design
+    // stored it as. Cards are composed once and kept, so without a version in
+    // the name every link already sent to a chat would unfurl this forever.
+    Storage::disk('photos')->put("shares/{$mark->share_token}/og.jpg", 'drawn last year');
+
+    $response = $this->get(route('share.card', ['token' => $mark->share_token, 'format' => 'og']));
+
+    $response->assertOk()->assertHeader('content-type', 'image/jpeg');
+    expect($response->getContent())->not->toBe('drawn last year');
 });
 
 it('never lets a cache outlive a revoked card', function (): void {
@@ -167,7 +184,7 @@ it('renders the portrait card for sending the image', function (): void {
 
     $this->get(route('share.card', ['token' => $mark->share_token, 'format' => 'portrait']))->assertOk();
 
-    expect(Storage::disk('photos')->exists("shares/{$mark->share_token}/portrait.jpg"))->toBeTrue();
+    expect(Storage::disk('photos')->exists("shares/{$mark->share_token}/".ShareCardFormat::Portrait->filename()))->toBeTrue();
 });
 
 it('refuses a card format it does not draw', function (): void {

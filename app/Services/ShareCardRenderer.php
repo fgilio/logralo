@@ -17,6 +17,10 @@ use App\ValueObjects\ShareCard;
  * Rendering is lazy, on the first request for the card rather than when the
  * mark is made. Most marks are never shared, and composing every one of them
  * would double the work the camera button does for nothing.
+ *
+ * A card already on the disk is returned as it is, without asking the composer
+ * whether it would still draw that — which is why the composer's design version
+ * is part of the filename. See `ShareCardFormat::DESIGN`.
  */
 final readonly class ShareCardRenderer
 {
