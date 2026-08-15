@@ -63,6 +63,39 @@ function touchesRightEdge(string $jpeg): bool
     return false;
 }
 
+/**
+ * How much of the byline's line is drawn in the ember the streak wears.
+ *
+ * Only the bottom fifth is counted, which on a card with no stats is the
+ * byline and nothing else. Nothing else down there comes near this colour:
+ * the ground is charcoal, the brightest ring of the bloom is a dark brown,
+ * and the date beside the streak is white at 72%.
+ */
+function emberPixels(string $jpeg): int
+{
+    $image = imagecreatefromstring($jpeg);
+
+    expect($image)->not->toBeFalse();
+
+    $height = imagesy($image);
+    $found = 0;
+
+    for ($y = (int) ($height * 0.8); $y < $height; $y++) {
+        for ($x = 0; $x < imagesx($image); $x++) {
+            $pixel = imagecolorsforindex($image, imagecolorat($image, $x, $y));
+
+            // Wide, because JPEG at quality 88 smears the edge of a glyph, and
+            // because the flame's orange and the digits' ember are two shades
+            // of the same thing.
+            if ($pixel['red'] > 190 && $pixel['green'] > 90 && $pixel['green'] < 210 && $pixel['blue'] < 150) {
+                $found++;
+            }
+        }
+    }
+
+    return $found;
+}
+
 it('draws the unfurl at the ratio that gets a large preview', function (): void {
     $jpeg = resolve(ShareCardComposer::class)->compose(ShareCardFormat::Unfurl, sampleCard());
 
@@ -90,6 +123,21 @@ it('covers the card with the photo when there is one', function (): void {
     // A tall phone photo still comes out the card's shape: letterboxing reads
     // as a broken image in a chat preview.
     expect(composedSize($jpeg))->toBe(['width' => 1200, 'height' => 630, 'mime' => 'image/jpeg']);
+});
+
+it('actually draws the streak and the flame', function (): void {
+    // The one thing on the card nobody could see going missing from a test that
+    // only measures the frame: a card whose streak never reached the canvas
+    // encodes to the same 1200x630 JPEG as one whose streak did.
+    $withStreak = resolve(ShareCardComposer::class)->compose(ShareCardFormat::Unfurl, sampleCard());
+
+    $withoutStreak = resolve(ShareCardComposer::class)->compose(
+        ShareCardFormat::Unfurl,
+        new ShareCard(title: 'Gimnasio', badge: null, byline: '14 de agosto'),
+    );
+
+    expect(emberPixels($withStreak))->toBeGreaterThan(200)
+        ->and(emberPixels($withoutStreak))->toBeLessThan(20);
 });
 
 it('renders a card with no badge and no stats', function (): void {

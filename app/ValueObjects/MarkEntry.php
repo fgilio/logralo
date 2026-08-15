@@ -49,9 +49,11 @@ final readonly class MarkEntry implements FeedEntry
             title: $this->mark->goal->name,
             badge: null,
             byline: $this->mark->marked_on->translatedFormat('j \d\e F'),
-            // A run of one is not a run, and the composer draws the flame after
-            // whatever this is, the way the feed does.
-            streak: $this->streak > 1 ? $this->streak : null,
+            // Every mark carries its count, a first day included. Hiding the 1
+            // read as the flame being broken rather than as a comment on the
+            // streak's length, and the feed has always shown it: the header of
+            // the very card the share button sits on says "1 🔥".
+            streak: $this->streak,
         );
     }
 
