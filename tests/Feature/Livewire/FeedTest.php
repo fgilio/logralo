@@ -357,7 +357,7 @@ it('stands the goal emoji in for a mark that has no photo', function (): void {
         ->assertSeeHtml('aria-label="Natacion, sin foto · 2ᵃ vez seguida"');
 });
 
-it('drops the ghost count on a row, where there is no line for it', function (): void {
+it('drops the ghost caption on a collapsed row, and brings it back when the row opens', function (): void {
     feedMorning();
 
     $user = User::factory()->create();
@@ -370,8 +370,11 @@ it('drops the ghost count on a row, where there is no line for it', function ():
 
     $html = Livewire::actingAs($user)->test('feed')->html();
 
+    // Four ghost faces for three marks: the cover, the split card, the 1u row
+    // and the panel it opens. Only the row itself has no line for the caption.
     expect(feedLadder($html))->toBe([3, 2, 1])
-        ->and(mb_substr_count($html, 'data-test="ghost-caption"'))->toBe(2);
+        ->and(mb_substr_count($html, 'hatched'))->toBe(4)
+        ->and(mb_substr_count($html, 'data-test="ghost-caption"'))->toBe(3);
 });
 
 it('keys every card, and gives it the id a shared link lands on', function (): void {

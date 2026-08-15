@@ -78,7 +78,7 @@ Showing and adding are two different problems. A five-emoji bar under every card
 1. **The `＋` button.** Beside the summary, which is what makes the feature discoverable. At 1u it lives in the panel the row opens, so a row carries the summary and no button.
 2. **Press and hold, then drag to the emoji and release.** Anywhere on the card except the `＋` and the share button, which own their own press.
 
-The bar is built when it first opens rather than left hidden on every card, and opening one closes any other. The card takes `touch-action: pan-y` so a sideways drag along the bar belongs to the picker while the page keeps its scroll. The hit test runs on coordinates rather than on hover, because a touch pointer captured by the card never fires `pointerenter` on the bar.
+Opening one bar closes any other. It stays in the DOM hidden rather than being built on demand, because a bar created inside the click that opens it hears that same click as an outside click and shuts again. The card takes `touch-action: pan-y` so a sideways drag along the bar belongs to the picker while the page keeps its scroll. The hit test runs on coordinates rather than on hover, because a touch pointer captured by the card never fires `pointerenter` on the bar.
 
 `ReactionEmoji` is where "one reaction per member per mark, and choosing the current one takes it away" is written down. It also carries each emoji's Spanish name, because left to the glyph a screen reader reads the Unicode name in its own language and 🫵 has none worth hearing.
 
