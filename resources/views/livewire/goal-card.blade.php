@@ -65,11 +65,25 @@ new class extends Component
         return $this->goal->marks()->where('marked_on', $this->date)->first();
     }
 
+    /**
+     * This goal's whole mark history, read once.
+     *
+     * Both the streak and the photo rule need it, and both are always read on
+     * every render — so asking for it separately was two identical unbounded
+     * queries per card, times up to ten cards on the page. The computed cache
+     * is per component, so this is the one place they can share it.
+     */
+    #[Computed]
+    public function history(): MarkHistory
+    {
+        return resolve(GoalHistory::class)->for($this->goal);
+    }
+
     #[Computed]
     public function streak(): int
     {
         return resolve(StreakCalculator::class)->current(
-            resolve(GoalHistory::class)->for($this->goal)->dates(),
+            $this->history->dates(),
             $this->goal->user->clock(),
         );
     }
@@ -78,7 +92,7 @@ new class extends Component
     public function requiresPhoto(): bool
     {
         return resolve(PhotoRule::class)->requiresPhoto(
-            resolve(GoalHistory::class)->for($this->goal)->recentFullnessBefore(
+            $this->history->recentFullnessBefore(
                 $this->date,
                 (int) config('logralo.goals.ghosts_before_camera'),
             ),
@@ -96,8 +110,10 @@ new class extends Component
 
         return resolve(PhotoProcessor::class)->links(
             $mark->photo_key,
-            $mark->photo_width ?? 1,
-            $mark->photo_height ?? 1,
+            // 4:3 like MarkEntries, not 1:1. Same missing data, and two
+            // different reserved boxes for it is how the pair drifts.
+            $mark->photo_width ?? 4,
+            $mark->photo_height ?? 3,
         );
     }
 
@@ -245,6 +261,13 @@ new class extends Component
             @click.capture="onClick($event)"
             @short-press="$wire.press()"
             @long-press="$flux.modal('{{ $this->sheetName }}').show()"
+            {{-- `short-press` rides on pointerup, which a keyboard never
+                 sends, so without this Enter and Space did nothing at all on
+                 the grace chip. detail is 0 only for keyboard-activated
+                 clicks, so a tap cannot double-fire through here. The full
+                 card next door has always had its own keydown handlers. --}}
+            @click="$event.detail === 0 && $wire.press()"
+            aria-pressed="{{ $mark !== null ? 'true' : 'false' }}"
             @class([
                 'tap-target flex items-center gap-2 rounded-full border py-1.5 pr-3 pl-2.5 text-sm transition',
                 'border-amber-500/40 bg-amber-500/10' => $mark === null,

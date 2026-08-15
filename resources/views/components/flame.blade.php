@@ -11,8 +11,9 @@
 <span
     {{ $attributes->class(['inline-flex items-baseline gap-1 tabular-nums', 'opacity-45' => $dim || $days === 0]) }}
     {{-- Spelled out rather than inflected, for the reason share/show.blade.php
-         gives. --}}
-    @if ($days > 0) title="{{ $days }} {{ $days === 1 ? 'día' : 'días' }} seguidos" @endif
+         gives — and the adjective goes with the noun, which the first pass at
+         this missed: it read "1 día seguidos" on the first day of every goal. --}}
+    @if ($days > 0) title="{{ $days }} {{ $days === 1 ? 'día seguido' : 'días seguidos' }}" @endif
 >
     {{-- Number first, then the flame, the way it is written on the share card
          and the way anyone types it in a chat: "12 🔥", not "🔥 12". --}}

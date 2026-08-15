@@ -141,7 +141,10 @@
     /* Arriving from a shared link lands on /#mark-{id}. The scroll margin
        clears the sticky header, and :target does the highlight in CSS so no
        script has to run for the card to announce itself. */
-    scroll-margin-top: 7rem;
+    /* The header is two stacked rows — brand and pulse strip — plus whatever
+       the notch takes, which 7rem did not clear: arriving from WhatsApp put
+       the top of the card, avatar and goal name included, underneath it. */
+    scroll-margin-top: calc(9.5rem + env(safe-area-inset-top, 0px));
 
     &:target {
         outline: 2px solid var(--color-accent);

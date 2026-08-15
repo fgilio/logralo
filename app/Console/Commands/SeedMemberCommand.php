@@ -51,7 +51,9 @@ final class SeedMemberCommand extends Command
         $this->newLine();
         $this->line('Send this over WhatsApp:');
         $this->newLine();
-        $this->line("Bienvenido a Logralo, {$user->name} 🔥 Entrá con este enlace y elegí tu contraseña: {$link}");
+        // Not "Bienvenido": nothing here knows the member's gender, and this
+        // line gets pasted into WhatsApp exactly as it is printed.
+        $this->line("Te sumamos a Logralo, {$user->name} 🔥 Entrá con este enlace y elegí tu contraseña: {$link}");
         $this->newLine();
 
         return self::SUCCESS;

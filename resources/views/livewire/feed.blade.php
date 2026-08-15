@@ -12,6 +12,7 @@ use App\ValueObjects\FeedEntry;
 use App\ValueObjects\FeedResult;
 use Illuminate\Support\Collection;
 use Livewire\Attributes\Computed;
+use Livewire\Attributes\Locked;
 use Livewire\Attributes\On;
 use Livewire\Component;
 
@@ -28,6 +29,10 @@ new class extends Component
     use InteractsWithMember;
     use ResumesSharing;
 
+    // Locked because an unlocked public property is a client-writable input:
+    // `limit` reaches a `->limit($n + 1)->get()` with three eager loads behind
+    // it, and the whole marks table is exactly the thing that grows forever.
+    #[Locked]
     public int $limit = 0;
 
     public function mount(): void

@@ -60,7 +60,10 @@ it('draws the day and the goal, and no name at all', function (): void {
     expect($card->title)->toBe('Gimnasio')
         ->and($card->badge)->toBeNull()
         ->and($card->streak)->toBe(1)
-        ->and($card->byline)->toBe($entry->mark->marked_on->translatedFormat('j \d\e F'))
+        // Matched rather than re-derived with the expression the code uses:
+        // computing the expectation the same way made the assertion true for
+        // "14 August" too, which is what an unset APP_LOCALE draws.
+        ->and($card->byline)->toMatch('/^\d{1,2} de [a-záéíóú]+$/u')
         ->and($card->byline)->not->toContain('Guido');
 });
 

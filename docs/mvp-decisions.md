@@ -54,7 +54,7 @@ The schema is simple and needs no Postgres-specific features, so the local SQLit
 
 ## Photo storage
 
-Laravel Cloud object storage bucket (S3-compatible) in production, wired via the env vars Cloud injects. Local dev uses the `local` disk.
+Laravel Cloud object storage bucket (S3-compatible) in production, wired via the env vars Cloud injects. Local dev writes to the `photos` disk under `storage/app/photos`; `local` is reserved for Livewire's temporary uploads.
 
 ## Queue, cache, sessions
 

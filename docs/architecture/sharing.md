@@ -20,7 +20,7 @@ The group is private — no registration, no invite flow — but a link preview 
 - **Revoking clears the token** and then deletes the rendered cards from the bucket. That order matters: clearing second fails open, because a throw after the files are gone leaves a link that still resolves and a controller that will happily compose the cards again. Clearing first means any later failure costs an orphaned file rather than privacy.
 - **Sharing again mints a new token**, so changing your mind does not resurrect the address you were running from. A card that is still shared keeps the token it has — rotating there would quietly break links the group is still passing around.
 - **Revoked and never-existed both answer 404.** A 410 would confirm that a token was once real.
-- Revoking lives on the share page itself, owner-only, because that is the only screen where the member is looking at exactly what everyone they sent it to can see.
+- Revoking lives on the share page itself, because that is the only screen where the member is looking at exactly what everyone they sent it to can see. Owner-only for a mark; a month recap belongs to the group, so any member may pull that one.
 
 This does mean a shared photo is reachable by anyone holding the link. That is not a larger exposure than the feature it replaces: the old share sent the raw JPEG into a group chat, where it could already be forwarded anywhere.
 

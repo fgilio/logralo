@@ -54,7 +54,13 @@ new #[Layout('layouts::auth')] #[Title('Entrar')] class extends Component
         $seconds = RateLimiter::availableIn($this->throttleKey());
 
         throw ValidationException::withMessages([
-            'email' => __('auth.throttle', ['seconds' => $seconds, 'minutes' => (int) ceil($seconds / 60)]),
+            // Inflected here rather than in the catalogue: the window drains
+            // through 1, and "Probá de nuevo en 1 segundos" is the last thing
+            // somebody locked out of their own app should have to read.
+            'email' => __('auth.throttle', [
+                'seconds' => $seconds,
+                'unit' => $seconds === 1 ? 'segundo' : 'segundos',
+            ]),
         ]);
     }
 

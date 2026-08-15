@@ -8,6 +8,7 @@ use App\Exceptions\DayClosedException;
 use App\Exceptions\UserFacingException;
 use App\Models\Mark;
 use App\Services\PhotoProcessor;
+use App\Services\ShareCardRenderer;
 use Illuminate\Support\Facades\Context;
 use Illuminate\Support\Facades\Log;
 use Throwable;
@@ -19,7 +20,10 @@ use Throwable;
  */
 final readonly class UnmarkGoal
 {
-    public function __construct(private PhotoProcessor $photos) {}
+    public function __construct(
+        private PhotoProcessor $photos,
+        private ShareCardRenderer $cards,
+    ) {}
 
     public function handle(Mark $mark): void
     {
@@ -34,10 +38,17 @@ final readonly class UnmarkGoal
             }
 
             $photoKey = $mark->photo_key;
+            $cards = $mark->shareCardDirectory();
 
             $mark->delete();
 
             $this->photos->delete($photoKey);
+
+            // The rendered cards go too. They have the photo composited into
+            // them, so leaving them is the thing `RevokeSharing` exists to
+            // prevent — a picture of somebody still on the bucket after the
+            // mark it belonged to is gone.
+            $this->cards->forget($cards);
 
             Context::add('logralo.outcome', 'completed');
         } catch (UserFacingException $exception) {

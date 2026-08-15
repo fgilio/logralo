@@ -76,9 +76,15 @@ final readonly class MonthlyStandings
 
         $earliest = $users->map($firstDay)->min();
 
+        // Bounded at both ends. Only the lower bound matters for the live
+        // table — nobody marks the future — but `forMonth()` closes a month
+        // that may be a year behind, and without the ceiling it fetched every
+        // mark from that month up to today to then throw most of them away.
+        $latest = $users->map($lastDay)->max();
+
         $marksByUser = Mark::query()
             ->whereIn('goal_id', $goals->pluck('id')->values()->all())
-            ->where('marked_on', '>=', $earliest)
+            ->whereBetween('marked_on', [$earliest, $latest])
             ->get(['user_id', 'marked_on', 'photo_key'])
             ->groupBy('user_id');
 

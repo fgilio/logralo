@@ -32,7 +32,10 @@ final readonly class FeedPage
     public function load(int $limit): FeedResult
     {
         $marks = Mark::query()
-            ->with(['user', 'goal', 'reactions.user'])
+            // `reactions` without its user: the feed reads the emoji and the
+            // reactor's id off the pivot row itself and never names anybody,
+            // so loading the users was a query per page for nothing.
+            ->with(['user', 'goal', 'reactions'])
             ->latest('marked_on')->latest()
             ->orderByDesc('id')
             ->limit($limit + 1)
@@ -71,7 +74,11 @@ final readonly class FeedPage
         $floor = $hasMore && $oldest !== null ? $oldest->toDateString() : null;
 
         $recaps = MonthlyRecap::query()
-            ->with(['winner', 'runnerUp', 'bestStreakUser', 'bestStreakGoal'])
+            // Only the best streak's owner is a relation anything reads: the
+            // podium comes out of the standings JSON column, so `winner`,
+            // `runnerUp` and `bestStreakGoal` were three loaded relations that
+            // no template has ever touched. `SharedEntry` already knew this.
+            ->with('bestStreakUser')
             ->when($floor !== null, fn (Builder $query): Builder => $query->where('posted_on', '>=', $floor))
             ->get()
             ->map(fn (MonthlyRecap $recap): FeedEntry => new RecapEntry($recap));

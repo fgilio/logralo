@@ -17,6 +17,7 @@ use Intervention\Image\Encoders\JpegEncoder;
 use Intervention\Image\Encoders\WebpEncoder;
 use Intervention\Image\ImageManager;
 use Intervention\Image\Interfaces\ImageInterface;
+use RuntimeException;
 use Throwable;
 
 /**
@@ -62,13 +63,15 @@ final readonly class PhotoProcessor
 
         // The dimensions recorded are the ones actually stored, so the feed's
         // width and height attributes describe the file the browser fetches.
+        // Taken from the share-width variant by name rather than from whichever
+        // one the loop happened to end on: reordering FEED_WIDTHS would
+        // otherwise silently change the aspect box every feed card reserves.
         $stored = null;
 
         foreach (self::FEED_WIDTHS as $width) {
             // Intervention modifiers mutate in place, so every derivative
             // starts from its own decode rather than resizing a resize.
             $variant = $this->decode($path, $file->getClientOriginalName())->scaleDown(width: $width);
-            $stored = $variant;
 
             $this->disk()->put(
                 "{$key}/feed-{$width}.webp",
@@ -76,6 +79,8 @@ final readonly class PhotoProcessor
             );
 
             if ($width === self::SHARE_WIDTH) {
+                $stored = $variant;
+
                 $this->disk()->put(
                     "{$key}/feed-{$width}.jpg",
                     (string) $variant->encode(new JpegEncoder(quality: $jpegQuality, progressive: true, strip: true)),
@@ -90,6 +95,11 @@ final readonly class PhotoProcessor
             "{$key}/thumb.webp",
             (string) $thumbnail->encode(new WebpEncoder(quality: $webpQuality, strip: true)),
         );
+
+        // SHARE_WIDTH is one of FEED_WIDTHS, so the loop always sets this. The
+        // guard is here so that stops being true loudly rather than by storing
+        // a photo with no dimensions and reserving the wrong box forever.
+        throw_if($stored === null, RuntimeException::class, 'No share-width derivative was written.');
 
         return new StoredPhoto(
             key: $key,

@@ -14,15 +14,6 @@ use Carbon\CarbonImmutable;
 use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Livewire\Livewire;
 
-/**
- * Archiving and restoring write archived_at through Model::update(), but
- * App\Models\Goal declares #[Fillable(['emoji', 'name', 'position'])] and
- * leaves archived_at out. Under Model::shouldBeStrict() that throws; in
- * production, where strict mode is off, it would drop the column silently and
- * archiving would do nothing at all. The tests marked with this reason describe
- * the behaviour the app is supposed to have, so they start passing the moment
- * archived_at joins the fillable list.
- */
 /*
 |--------------------------------------------------------------------------
 | Creating

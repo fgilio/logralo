@@ -82,14 +82,13 @@ it('returns an empty table for no members', function (): void {
 
 /*
 |---------------------------------------------------------------------------
-| Ordering — currently broken, see the note on each test
+| Ordering
 |---------------------------------------------------------------------------
 |
-| ScoreCalculator::rank() sorts with Collection::sortBy() given an array of
-| closures. Laravel reads that array as a list of two-argument *comparators*
-| (Collection::sortByMany), but the closures there are one-argument value
-| extractors, so uasort() receives -0.5 or 'Ana' and truncates it to 0. Every
-| pair compares equal, and the table comes out in the order it went in.
+| This banner used to say the three tests below were known-broken, from when
+| rank() sorted with an array of one-argument closures that Collection read as
+| two-argument comparators. It sorts with an explicit comparator now and these
+| pass; the note outlived the bug and told every reader that green was a lie.
 |
 */
 
