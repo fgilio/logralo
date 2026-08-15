@@ -106,9 +106,16 @@ new class extends Component
             @if ($entry instanceof App\ValueObjects\RecapEntry)
                 <x-feed.recap-card :entry="$entry" wire:key="{{ $entry->key() }}" />
             @else
+                {{-- Counted here rather than inside the attribute: Blade emits
+                     an anonymous component's attribute expressions twice, once
+                     for the data array and once for the attribute bag, so
+                     anything with a side effect runs twice and the second value
+                     is the one that lands. --}}
+                @php $rank++; @endphp
+
                 <x-feed.mark-card
                     :entry="$entry"
-                    :height="$ladder(++$rank)"
+                    :height="$ladder($rank)"
                     :eager="$first"
                     :reacted="$entry->mark->reactions->firstWhere('user_id', auth()->id())?->emoji"
                     wire:key="{{ $entry->key() }}"
