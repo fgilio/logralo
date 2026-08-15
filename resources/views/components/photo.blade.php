@@ -1,4 +1,4 @@
-@props(['links', 'alt' => '', 'eager' => false, 'fill' => false])
+@props(['links', 'alt' => '', 'eager' => false, 'fill' => false, 'wide' => false])
 
 @php
     $img = [
@@ -13,14 +13,20 @@
 @endphp
 
 @if ($fill)
-    {{-- Fills whatever box it is dropped into: the goal card's own face. The
-         square thumbnail joins the srcset here, because a card is half a
-         phone wide and a low-DPR screen has no business downloading 720px. --}}
+    {{-- Fills whatever box it is dropped into: the goal card's own face, the
+         split card's square. The square thumbnail joins the srcset there,
+         because a card is half a phone wide and a low-DPR screen has no
+         business downloading 720px for it.
+
+         A box that spans the page says `wide` and gets neither: the thumbnail
+         is centre-cropped, so a cover offered it would show a crop of the photo
+         where the photo goes, and 50vw would have the browser shopping for half
+         the pixels it needs. --}}
     <picture {{ $attributes->class(['absolute inset-0 block size-full overflow-hidden']) }}>
         <source
             type="image/webp"
-            srcset="{{ $links->thumbnailUrl }} 320w, {{ $links->srcset }}"
-            sizes="50vw"
+            srcset="{{ $wide ? $links->srcset : "{$links->thumbnailUrl} 320w, {$links->srcset}" }}"
+            sizes="{{ $wide ? '100vw' : '50vw' }}"
         >
         <img @foreach ($img as $key => $value) {{ $key }}="{{ $value }}" @endforeach class="size-full object-cover">
     </picture>

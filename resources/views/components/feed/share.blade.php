@@ -1,8 +1,13 @@
-@props(['entry', 'tone' => 'plain'])
+@props(['entry', 'tone' => 'plain', 'compact' => false])
 
 @php
     $mark = $entry->mark;
-    $isOwner = $mark->isManagedBy(auth()->user());
+
+    // The 2u column is 118px on a narrow phone, which is not enough for the
+    // reaction summary and a pill that says a word. There the button keeps its
+    // icon and drops both the word and the count; the cover and the opened row
+    // have the room for them.
+    $isOwner = ! $compact && $mark->isManagedBy(auth()->user());
 @endphp
 
 {{-- The press never reaches the card: holding the share button opens its own
@@ -27,5 +32,9 @@
         </span>
     @endif
 
-    <x-share-button :entry="$entry" :tone="$tone === 'scrim' ? 'inverse' : 'default'" />
+    <x-share-button
+        :entry="$entry"
+        :tone="$tone === 'scrim' ? 'inverse' : 'default'"
+        :label="! $compact"
+    />
 </div>

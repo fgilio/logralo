@@ -14,7 +14,7 @@
 <div class="mark-3u relative">
     @if ($onPhoto)
         <x-feed.viewer :links="$entry->photo" :alt="$mark->goal->name" class="size-full">
-            <x-photo :links="$entry->photo" :alt="$mark->goal->name" :eager="$eager" fill />
+            <x-photo :links="$entry->photo" :alt="$mark->goal->name" :eager="$eager" fill wide />
         </x-feed.viewer>
     @else
         <x-feed.no-photo :entry="$entry" size="lg" class="size-full rounded-2xl" />

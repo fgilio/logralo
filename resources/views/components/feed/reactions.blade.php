@@ -36,8 +36,10 @@
             class="flex items-center gap-1 rounded-full px-1.5 py-0.5 ring-1 {{ $pill }}"
             data-test="reactions-{{ $mark->id }}"
         >
+            {{-- Three at most: the stack is a glance, not an inventory, and the
+                 total beside it is exact however many kinds are behind it. --}}
             <span class="flex -space-x-1">
-                @foreach ($counts->keys() as $value)
+                @foreach ($counts->keys()->take(3) as $value)
                     @php $emoji = ReactionEmoji::from($value); @endphp
 
                     <span

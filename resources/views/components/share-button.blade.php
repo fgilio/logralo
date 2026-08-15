@@ -1,4 +1,4 @@
-@props(['entry', 'tone' => 'default'])
+@props(['entry', 'tone' => 'default', 'label' => true])
 
 @php
     use App\Enums\ShareCardFormat;
@@ -78,8 +78,12 @@
                 @keydown.down.prevent="open = true; prefetch()"
                 aria-haspopup="menu"
                 :aria-expanded="open ? 'true' : 'false'"
+                {{-- Without the word it is a round button, not a pill with the
+                     word cut off. --}}
                 @class([
-                    'tap-target flex items-center gap-1.5 rounded-full border px-3 py-1 text-sm transition',
+                    'tap-target flex items-center gap-1.5 rounded-full border py-1 text-sm transition',
+                    'px-3' => $label,
+                    'px-1.5' => ! $label,
                     'border-zinc-200 text-zinc-500 dark:border-white/10 dark:text-zinc-400' => $tone === 'default',
                     'border-white/15 text-white/70' => $tone === 'inverse',
                 ])
@@ -88,7 +92,9 @@
                 data-test="share"
             >
                 <flux:icon name="share" variant="micro" />
-                <span class="text-xs font-medium">Compartir</span>
+                @if ($label)
+                    <span class="text-xs font-medium">Compartir</span>
+                @endif
             </button>
 
             <div

@@ -6,6 +6,14 @@
         'md' => 'text-4xl',
         default => 'text-6xl',
     };
+
+    // Built here rather than inline: Blade leaves a directive glued to the end
+    // of a word uncompiled — the protection that keeps an email address an
+    // email address — but still compiles its closing tag, so the view ends up
+    // with a stray endif and a syntax error.
+    $caption = $entry->ghostRun > 1
+        ? "sin foto · {$entry->ghostRun}ᵃ seguida"
+        : 'sin foto';
 @endphp
 
 {{-- A mark without a photo is still a mark: the goal's own emoji stands in for
@@ -20,7 +28,7 @@
 
     @if ($size !== 'sm')
         <p class="text-[11px] tracking-wide text-zinc-500 uppercase dark:text-zinc-400">
-            sin foto@if ($entry->ghostRun > 1) · {{ $entry->ghostRun }}ᵃ seguida @endif
+            {{ $caption }}
         </p>
     @endif
 </div>

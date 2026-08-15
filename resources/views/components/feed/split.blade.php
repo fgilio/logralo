@@ -8,11 +8,11 @@
      column beside it, which stays exactly 2u whether or not there is a note. --}}
 <div class="mark-2u flex gap-2.5 p-2.5">
     @if ($entry->photo !== null)
-        <x-feed.viewer :links="$entry->photo" :alt="$mark->goal->name" class="size-35 shrink-0 rounded-xl">
+        <x-feed.viewer :links="$entry->photo" :alt="$mark->goal->name" class="size-35 max-[359px]:size-28 shrink-0 rounded-xl">
             <x-photo :links="$entry->photo" :alt="$mark->goal->name" fill />
         </x-feed.viewer>
     @else
-        <x-feed.no-photo :entry="$entry" size="md" class="size-35 shrink-0 rounded-xl" />
+        <x-feed.no-photo :entry="$entry" size="md" class="size-35 max-[359px]:size-28 shrink-0 rounded-xl" />
     @endif
 
     <div class="flex min-w-0 flex-1 flex-col justify-center gap-1">
@@ -29,7 +29,7 @@
 
         <div class="flex items-center justify-between gap-2">
             <x-feed.reactions :mark="$mark" :reacted="$reacted" />
-            <x-feed.share :entry="$entry" />
+            <x-feed.share :entry="$entry" compact />
         </div>
     </div>
 </div>
