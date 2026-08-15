@@ -1,14 +1,18 @@
-@props(['mark', 'reacted' => null, 'interactive' => true, 'tone' => 'plain'])
+@props(['mark', 'reacted' => null, 'interactive' => true, 'summary' => true, 'tone' => 'plain'])
 
 @php
     use App\Enums\ReactionEmoji;
 
     // Ordered by how many people picked it, so the stack leads with the loudest
-    // thing anyone said about the mark.
-    $counts = $mark->reactions
-        ->groupBy(fn ($reaction): string => $reaction->emoji->value)
-        ->map(fn ($group): int => $group->count())
-        ->sortDesc();
+    // thing anyone said about the mark. A card that already shows the summary
+    // elsewhere — an opened row, whose collapsed line still carries it — asks
+    // for the button on its own.
+    $counts = $summary
+        ? $mark->reactions
+            ->groupBy(fn ($reaction): string => $reaction->emoji->value)
+            ->map(fn ($group): int => $group->count())
+            ->sortDesc()
+        : collect();
 
     $scrim = $tone === 'scrim';
 
@@ -23,10 +27,9 @@
         : 'border-zinc-200 text-zinc-500 dark:border-white/15 dark:text-zinc-400';
 @endphp
 
-{{-- Showing and adding are two different problems. The summary is always
-     visible and costs about 20px, which is what lets it survive on a 1u row;
-     adding happens in the bar, which is opened from here or by holding the
-     card. --}}
+{{-- Showing and adding are two different problems. The summary costs about
+     20px, which is what lets it survive on a 1u row; adding happens in the bar,
+     which is opened from here or by holding the card. --}}
 <div {{ $attributes->class(['flex items-center gap-1.5']) }}>
     @if ($counts->isNotEmpty())
         <span

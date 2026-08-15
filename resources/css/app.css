@@ -137,8 +137,9 @@
 @utility feed-card {
     content-visibility: auto;
     /* Once a card has been on screen the browser remembers its real size, so
-       this is only the first guess — the rung the card sits on, so a page of
-       rows does not estimate itself three times too long. */
+       this is only the first guess. Every card sets --card-height to the rung
+       it stands on, so a page of rows does not estimate itself three times too
+       long; the fallback is for a card that forgets. */
     contain-intrinsic-size: auto var(--card-height, 244px);
 }
 
