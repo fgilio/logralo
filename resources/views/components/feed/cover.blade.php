@@ -41,17 +41,20 @@
         </div>
 
         <x-flame :days="$entry->streak" size="sm" class="shrink-0" />
-
-        <x-feed.share :entry="$entry" :tone="$tone" />
     </div>
 
+    {{-- Sharing sits at the foot of the card rather than in the top scrim: the
+         button carries its own word, and a labelled pill beside the name would
+         leave nothing of the name on a narrow phone. --}}
     <div
         @class([
-            'pointer-events-none absolute inset-x-0 bottom-0 flex justify-end px-3 pt-8 pb-3',
+            'pointer-events-none absolute inset-x-0 bottom-0 flex items-center justify-between gap-2 px-3 pt-8 pb-3',
             'bg-linear-to-t from-black/60 to-transparent' => $onPhoto,
         ])
     >
         <x-feed.reactions :mark="$mark" :reacted="$reacted" :tone="$tone" class="pointer-events-auto" />
+
+        <x-feed.share :entry="$entry" :tone="$tone" />
     </div>
 </div>
 

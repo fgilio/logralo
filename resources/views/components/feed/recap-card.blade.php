@@ -1,14 +1,11 @@
-@props(['recap'])
+@props(['entry'])
 
 @php
+    $recap = $entry->recap;
     $standings = $recap->standingEntries();
-    $winners = $standings->where('rank', 1);
-    $runnersUp = $standings->where('rank', 2);
-    $month = \Illuminate\Support\Str::ucfirst($recap->month->translatedFormat('F Y'));
-
-    $shareText = $winners->isEmpty()
-        ? "Cerró {$month} en Logralo"
-        : 'Ganó ' . $winners->pluck('name')->join(', ', ' y ') . " en {$month} — Logralo";
+    $winners = $entry->winners();
+    $runnersUp = $standings->where('rank', 2)->values();
+    $month = $entry->monthName();
 @endphp
 
 <article
@@ -28,23 +25,7 @@
             <h2 class="font-display text-2xl tracking-wide">{{ $month }}</h2>
         </div>
 
-        <div
-            x-data="shareCard({
-                imageUrl: null,
-                text: @js($shareText),
-                url: @js(route('today')),
-            })"
-        >
-            <flux:button
-                variant="subtle"
-                size="sm"
-                square
-                icon="share"
-                aria-label="Compartir"
-                x-on:click="share()"
-                class="text-white!"
-            />
-        </div>
+        <x-share-button :entry="$entry" tone="inverse" />
     </header>
 
     @if ($winners->isNotEmpty())
@@ -63,9 +44,9 @@
                 @endforeach
             </div>
             <div class="min-w-0 leading-tight">
-                <p class="truncate font-semibold">{{ $winners->pluck('name')->join(', ', ' y ') }}</p>
+                <p class="truncate font-semibold">{{ $entry->winnerNames() }}</p>
                 <p class="text-xs text-white/60">
-                    {{ rtrim(rtrim(number_format($winners->first()->percentage(), 1, ',', '.'), '0'), ',') }}% del mes
+                    {{ $winners->first()->percentageLabel() }} del mes
                 </p>
             </div>
         </div>

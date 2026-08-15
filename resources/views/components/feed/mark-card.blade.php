@@ -16,8 +16,13 @@
 {{-- The ladder decides the shape, not the content: inside a day the newest mark
      is the cover, the one behind it is the split card, and everything older is
      a row. The frame and the hold-to-react gesture are the same at all three,
-     so only what goes inside changes. --}}
+     so only what goes inside changes.
+
+     The id is what a shared link lands on: /#mark-{id} scrolls here and :target
+     lights the card up, so arriving from WhatsApp puts you on the photo you
+     were sent rather than at the top of the feed. --}}
 <article
+    id="mark-{{ $mark->id }}"
     x-data="reactionPicker({ markId: @js($mark->id) })"
     x-on:pointerdown="press($event)"
     x-on:pointermove="track($event)"
@@ -25,7 +30,7 @@
     x-on:pointercancel="cancel()"
     x-on:contextmenu.prevent
     x-on:click.capture="onClick($event)"
-    class="tap-target feed-card relative overflow-hidden rounded-2xl bg-white ring-1 ring-zinc-200/80 dark:bg-white/5 dark:ring-white/10"
+    class="tap-target feed-card relative overflow-hidden rounded-2xl bg-white shadow-sm ring-1 ring-zinc-200/80 dark:bg-white/5 dark:ring-white/10"
     style="--card-height: {{ $rung }}px"
     data-test="mark-{{ $mark->id }}"
     data-height="{{ $height }}"

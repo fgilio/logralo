@@ -37,13 +37,13 @@ Photos fill their slot with `object-cover`. `marks.photo_width` and `marks.photo
 
 ## What each height shows
 
-**3u — the day's most recent mark.** The photo fills the card, edge to edge. Over it: a top scrim with the avatar, name, goal and relative time on the left and the streak on the right; a bottom scrim with the reaction summary and the `＋` button.
+**3u — the day's most recent mark.** The photo fills the card, edge to edge. Over it: a top scrim with the avatar, name, goal and relative time on the left and the streak on the right; a bottom scrim with the reaction summary and the `＋` button on the left and sharing on the right.
 
 **2u — the second most recent.** A 140 px square photo on the left. On the right, a column with name and `goal · time`, the streak, the note, and the reaction summary. With no note the column is centred and reads exactly as it did before.
 
 **1u — everything else that day.** Thumbnail, then two lines: `Nombre · 🎯 Objetivo` and the note (or the time). On the right, the reaction summary and the streak. Tapping the row expands it in place with the photo and the reaction bar.
 
-Sharing to WhatsApp survives at every height, since that is half of what the app is for: the button rides the top scrim at 3u, sits beside the reactions at 2u, and waits inside the expanded panel at 1u.
+Sharing survives at every height, since that is half of what the app is for. The button is the one from the sharing work — a labelled pill that shares on a tap and opens the rest on a hold — so it goes where there is room for a word: the bottom scrim beside the reactions at 3u, the foot of the column at 2u, and inside the expanded panel at 1u. The view count the owner sees rides along with it.
 
 ## The note
 

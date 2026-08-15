@@ -60,6 +60,13 @@ final class AppServiceProvider extends ServiceProvider
             Limit::perMinute(5)->by('magic-link-ip:'.$request->ip()),
             Limit::perHour(10)->by('magic-link-user:'.$request->route('user')),
         ]);
+
+        // Share links are the app's only public surface, and a 24-character
+        // token is the whole of their access control. The limit is generous
+        // enough that a card forwarded around a family group never trips it,
+        // and tight enough that nobody enumerates the space from one address.
+        RateLimiter::for('share', fn (Request $request): Limit => Limit::perMinute(60)
+            ->by('share-ip:'.$request->ip()));
     }
 
     private function configureBlade(): void

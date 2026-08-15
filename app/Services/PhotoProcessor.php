@@ -123,6 +123,23 @@ final readonly class PhotoProcessor
     }
 
     /**
+     * The share-width JPEG's bytes, for whoever needs the picture rather than
+     * a link to it — the share card compositor, in practice.
+     *
+     * Read off the disk rather than fetched over `url()`: on production that
+     * URL is signed and short-lived, and the app is already standing next to
+     * the bucket. Null when the derivative is not there, which is a card
+     * drawn on the plain ground rather than an error.
+     */
+    public function shareJpeg(string $key): ?string
+    {
+        $path = $key.'/feed-'.self::SHARE_WIDTH.'.jpg';
+        $disk = $this->disk();
+
+        return $disk->exists($path) ? (string) $disk->get($path) : null;
+    }
+
+    /**
      * Public buckets keep the feed cacheable; private ones get a signed URL.
      */
     public function url(string $path): string
@@ -147,6 +164,16 @@ final readonly class PhotoProcessor
         return $disk->url($path);
     }
 
+    /**
+     * Where every derivative lives — and, beside them, the rendered share
+     * cards. Public so the card renderer has one place to ask rather than a
+     * second copy of this line.
+     */
+    public function disk(): Filesystem
+    {
+        return Storage::disk((string) config('logralo.photos.disk'));
+    }
+
     private function decode(string $path, string $originalName): ImageInterface
     {
         try {
@@ -156,10 +183,5 @@ final readonly class PhotoProcessor
         } catch (Throwable $throwable) {
             throw new PhotoUnreadableException($originalName, $throwable);
         }
-    }
-
-    private function disk(): Filesystem
-    {
-        return Storage::disk((string) config('logralo.photos.disk'));
     }
 }

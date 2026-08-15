@@ -6,6 +6,7 @@ namespace App\ValueObjects;
 
 use App\Models\Mark;
 use Carbon\CarbonImmutable;
+use Illuminate\Support\Str;
 
 /**
  * A mark as it appears in the feed, carrying the flame count it had on its own
@@ -32,6 +33,87 @@ final readonly class MarkEntry implements FeedEntry
     }
 
     public function key(): string
+    {
+        return "mark-{$this->mark->id}";
+    }
+
+    /**
+     * The goal, the day, and the streak beside it.
+     *
+     * No name on the card: it is sent by the person who earned it, into a
+     * chat of five people who know each other, and the photo is of them.
+     */
+    public function shareCard(): ShareCard
+    {
+        return new ShareCard(
+            title: $this->mark->goal->name,
+            badge: null,
+            byline: $this->mark->marked_on->translatedFormat('j \d\e F'),
+            // A run of one is not a run, and the composer draws the flame after
+            // whatever this is, the way the feed does.
+            streak: $this->streak > 1 ? $this->streak : null,
+        );
+    }
+
+    /**
+     * Whatever the member typed when they marked it, and only if they typed
+     * nothing, the app's own line.
+     *
+     * "Franco marcó Gimnasio" was a caption written by software, sitting under
+     * a card that already said Gimnasio, sent by Franco. The note is the one
+     * part of a share nobody else could have written.
+     */
+    public function shareText(): string
+    {
+        $note = Str::of($this->mark->note ?? '')->trim();
+
+        return $note->isNotEmpty()
+            ? $note->toString()
+            : "Marqué {$this->mark->goal->name}";
+    }
+
+    public function shareUrl(): ?string
+    {
+        return $this->mark->shareUrl();
+    }
+
+    public function shareable(): Mark
+    {
+        return $this->mark;
+    }
+
+    public function shareKind(): string
+    {
+        return 'mark';
+    }
+
+    public function shareCardDirectory(): string
+    {
+        return $this->mark->shareCardDirectory();
+    }
+
+    public function sharePhotoKey(): ?string
+    {
+        return $this->mark->photo_key;
+    }
+
+    /** The browser tab, for whoever opens the link. */
+    public function shareTitle(): string
+    {
+        $goal = $this->mark->goal->name;
+
+        return $this->streak > 1
+            ? "{$this->mark->user->name} · {$this->streak} días de {$goal}"
+            : "{$this->mark->user->name} · {$goal}";
+    }
+
+    /**
+     * The `id` the feed card carries, so "Abrir en Logralo" lands on it.
+     *
+     * Narrower than the interface's `?string` on purpose: a mark always has a
+     * row to scroll to, and only the month recap has nothing.
+     */
+    public function shareAnchor(): string
     {
         return "mark-{$this->mark->id}";
     }

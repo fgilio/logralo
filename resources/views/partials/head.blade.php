@@ -2,8 +2,57 @@
 {{-- viewport-fit=cover is what makes env(safe-area-inset-*) non-zero. --}}
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 
-<title>{{ filled($title ?? null) ? $title . ' · Logralo' : 'Logralo' }}</title>
-<meta name="description" content="Objetivos diarios, rachas y pruebas con foto. Entre amigos.">
+@php
+    // Every page unfurls as something. Without these a pasted link showed
+    // WhatsApp the login page's title over a favicon-sized tile, identically
+    // for every share anyone in the group ever sent.
+    // The tab always carries the suffix. A page that supplies its own og:title
+    // keeps it bare, because a chat preview already says where it came from.
+    $pageTitle = filled($title ?? null) ? $title . ' · Logralo' : 'Logralo';
+
+    $og = ($og ?? []) + [
+        'title' => $pageTitle,
+        'description' => 'Objetivos diarios, rachas y pruebas con foto. Entre amigos.',
+        'image' => route('share.default-card'),
+        'width' => 1200,
+        'height' => 630,
+        'url' => url()->current(),
+        'type' => 'website',
+    ];
+
+    // A page may pass an empty description to say it wants none: the share page
+    // lets its picture do the talking, and an empty content attribute is not
+    // the same as no tag — a crawler prints it as a blank line under the image.
+    $hasDescription = filled($og['description']);
+@endphp
+
+<title>{{ $pageTitle }}</title>
+
+@if ($hasDescription)
+    <meta name="description" content="{{ $og['description'] }}">
+@endif
+
+{{-- WhatsApp reads the OpenGraph tags and nothing else. It only draws the
+     large preview when og:image is present with its dimensions declared;
+     without them it falls back to the small tile beside the text. --}}
+<meta property="og:site_name" content="Logralo">
+<meta property="og:type" content="{{ $og['type'] }}">
+<meta property="og:title" content="{{ $og['title'] }}">
+@if ($hasDescription)
+    <meta property="og:description" content="{{ $og['description'] }}">
+@endif
+<meta property="og:url" content="{{ $og['url'] }}">
+<meta property="og:image" content="{{ $og['image'] }}">
+<meta property="og:image:width" content="{{ $og['width'] }}">
+<meta property="og:image:height" content="{{ $og['height'] }}">
+<meta property="og:locale" content="es_UY">
+
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="{{ $og['title'] }}">
+@if ($hasDescription)
+    <meta name="twitter:description" content="{{ $og['description'] }}">
+@endif
+<meta name="twitter:image" content="{{ $og['image'] }}">
 
 <link rel="manifest" href="/manifest.webmanifest">
 <meta name="theme-color" media="(prefers-color-scheme: light)" content="#f7f4ef">
