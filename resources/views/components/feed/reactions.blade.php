@@ -14,6 +14,16 @@
             ->sortDesc()
         : collect();
 
+    // Three at most: the stack is a glance, not an inventory, and the total
+    // beside it stays exact however many kinds are behind it. The viewer's own
+    // reaction holds its place even when three louder ones would push it out,
+    // because the ring on it is how the card says you reacted.
+    $shown = $counts->keys()->take(3);
+
+    if ($reacted !== null && $counts->has($reacted->value) && ! $shown->contains($reacted->value)) {
+        $shown = $shown->take(2)->push($reacted->value);
+    }
+
     $scrim = $tone === 'scrim';
 
     $pill = $scrim
@@ -36,10 +46,8 @@
             class="flex items-center gap-1 rounded-full px-1.5 py-0.5 ring-1 {{ $pill }}"
             data-test="reactions-{{ $mark->id }}"
         >
-            {{-- Three at most: the stack is a glance, not an inventory, and the
-                 total beside it is exact however many kinds are behind it. --}}
             <span class="flex -space-x-1">
-                @foreach ($counts->keys()->take(3) as $value)
+                @foreach ($shown as $value)
                     @php $emoji = ReactionEmoji::from($value); @endphp
 
                     <span

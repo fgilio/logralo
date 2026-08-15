@@ -22,14 +22,19 @@
             type="button"
             wire:click="resumeSharing('{{ $entry->shareKind() }}', '{{ $shareable->getKey() }}')"
             @class([
-                'tap-target flex items-center gap-1.5 rounded-full border border-dashed px-3 py-1 text-xs font-medium transition active:scale-95',
+                'tap-target flex items-center gap-1.5 rounded-full border border-dashed py-1 text-xs font-medium transition active:scale-95',
+                'px-3' => $label,
+                'px-1.5' => ! $label,
                 'border-zinc-300 text-zinc-500 dark:border-white/15 dark:text-zinc-400' => $tone === 'default',
                 'border-white/20 text-white/60' => $tone === 'inverse',
             ])
+            aria-label="Compartir de nuevo"
             data-test="share-resume"
         >
             <flux:icon name="arrow-path" variant="micro" />
-            Compartir de nuevo
+            @if ($label)
+                Compartir de nuevo
+            @endif
         </button>
     @endif
 @else
