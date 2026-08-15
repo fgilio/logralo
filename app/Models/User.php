@@ -45,17 +45,6 @@ final class User extends Authenticatable
     use HasUlids;
     use Notifiable;
 
-    /**
-     * Avatar colours, picked deterministically from the id so a member keeps
-     * the same colour everywhere without an extra column.
-     *
-     * @var list<string>
-     */
-    public const array AVATAR_COLORS = [
-        'red', 'orange', 'amber', 'yellow', 'lime', 'green', 'emerald', 'teal',
-        'cyan', 'sky', 'blue', 'indigo', 'violet', 'purple', 'fuchsia', 'pink',
-    ];
-
     /** @return HasMany<Goal, $this> */
     public function goals(): HasMany
     {
@@ -99,11 +88,6 @@ final class User extends Authenticatable
         $firstTwoWords = Str::of($this->name)->squish()->explode(' ')->take(2)->implode(' ');
 
         return Str::initials($firstTwoWords, capitalize: true);
-    }
-
-    public function avatarColor(): string
-    {
-        return self::AVATAR_COLORS[crc32($this->id) % count(self::AVATAR_COLORS)];
     }
 
     /** @return array<string, string> */

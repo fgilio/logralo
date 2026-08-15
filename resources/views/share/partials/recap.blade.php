@@ -2,6 +2,7 @@
     $recap = $entry->recap;
     $standings = $recap->standingEntries();
     $winners = $entry->winners();
+    $bestStreak = $entry->bestStreakLabel();
 @endphp
 
 <article class="relative overflow-hidden rounded-3xl bg-zinc-900 p-6 ring-1 ring-white/10">
@@ -44,10 +45,11 @@
             @endforeach
         </div>
 
-        @if ($recap->best_streak_days > 0)
-            <p class="mt-6 text-xs tracking-[0.2em] text-white/50 uppercase">
-                Mejor racha · {{ $recap->best_streak_days }} días · {{ $recap->bestStreakUser?->name }}
-            </p>
+        {{-- The card's own line, read from the entry rather than rebuilt here:
+             the two are a tap apart, and they used to disagree about whether a
+             one-day best streak said "días". --}}
+        @if ($bestStreak !== null)
+            <p class="mt-6 text-xs tracking-[0.2em] text-white/50 uppercase">Mejor racha · {{ $bestStreak }}</p>
         @endif
     </div>
 </article>

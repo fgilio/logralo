@@ -80,7 +80,12 @@ return [
     |
     */
 
-    'locale' => env('APP_LOCALE', 'en'),
+    // Defaulted to Spanish rather than to Laravel's 'en': this app has one
+    // language, and every month and weekday it prints comes out of
+    // translatedFormat(), which follows this. An environment that forgets to
+    // set APP_LOCALE would otherwise unfurl "14 of August" into the group chat
+    // and validate forms in English, with nothing failing to say so.
+    'locale' => env('APP_LOCALE', 'es'),
 
     'fallback_locale' => env('APP_FALLBACK_LOCALE', 'en'),
 

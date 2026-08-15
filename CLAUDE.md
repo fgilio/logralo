@@ -12,7 +12,7 @@ The product spec is `docs/mvp-v1-scope.md` — it wins over `docs/mvp-decisions.
 - **Livewire 4 single-file components + Flux Pro**, Tailwind 4, Vite
 - **SQLite** locally and in hosted sessions, **PostgreSQL 18** in CI and on PlanetScale in production. Production shares jarvis's PlanetScale cluster and keeps its own database inside it — `docs/architecture/planetscale-shared-cluster.md`
 - **Pest v5**, PHPStan level 8 via Larastan, Pint, Rector
-- **laravel/ai** is installed for the post-MVP goal-difficulty judge; `app/Ai/` is empty on purpose
+- **laravel/ai** is installed for the post-MVP goal-difficulty judge; nothing uses it yet and there is no `app/Ai/`
 
 ## Architecture
 
@@ -33,7 +33,7 @@ The layering is the thing to keep. It is enforced by `tests/Arch/`.
 
 ### `app/Actions/` — the write side, one unit of work each
 
-- `MarkGoal`, `UnmarkGoal`, `ToggleReaction`, `CreateGoal`, `RenameGoal`, `ArchiveGoal`, `RestoreGoal`, `CloseMonth`, `IssueMagicLink`, `RecordShareVisit`, `RevokeSharing`
+- `MarkGoal`, `UnmarkGoal`, `ToggleReaction`, `CreateGoal`, `RenameGoal`, `ArchiveGoal`, `RestoreGoal`, `CloseMonth`, `IssueMagicLink`, `RecordShareVisit`, `RevokeSharing`, `ResumeSharing`
 
 ### `app/ValueObjects/` — final readonly
 

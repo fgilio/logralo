@@ -36,6 +36,11 @@
              through a suite that stores a few dozen of them. -->
         <ini name="memory_limit" value="1G"/>
         <env name="APP_ENV" value="testing"/>
+        <!-- Pinned rather than inherited from .env: every month and weekday
+             the app prints comes out of translatedFormat(), and a suite that
+             takes the locale from whatever file happens to be on disk cannot
+             assert "14 de agosto" and mean it. -->
+        <env name="APP_LOCALE" value="es"/>
         <env name="APP_MAINTENANCE_DRIVER" value="file"/>
         <env name="BCRYPT_ROUNDS" value="4"/>
         <env name="BROADCAST_CONNECTION" value="null"/>

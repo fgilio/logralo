@@ -28,7 +28,9 @@ final readonly class RevokeSharing
 
     public function handle(Mark|MonthlyRecap $shared): void
     {
-        Context::add('logralo.share_token', $shared->share_token);
+        // The id rather than the token: until the line below runs, the token is
+        // still a live credential for a private photo.
+        Context::add('logralo.shared_id', $shared->getKey());
         Context::add('logralo.shared_type', class_basename($shared));
 
         try {

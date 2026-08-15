@@ -10,6 +10,7 @@ use App\Services\StreakMilestone;
 use App\ValueObjects\MarkEntry;
 use Flux\Flux;
 use Livewire\Attributes\Computed;
+use Livewire\Attributes\Locked;
 use Livewire\Attributes\On;
 use Livewire\Component;
 
@@ -27,6 +28,10 @@ new class extends Component
 {
     use ResumesSharing;
 
+    // Set by the event this listens for, never by the browser: unlocked, a
+    // crafted update points the celebration at any mark id and renders its
+    // photo, note and share link.
+    #[Locked]
     public ?string $markId = null;
 
     #[Computed]

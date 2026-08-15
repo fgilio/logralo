@@ -62,13 +62,15 @@ final readonly class PhotoProcessor
 
         // The dimensions recorded are the ones actually stored, so the feed's
         // width and height attributes describe the file the browser fetches.
+        // Taken from the share-width variant by name rather than from whichever
+        // one the loop happened to end on: reordering FEED_WIDTHS would
+        // otherwise silently change the aspect box every feed card reserves.
         $stored = null;
 
         foreach (self::FEED_WIDTHS as $width) {
             // Intervention modifiers mutate in place, so every derivative
             // starts from its own decode rather than resizing a resize.
             $variant = $this->decode($path, $file->getClientOriginalName())->scaleDown(width: $width);
-            $stored = $variant;
 
             $this->disk()->put(
                 "{$key}/feed-{$width}.webp",
@@ -76,6 +78,8 @@ final readonly class PhotoProcessor
             );
 
             if ($width === self::SHARE_WIDTH) {
+                $stored = $variant;
+
                 $this->disk()->put(
                     "{$key}/feed-{$width}.jpg",
                     (string) $variant->encode(new JpegEncoder(quality: $jpegQuality, progressive: true, strip: true)),
@@ -91,6 +95,9 @@ final readonly class PhotoProcessor
             (string) $thumbnail->encode(new WebpEncoder(quality: $webpQuality, strip: true)),
         );
 
+        // SHARE_WIDTH is one of FEED_WIDTHS, so the loop always sets this —
+        // PHPStan proves it from the two constants and rejects a guard here as
+        // dead. Take one of them out of step and it says so at that point.
         return new StoredPhoto(
             key: $key,
             width: $stored->width(),

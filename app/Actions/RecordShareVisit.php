@@ -42,7 +42,11 @@ final class RecordShareVisit
 
     public function handle(Mark|MonthlyRecap $shared, ?string $userAgent): void
     {
-        Context::add('logralo.share_token', $shared->share_token);
+        // The row's id, never the token. The token is the whole of the access
+        // control on a public photo, and this event is emitted on every hit to
+        // /l/{token} — including the crawler's — so logging it would copy a
+        // live credential into every log sink the app has.
+        Context::add('logralo.shared_id', $shared->getKey());
         Context::add('logralo.shared_type', class_basename($shared));
 
         try {

@@ -56,7 +56,9 @@ new #[Layout('layouts::auth')] #[Title('Elegí tu contraseña')] class extends C
 
 <div class="rise">
     <flux:heading size="xl" class="font-display tracking-wide">
-        Bienvenido, {{ Str::of($this->member()->name)->explode(' ')->first() }}
+        {{-- Not "Bienvenido": there is no gender on a member and the group is
+             not all men. This is the one screen everybody sees exactly once. --}}
+        Qué bueno tenerte, {{ Str::of($this->member()->name)->explode(' ')->first() }}
     </flux:heading>
     <flux:text class="mt-2">
         Elegí una contraseña para entrar desde ahora. El enlace de WhatsApp ya no sirve.

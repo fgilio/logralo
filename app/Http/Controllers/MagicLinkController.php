@@ -12,6 +12,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Context;
 use Illuminate\Support\Facades\Log;
+use Throwable;
 
 /**
  * Joining the group from the link sent over WhatsApp.
@@ -27,10 +28,21 @@ use Illuminate\Support\Facades\Log;
  */
 final class MagicLinkController
 {
+    /**
+     * A read, not a unit of work: this only proves the link is good. So it
+     * warns on a bad one and emits no handled event — the POST below is what
+     * owns the outcome.
+     */
     public function show(User $user, string $token): View|RedirectResponse
     {
         if (! $this->tokenMatches($user, $token)) {
-            return $this->reject('show');
+            Context::add('logralo.user_id', $user->id);
+            Context::add('logralo.reject_reason', 'token_invalid_or_used');
+            Context::add('logralo.step', 'show');
+
+            Log::warning('magic_link.rejected');
+
+            return $this->deadLink();
         }
 
         return view('auth.magic-link', ['user' => $user, 'token' => $token]);
@@ -40,25 +52,40 @@ final class MagicLinkController
     {
         Context::add('logralo.user_id', $user->id);
 
-        if (! $this->tokenMatches($user, $token)) {
-            return $this->reject('consume');
+        try {
+            if (! $this->tokenMatches($user, $token)) {
+                Context::add('logralo.outcome', 'rejected');
+                Context::add('logralo.reject_reason', 'token_invalid_or_used');
+
+                return $this->deadLink();
+            }
+
+            // Burn first: a crash on any later line must not leave a live link.
+            $user->forceFill([
+                'magic_link_token' => null,
+                'magic_link_used_at' => CarbonImmutable::now(),
+            ])->save();
+
+            // Deliberately without "remember me": a link out of a chat backup
+            // has no business minting a long-lived cookie.
+            Auth::guard('web')->login($user);
+            $request->session()->regenerate();
+
+            Context::add('logralo.outcome', 'consumed');
+
+            return to_route($user->hasPassword() ? 'today' : 'password.create');
+        } catch (Throwable $throwable) {
+            Context::add('logralo.outcome', 'error');
+            Context::add('logralo.error', $throwable->getMessage());
+            Context::add('logralo.error_class', $throwable::class);
+
+            throw $throwable;
+        } finally {
+            // In `finally` like every Action's: a token burned by a save that
+            // then threw used to leave no event at all, which is the one case
+            // anybody would go looking for.
+            Log::info('magic_link.consume.handled');
         }
-
-        // Burn first: a crash on any later line must not leave a live link.
-        $user->forceFill([
-            'magic_link_token' => null,
-            'magic_link_used_at' => CarbonImmutable::now(),
-        ])->save();
-
-        // Deliberately without "remember me": a link out of a chat backup has
-        // no business minting a long-lived cookie.
-        Auth::guard('web')->login($user);
-        $request->session()->regenerate();
-
-        Context::add('logralo.outcome', 'consumed');
-        Log::info('magic_link.consume.handled');
-
-        return to_route($user->hasPassword() ? 'today' : 'password.create');
     }
 
     private function tokenMatches(User $user, string $token): bool
@@ -70,10 +97,9 @@ final class MagicLinkController
         return hash_equals($user->magic_link_token, hash('sha256', $token));
     }
 
-    private function reject(string $step): RedirectResponse
+    /** The one answer every rejection gets, whichever kind it was. */
+    private function deadLink(): RedirectResponse
     {
-        Log::warning('magic_link.rejected', ['reason' => 'token_invalid_or_used', 'step' => $step]);
-
         return to_route('login')
             ->with('status', 'Ese enlace ya no sirve. Entrá con tu email y contraseña.');
     }

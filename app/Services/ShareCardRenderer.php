@@ -44,8 +44,16 @@ final readonly class ShareCardRenderer
         $path = $directory.'/'.self::filename($format);
         $disk = $this->photos->disk();
 
-        if ($disk->exists($path)) {
-            return (string) $disk->get($path);
+        // Not `(string) $disk->get(...)`: every disk here is configured
+        // `throw => false`, so a read that loses a race with a revoke, or that
+        // hits a truncated object, comes back null and casts to an empty
+        // string. That would be served as a 200 with an image content type and
+        // a stable ETag — a blank unfurl that WhatsApp then caches, in every
+        // chat the link was pasted into. An empty read composes instead.
+        $cached = $disk->exists($path) ? $disk->get($path) : null;
+
+        if ($cached !== null && $cached !== '') {
+            return $cached;
         }
 
         $jpeg = $this->composer->compose(

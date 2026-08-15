@@ -38,14 +38,14 @@ No tabs and no menus. Goal management, timezone, and logout live behind the prof
 
 - **Feed cards** show avatar, name, goal emoji and name, relative time, the photo full-bleed (or the ghost treatment), the flame count, and the note if present. Photos tap to full-screen. What each height carries, and what the ghost treatment is, are superseded by `docs/architecture/feed-cascade.md`.
 - **Reactions.** One-tap emoji from a small fixed set (💪 🔥 👏 😂 🫵), one reaction per user per card, tap again to remove. Counts show on the card. No notifications. Reactions are discovered by looking.
-- **Sharing.** A share action on every feed card and on the month-end recap, via the Web Share API with the photo attached plus a text line (for example "🔥 12 días seguidos de Gym — Logralo"). WhatsApp is the expected target. If sharing gets heavy use, comments come in v1.1.
-- **Live-ness.** The feed refreshes on focus and on pull. No websockets.
+- **Sharing.** A share action on every feed card and on the month-end recap. WhatsApp is the expected target. If sharing gets heavy use, comments come in v1.1. _Superseded in the detail by `docs/architecture/sharing.md`: what gets sent is a link whose unfurl carries a composed card, because `navigator.share()` drops the caption when a file comes with it._
+- **Live-ness.** The feed refreshes on pull. No websockets and no polling.
 
 ## Onboarding, goal management, and PWA
 
-- **Onboarding.** Built on the Livewire starter kit's teams setup with one team (the group). An artisan command seeds each friend with name, email, and timezone, and produces a signed magic link to share over WhatsApp. The link logs them in and asks for a password on first visit. Standard email plus password login after that. No registration page and no invite flow.
+- **Onboarding.** One group, implicit: every seeded user is a member, and there is no teams table. An artisan command seeds each friend with name, email, and timezone, and produces a signed magic link to share over WhatsApp. The link logs them in and asks for a password on first visit. Standard email plus password login after that. No registration page and no invite flow.
 - **Goal management** lives behind the profile avatar: create (emoji plus name, max 5 active), rename anytime, archive anytime. Archiving keeps history, photos, and past scores. The goal leaves the grid and stops counting from that day. At least 1 active goal is required to appear in standings. New members land on a "create your first goal" empty state.
-- **PWA.** Manifest, icons, and full-screen display so it installs to the home screen. Online-only. No reminders or notifications in v1.
+- **PWA.** Manifest, icons, and `standalone` display so it installs to the home screen. Online-only. No reminders or notifications in v1.
 
 ## Out of v1
 

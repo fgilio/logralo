@@ -25,6 +25,7 @@ final class ResumeSharing
 {
     public function handle(Mark|MonthlyRecap $shared): void
     {
+        Context::add('logralo.shared_id', $shared->getKey());
         Context::add('logralo.shared_type', class_basename($shared));
 
         try {

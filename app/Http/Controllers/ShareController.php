@@ -32,7 +32,12 @@ final class ShareController
         // confirm that a token was once real.
         throw_if(! $entry instanceof FeedEntry, NotFoundHttpException::class);
 
-        $visits->handle($entry->shareable(), $request->userAgent());
+        // The counter is the only write on this page, and it is decoration:
+        // it tells the sender their message landed. Letting it fail the
+        // request would mean a database hiccup turns every link the group has
+        // ever pasted into a 500, in the chats where they live. The Action
+        // logs its own outcome, so the failure is not silent.
+        rescue(fn () => $visits->handle($entry->shareable(), $request->userAgent()), report: false);
 
         return view('share.show', ['entry' => $entry]);
     }
