@@ -59,7 +59,16 @@ it('draws the day and the goal, and no name at all', function (): void {
     // beside the date, and a badge saying the same thing twice reads as a bug.
     expect($card->title)->toBe('Gimnasio')
         ->and($card->badge)->toBeNull()
-        ->and($card->streak)->toBeNull()
+        ->and($card->streak)->toBe(1)
         ->and($card->byline)->toBe($entry->mark->marked_on->translatedFormat('j \d\e F'))
         ->and($card->byline)->not->toContain('Guido');
+});
+
+it('puts the count on a first day too', function (): void {
+    // This shipped hiding a streak of 1, on the theory that a run of one is not
+    // a run. What it actually did was send a card with a bare date on it every
+    // time somebody came back after a gap — which is the share most worth
+    // making — and it read as the flame being broken, because the feed card the
+    // share button sits on was showing the 1 the whole time.
+    expect(markEntryWith('lo que me costó venir')->shareCard()->streak)->toBe(1);
 });

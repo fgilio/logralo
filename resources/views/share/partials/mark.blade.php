@@ -21,9 +21,9 @@
                 {{ $mark->goal->emoji }} {{ $mark->goal->name }}
             </h1>
 
-            @if ($entry->streak > 1)
-                <x-flame :days="$entry->streak" size="lg" class="mt-1 shrink-0" />
-            @endif
+            {{-- Shown on a first day too, because the card the visitor just
+                 tapped says 1 and so does the feed. --}}
+            <x-flame :days="$entry->streak" size="lg" class="mt-1 shrink-0" />
         </div>
 
         <div class="mt-4 flex items-center gap-3">
