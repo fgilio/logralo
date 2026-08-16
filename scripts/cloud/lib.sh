@@ -110,6 +110,12 @@ cloud_pinned_php_series() {
 cloud_php_scan_dir() {
     local dir
     dir="$("$1" --ini 2>/dev/null | sed -n 's/^Scan for additional .ini files in: *//p')"
+    # php --ini quotes the path. Leaving the quotes on produces a path that is
+    # still writable — as a literally-quoted directory under the cwd — so the
+    # drop-ins get written somewhere PHP will never read and nothing fails
+    # loudly. Strip them.
+    dir="${dir#\"}"
+    dir="${dir%\"}"
     if [ "$dir" = '(none)' ]; then
         dir=''
     fi

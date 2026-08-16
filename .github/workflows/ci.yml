@@ -84,7 +84,6 @@ jobs:
           php-version: ${{ env.PHP_VERSION }}
           coverage: none
           ini-values: ${{ env.PHP_INI_VALUES }}
-          ini-values: memory_limit=512M
       - uses: actions/cache@v6
         with:
           path: vendor

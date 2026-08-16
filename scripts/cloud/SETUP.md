@@ -18,25 +18,30 @@ On a developer machine the same entrypoint installs the git hooks and nothing el
 
 Two things a laptop has that a sandbox does not. Both were measured in a Claude Code on the web session, not assumed.
 
-**The image ships PHP 8.4 and `composer.json` requires `^8.5`.** Every composer and artisan call fails its platform check until a newer PHP is the default. `php.sh` installs the series pinned in `.github/php-version` from the sury apt repository the image already trusts, then selects it with `update-alternatives`. The one recovery that matters is baked in: the image's package lists are stale enough that every `php8.5-*` pool URL 404s, so `cloud_apt_install` refreshes with `--allow-releaseinfo-change` and retries.
+**The image ships PHP 8.4 and `composer.json` requires `^8.5`.** Every composer and artisan call fails its platform check until a newer PHP is on `PATH`. The runtime arrives with the snapshot, described below.
 
 **The egress proxy blocks the archives composer downloads.** Packagist metadata answers fine, but the dist archives it points at live on `api.github.com`, and those return 403 for every third-party repo — with a token and without one (the sandbox exports `GITHUB_TOKEN=proxy-injected`, a placeholder composer will happily send and GitHub will reject). `--prefer-source` is not a way out: `phpstan/phpstan` is published dist-only, with no `source` entry in `composer.lock` to clone, so an install gets through every other package and then dies on that one.
 
-So vendor/ has to arrive some other way. The one GitHub surface a sandbox can always reach is this repo itself, and that is what `.github/workflows/cloud-snapshot.yml` and `scripts/cloud/snapshot.sh` are for: CI builds a complete `vendor/`, publishes it as a zstd asset on a draft release here, and the sandbox restores the one whose `composer.lock` digest matches the checkout. Draft releases carry no git tag and are invisible without push access, which the session credential has.
+So both have to arrive some other way. The one GitHub surface a sandbox can always reach is this repo itself, and that is what `.github/workflows/cloud-snapshot.yml` and `scripts/cloud/snapshot.sh` are for: CI builds a complete `vendor/` and captures the PHP binary it just ran, publishes them as zstd assets on a draft release here, and the sandbox restores the pair whose `composer.lock` digest matches the checkout. Draft releases carry no git tag and are invisible without push access, which the session credential has.
+
+Note that "this repo's releases" means the API, not the download host. `api.github.com` answers for an attached repo; a `github.com/<owner>/<repo>/releases/download/...` URL answers 403 in a sandbox for _every_ repo, this one included. Anything the bootstrap needs at provisioning time has to be an asset on a release here, fetched through the API.
 
 Everything else the sandbox needs is ordinary: npm and the Vite build reach the public registry directly, and Chromium is pre-provisioned at `PLAYWRIGHT_BROWSERS_PATH`.
 
 Two smaller things the bootstrap also fixes, both of which otherwise break `composer test` in a fresh session. Sandbox checkouts arrive without `origin/HEAD`, and Pest's Tia mode aborts rather than guess the branch every baseline falls back to, so `setup.sh` resolves it with `git remote set-head origin --auto`. And sandboxes run as root, where composer refuses to load plugins unless `COMPOSER_ALLOW_SUPERUSER` is set, so `php.sh` persists that variable to the shell profiles rather than only exporting it for its own process.
 
-## Why the runtime comes from apt and not from the snapshot
+## The runtime is CI's, not a lookalike
 
-The snapshot could carry a static PHP binary the same way it carries `vendor/` — CI has the egress to build one, and the sandbox already restores assets from this repo's releases. That is a real option, and it is deliberately not taken.
+Both `ci.yml` and `cloud-snapshot.yml` install PHP with [`publicala/php-ci-static`](https://github.com/publicala/php-ci-static), and the snapshot ships the binary that action produced. A sandbox therefore runs the same build as CI, not merely the same version.
 
-apt costs nothing extra here: the image already trusts sury, so the interpreter arrives without adding weight to the snapshot. The snapshot is on the critical path of every cold session, and a static binary is tens of megabytes that every session would pay to download and unpack. Building one also means depending on an external toolchain to produce it, which is a coupling this repo does not otherwise have.
+That is the part a distro package could not do. `php8.5-cli` from a package repository is a different build with a different extension set and different compile flags, so "CI passed" and "it passes here" were only ever loosely related. The static build is linked against nothing but glibc, which is what makes it relocatable: the binary CI ran drops into a sandbox and works.
 
-What apt costs in exchange is the extension question: a static build has everything compiled in, while apt has to be told what to install. `CLOUD_PHP_APT_EXTENSIONS` in `lib.sh` is that list, and `ensure_php_extensions` verifies it against `php -m` on every run rather than assuming the install covered it.
+Two consequences worth knowing:
 
-Worth re-deciding if the runtime install ever becomes slow or unreliable, or if an extension is needed that sury does not package. One measurement to carry into that decision: release assets are only reachable through `api.github.com`, and only on this repo. A `github.com/<owner>/<repo>/releases/download/...` URL answers 403 in a sandbox for _every_ repo, this one included, so a binary published anywhere else cannot be fetched at provisioning time — it would have to be rebuilt into this repo's own snapshot asset.
+- **There is no extension list anywhere in this bootstrap.** The build links them all in, `gd`, `exif`, `intl`, `sqlite3`, `pgsql`, `sockets` and `imagick` included. `ci.yml`'s PHP steps carry no `extensions:` input for the same reason.
+- **Configuration is part of the parity.** `ci.yml` defines `PHP_INI_VALUES`, `cloud-snapshot.yml` passes the same string, and `php.sh`'s `ci_php_ini_values` renders the same directives into the restored binary's scan dir. Change one and change all three: a directive set on only one side is exactly the drift this arrangement exists to prevent.
+
+The restore installs to `/usr/local/bin/php`. If something earlier in `PATH` shadows it, the bootstrap says so rather than reporting a restore the session will never use. The PHP leg is best-effort on top of `vendor/`: a session that gets `vendor/` but not the binary is degraded, not broken, so only a vendor miss makes the restore fail.
 
 ## When the snapshot is missing
 
@@ -52,16 +57,16 @@ The repo is public, so `auth.json` is never committed. Hosted sessions and CI pr
 
 `setup.sh` is the only entrypoint; every other module does one job and is safe to run on its own while debugging.
 
-| Module           | Job                                                                                    |
-| ---------------- | -------------------------------------------------------------------------------------- |
-| `lib.sh`         | Config block plus the shared helpers. Everything repo-specific lives here.             |
-| `php.sh`         | The pinned PHP series, the Flux credentials, the snapshot restore, `composer install`. |
-| `snapshot.sh`    | Finds and unpacks the CI-built `vendor/` archive. Sourced by `php.sh`.                 |
-| `environment.sh` | Writes `.env` from `.env.example`.                                                     |
-| `node.sh`        | `npm ci` and the Vite build.                                                           |
-| `databases.sh`   | Creates the SQLite file and migrates it.                                               |
-| `playwright.sh`  | The browser binary for `test:browser`. Best-effort.                                    |
-| `lefthook.sh`    | Installs the git hooks.                                                                |
-| `await.sh`       | Blocks until `setup.sh` finishes.                                                      |
+| Module           | Job                                                                              |
+| ---------------- | -------------------------------------------------------------------------------- |
+| `lib.sh`         | Config block plus the shared helpers. Everything repo-specific lives here.       |
+| `php.sh`         | The Flux credentials, the snapshot restore, `composer install`, the CI ini list. |
+| `snapshot.sh`    | Finds and unpacks the CI-built PHP binary and `vendor/`. Sourced by `php.sh`.    |
+| `environment.sh` | Writes `.env` from `.env.example`.                                               |
+| `node.sh`        | `npm ci` and the Vite build.                                                     |
+| `databases.sh`   | Creates the SQLite file and migrates it.                                         |
+| `playwright.sh`  | The browser binary for `test:browser`. Best-effort.                              |
+| `lefthook.sh`    | Installs the git hooks.                                                          |
+| `await.sh`       | Blocks until `setup.sh` finishes.                                                |
 
-Anything a module needs to know about this repo — the slug, the env profile, the apt extension list, the checkout markers — belongs in `lib.sh`'s config block, not inline in the module. That is what keeps the modules readable as generic steps.
+Anything a module needs to know about this repo — the slug, the env profile, the checkout markers — belongs in `lib.sh`'s config block, not inline in the module. That is what keeps the modules readable as generic steps.

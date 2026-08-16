@@ -326,6 +326,15 @@ cloud_snapshot_install_php() {
 
     hash -r
 
+    # Ask PHP whether the drop-ins took, rather than trusting that writing them
+    # was enough. A misparsed scan dir still writes real files, just somewhere
+    # PHP never reads, and nothing about the write fails — so the write
+    # succeeding proves nothing and only the interpreter's own answer does.
+    if [ -n "$ini_values" ] \
+        && [ "$(/usr/local/bin/php -r 'echo ini_get("memory_limit");' 2>/dev/null)" = '128M' ]; then
+        warn "The ini drop-ins under $scan_dir are not being read (memory_limit is still the compiled 128M default). The sandbox PHP is not configured like CI."
+    fi
+
     # Installing to /usr/local/bin is not enough on images that resolve php
     # through a version-manager shim earlier in PATH. Say so rather than
     # reporting a restore the session will never actually use.
