@@ -443,13 +443,20 @@ new class extends Component
                 />
 
                 {{-- Saving mid-upload would mark the day without the photo the
-                     member is watching upload, so the button waits for it. --}}
+                     member is watching upload, so the button waits for it.
+
+                     Both bindings are load-bearing — the Flux prop paints the
+                     button before Alpine is up, and the `x-bind` governs it
+                     afterwards — but the rule they share is written once, or
+                     the two would disagree with nothing to notice. --}}
+                @php($photoStillOwed = $this->requiresPhoto && $photo === null)
+
                 <flux:button
                     wire:click="save"
                     variant="primary"
                     class="w-full"
-                    :disabled="$this->requiresPhoto && $photo === null"
-                    x-bind:disabled="busy || @js($this->requiresPhoto && $photo === null)"
+                    :disabled="$photoStillOwed"
+                    x-bind:disabled="busy || @js($photoStillOwed)"
                     data-test="save"
                 >
                     {{ $photo !== null ? 'Marcar con foto' : 'Marcar' }}

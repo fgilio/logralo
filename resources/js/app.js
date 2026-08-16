@@ -157,9 +157,10 @@ document.addEventListener("alpine:init", () => {
      * front of it is the slower of the two on an older phone.
      */
     Alpine.data("photoPicker", (options = {}) => ({
-        property: options.property ?? "photo",
-        maxPixels: options.maxPixels ?? 12_000_000,
-        quality: options.quality ?? 0.85,
+        // Handed through untouched: `compress-photo.js` owns the fallbacks, so
+        // the budget and the quality exist in `config/logralo.php` and in that
+        // module, and in no third place that could drift from either.
+        options,
 
         busy: false,
         progress: 0,
@@ -182,13 +183,10 @@ document.addEventListener("alpine:init", () => {
             this.progress = 0;
 
             try {
-                const upload = await compressPhoto(file, {
-                    maxPixels: this.maxPixels,
-                    quality: this.quality,
-                });
+                const upload = await compressPhoto(file, this.options);
 
                 this.$wire.upload(
-                    this.property,
+                    "photo",
                     upload,
                     () => this.settle(),
                     () => this.settle(),

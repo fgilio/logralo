@@ -57,7 +57,7 @@ final readonly class PhotoProcessor
     {
         $path = (string) $file->getRealPath();
 
-        $this->guardPixelCount($path, $file->getClientOriginalName());
+        $this->guardPixelCount($file);
 
         // The key is a directory on the photo disk; the disk itself is what
         // decides where that lives.
@@ -189,7 +189,7 @@ final readonly class PhotoProcessor
     /**
      * What decoding this would cost, asked before anything decodes it.
      *
-     * `getimagesize()` reads the header and stops, so this is free; the decode
+     * Reading the header stops there, so this is free; the decode
      * it stands in front of is four bytes a pixel, which puts a 48 MP camera
      * original at 190 MB inside a 512 MiB container. Past the ceiling the
      * member gets a sentence, rather than every request in flight getting an
@@ -200,21 +200,23 @@ final readonly class PhotoProcessor
      * that — a desktop drag-and-drop, or a browser where the resize failed and
      * handed the original back on purpose.
      */
-    private function guardPixelCount(string $path, string $originalName): void
+    private function guardPixelCount(UploadedFile $file): void
     {
-        // False for anything the header parser does not know, which includes
-        // HEIC. That one is decode()'s to refuse, and its 12 MP is not the
+        // `dimensions()` is the framework's own header read — the same one the
+        // `image` validation rule uses, warnings already suppressed. It gives
+        // nothing back for a format the parser does not know, which includes
+        // HEIC: that one is decode()'s to refuse, and its 12 MP is not the
         // problem this guard exists for.
-        $size = rescue(fn (): array|false => getimagesize($path), false, report: false);
+        $dimensions = $file->dimensions();
 
-        if ($size === false) {
+        if (! is_array($dimensions)) {
             return;
         }
 
         $ceiling = (int) config('logralo.photos.max_megapixels');
-        $megapixels = $size[0] * $size[1] / 1_000_000;
+        $megapixels = $dimensions[0] * $dimensions[1] / 1_000_000;
 
-        throw_if($megapixels > $ceiling, PhotoTooLargeException::class, $originalName, $megapixels, $ceiling);
+        throw_if($megapixels > $ceiling, PhotoTooLargeException::class, $file->getClientOriginalName(), $megapixels, $ceiling);
     }
 
     private function decode(string $path, string $originalName): ImageInterface

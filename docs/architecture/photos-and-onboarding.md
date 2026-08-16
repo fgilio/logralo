@@ -48,7 +48,7 @@ The browser test drives the resize through `window.Logralo.compressPhoto` rather
 
 ### The ceiling underneath it
 
-`PhotoProcessor` asks `getimagesize()` — a header read, not a decode — what an upload would cost before anything decodes it, and refuses past `photos.max_megapixels` (32) with `PhotoTooLargeException`. Phones never reach it. It is the net under the upload that skipped the browser step: a desktop drag-and-drop, or a browser where the resize failed and handed the original back on purpose. Without it the OOM is merely unlikely rather than impossible.
+`PhotoProcessor` asks `UploadedFile::dimensions()` — a header read, not a decode, and the same one the `image` validation rule uses — what an upload would cost before anything decodes it, and refuses past `photos.max_megapixels` (32) with `PhotoTooLargeException`. Phones never reach it. It is the net under the upload that skipped the browser step: a desktop drag-and-drop, or a browser where the resize failed and handed the original back on purpose. Without it the OOM is merely unlikely rather than impossible.
 
 ## What happens to an upload
 

@@ -74,6 +74,16 @@ export async function compressPhoto(file, options = {}) {
 
         resampled = await resample(source, width, height);
 
+        // 190 MB of it, for the 48 MP original this exists for — and nothing
+        // reads it again once the resample took. Dropping it here rather than
+        // in the `finally` keeps it out of the encode, which is the hundreds
+        // of milliseconds where a phone is most likely to run out.
+        if (resampled !== null) {
+            source.close();
+            source = null;
+        }
+
+        // Consumes whichever bitmap it is given.
         const blob = await encode(resampled ?? source, width, height, quality);
 
         if (blob === null || blob.size >= file.size) return file;
@@ -124,7 +134,16 @@ async function resample(source, width, height) {
     return null;
 }
 
-/** @returns {Promise<Blob|null>} */
+/**
+ * Draw the bitmap at its final size and hand back JPEG bytes.
+ *
+ * Closes the bitmap it is given: the pixels are in the canvas by then, and on
+ * the path where `resample` bailed this is the full-resolution original, which
+ * is the 190 MB nobody wants held across the encode. `close()` is idempotent,
+ * so the caller's `finally` is still free to close it again.
+ *
+ * @returns {Promise<Blob|null>}
+ */
 async function encode(bitmap, width, height, quality) {
     const canvas = createCanvas(width, height);
     const context = canvas.getContext("2d", { alpha: false });
@@ -138,6 +157,7 @@ async function encode(bitmap, width, height, quality) {
     context.fillRect(0, 0, width, height);
     context.imageSmoothingQuality = "high";
     context.drawImage(bitmap, 0, 0, width, height);
+    bitmap.close();
 
     return toBlob(canvas, quality);
 }
@@ -166,8 +186,21 @@ function toBlob(canvas, quality) {
         return canvas.convertToBlob({ type: "image/jpeg", quality });
     }
 
+    // A detached <canvas> keeps its backing store until the collector gets
+    // around to it, on exactly the old WebKit builds that have no
+    // `OffscreenCanvas` and the least room to spare. Resizing to nothing hands
+    // it back at once.
     return new Promise((resolve) => {
-        canvas.toBlob(resolve, "image/jpeg", quality);
+        canvas.toBlob(
+            (blob) => {
+                canvas.width = 0;
+                canvas.height = 0;
+
+                resolve(blob);
+            },
+            "image/jpeg",
+            quality,
+        );
     });
 }
 
