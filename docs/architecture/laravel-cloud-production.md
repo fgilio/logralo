@@ -49,7 +49,9 @@ The trap it exists for: **the CLI never reads `LARAVEL_CLOUD_API_TOKEN`.** Token
 { "api_tokens": ["…"] }
 ```
 
-It appends rather than replaces, because the CLI keeps one token per organisation and a laptop is likely to hold others.
+`LARAVEL_CLOUD_API_TOKEN` comes from the session environment, the same way `FLUX_USERNAME` and `FLUX_LICENSE_KEY` do — set on the hosted sessions and never committed. A laptop generally does not have it, and does not need it: `cloud auth` stores a token there once, and the script's first act is to notice the variable is missing and do nothing at all.
+
+It appends rather than replaces, because the CLI keeps one token per organisation and a laptop is likely to hold others. Nothing prunes: rotate the token and the revoked one stays in the file until `cloud auth:token --remove` takes it out.
 
 The committed `.cloud/config.json` pins `organization_id` and `application_id`. That is why `cloud application:get -n` resolves to logralo with no arguments, and why the right token is still chosen when several are stored.
 

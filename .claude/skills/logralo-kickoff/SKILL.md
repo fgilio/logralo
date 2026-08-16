@@ -48,7 +48,7 @@ The Flux Pro license is the only secret at kickoff time. It must never appear in
 | --- | --- |
 | Local dev (Franco's machine) | `auth.json` at repo root, gitignored (already in place) |
 | GitHub Actions | Repo secrets `FLUX_USERNAME` + `FLUX_LICENSE_KEY` (already set); CI writes http-basic before `composer install` |
-| Claude Code web sessions | Set `FLUX_USERNAME` + `FLUX_LICENSE_KEY` as session/project environment variables; `scripts/cloud/setup.sh` writes `auth.json` from them |
+| Claude Code web sessions | Set `FLUX_USERNAME` + `FLUX_LICENSE_KEY` as session/project environment variables; `scripts/cloud/setup.sh` writes `auth.json` from them. Add `LARAVEL_CLOUD_API_TOKEN` there too, so sessions reach production (§ 3.5) |
 | Laravel Cloud | Set both as environment variables; prepend `composer config http-basic.composer.fluxui.dev "$FLUX_USERNAME" "$FLUX_LICENSE_KEY"` to the build commands |
 
 Keep `/auth.json` in `.gitignore` (Laravel ships it there — never remove that line). Known limitation: fork PRs can't read Actions secrets, so `composer install` fails for external contributors' CI until a maintainer pushes their branch.
@@ -105,23 +105,26 @@ Copy from `references/` (versions there are baselines — install latest):
 | `claude-settings.json` | `.claude/settings.json` |
 | `session-start.sh` | `.claude/hooks/session-start.sh` (chmod +x) |
 | `cloud-setup.sh` | `scripts/cloud/setup.sh` (chmod +x) |
+| `cloud-cli.sh` | `scripts/cloud/cli.sh` (chmod +x) |
 | `cloud-link.sh` | `scripts/cloud-link.sh` (chmod +x) |
 
 `.env.example`: `DB_CONNECTION=sqlite`. CI overrides it with `DB_*` job env vars pointing at its Postgres service (§ 8).
 
 ### 3.4 Hosted-session bootstrap
 
-`.claude/hooks/session-start.sh` (SessionStart hook wired via `.claude/settings.json`) dispatches to `scripts/cloud/setup.sh`, so every Claude Code session — including web sessions from the phone — lands on a runnable app: composer deps (writing `auth.json` from `FLUX_*` env vars when missing), npm ci, `.env`, SQLite file, migrations, asset build, lefthook install.
+`.claude/hooks/session-start.sh` (SessionStart hook wired via `.claude/settings.json`) dispatches to `scripts/cloud/setup.sh`, so every Claude Code session — including web sessions from the phone — lands on a runnable app: composer deps (writing `auth.json` from `FLUX_*` env vars when missing), npm ci, `.env`, SQLite file, migrations, asset build, lefthook install, and the Cloud CLI (§ 3.5, started in the background so its install overlaps the npm work).
 
 Kept intentionally simple (the PLA fleet's heavier vendored bootstrap with static-PHP snapshots is overkill here; revisit only if hosted sandboxes hit restricted-egress failures). Rule that must survive any rewrite: the asset build reads composer `vendor/` (Flux CSS import), so `npm run build` runs after `composer install`, never before or beside it.
 
 ### 3.5 Laravel Cloud (personal account)
 
 ```bash
-composer global require laravel/cloud-cli   # if missing
-cloud auth                                  # authenticate with the PERSONAL account
-cloud skills:install --global               # deploying-laravel-cloud skill (one-time)
+bash scripts/cloud/cli.sh       # installs the CLI; seeds LARAVEL_CLOUD_API_TOKEN when set
+cloud auth                      # only on a laptop, where that variable is not set
+cloud skills:install --global   # deploying-laravel-cloud skill (one-time)
 ```
+
+`cli.sh` exists because the CLI does **not** read `LARAVEL_CLOUD_API_TOKEN`; without a token in `~/.config/cloud/config.json` every command falls back to browser OAuth, which in a headless session blocks until the caller times out instead of failing. Do not hand-install the CLI in an agent session — that is the trap. `scripts/cloud/setup.sh` already runs this, so a hosted session needs none of the above.
 
 Create the app on Laravel Cloud (dashboard or CLI), then link non-interactively:
 
@@ -217,7 +220,7 @@ resources/
     components/     # Reusable Blade/Livewire components
     layouts/
     pages/          # Livewire SFC page components
-scripts/            # cloud/setup.sh, cloud-link.sh
+scripts/            # cloud/setup.sh, cloud/cli.sh, cloud-link.sh
 tests/
   Arch/  Browser/  Feature/  Unit/  fixtures/  Pest.php
 ```

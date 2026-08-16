@@ -22,6 +22,14 @@ if [[ ! -f auth.json && -n "${FLUX_USERNAME:-}" && -n "${FLUX_LICENSE_KEY:-}" ]]
 fi
 
 composer install --no-progress --prefer-dist --no-interaction
+
+# Laravel Cloud CLI, for inspecting and deploying production. It reads nothing
+# the steps below produce, and a cold install is ~17s of Packagist, so it runs
+# alongside them rather than after. Started here, not earlier, to keep two
+# Composer processes off the shared cache at once.
+bash scripts/cloud/cli.sh &
+cloud_cli_pid=$!
+
 npm ci
 
 [[ -f .env ]] || cp .env.example .env
@@ -41,7 +49,7 @@ elif [[ -x node_modules/.bin/lefthook ]]; then
     node_modules/.bin/lefthook install
 fi
 
-# Laravel Cloud CLI, for inspecting and deploying production. Non-fatal: the
-# app builds and its tests run without it, so a missing token or a Packagist
-# hiccup must not take the rest of the bootstrap down with it.
-bash scripts/cloud/cli.sh || echo "cloud CLI setup failed; rerun: bash scripts/cloud/cli.sh" >&2
+# Non-fatal: the app builds and its tests run without the Cloud CLI, so a
+# missing token or a Packagist hiccup must not take the bootstrap down with it.
+# cli.sh has already said what went wrong on stderr; this only adds the retry.
+wait "$cloud_cli_pid" || echo "cloud: setup failed; rerun: bash scripts/cloud/cli.sh" >&2
