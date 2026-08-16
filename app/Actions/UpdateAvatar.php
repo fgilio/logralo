@@ -17,6 +17,11 @@ use Throwable;
  * The upload is stored before the column moves and the old key is deleted
  * after, so a failure anywhere in the middle leaves the member looking at the
  * picture they already had rather than at a broken image.
+ *
+ * The write is what decides which of the two keys is rubbish. Once it lands
+ * the old one is, and once it fails the new one is — either way exactly one
+ * derivative leaves the bucket, so a run of failed attempts cannot silently
+ * fill it with pictures nothing can reach.
  */
 final readonly class UpdateAvatar
 {
@@ -31,7 +36,16 @@ final readonly class UpdateAvatar
         try {
             $key = $this->photos->storeAvatar($photo);
 
-            $user->update(['avatar_key' => $key]);
+            try {
+                $user->update(['avatar_key' => $key]);
+            } catch (Throwable $throwable) {
+                // Nothing points at the derivative and nothing ever will: the
+                // member still has the picture they had, and this one would sit
+                // in the bucket unreachable, one copy per failed attempt.
+                $this->photos->delete($key);
+
+                throw $throwable;
+            }
 
             Context::add('logralo.avatar_key', $key);
             Context::add('logralo.outcome', 'completed');

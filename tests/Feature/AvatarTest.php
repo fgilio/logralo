@@ -81,6 +81,29 @@ it('falls back to Gravatar once the upload is removed', function (): void {
         ->and(Storage::disk('photos')->exists($key))->toBeFalse();
 });
 
+it('takes the new picture back off the disk when the row will not move', function (): void {
+    Storage::fake('photos');
+
+    $user = User::factory()->create();
+
+    resolve(UpdateAvatar::class)->handle($user, UploadedFile::fake()->image('first.jpg', 400, 400));
+    $first = (string) $user->avatar_key;
+
+    // The write is the step that decides which key is rubbish, so this is the
+    // failure that matters: the bytes are up, and then the row refuses to move
+    // onto them. Nothing would ever reach that directory again.
+    User::updating(function (): never {
+        throw new RuntimeException('the database is having a day');
+    });
+
+    expect(fn (): User => resolve(UpdateAvatar::class)
+        ->handle($user, UploadedFile::fake()->image('second.jpg', 400, 400)))
+        ->toThrow(RuntimeException::class);
+
+    // The one they still have, and nothing else.
+    expect(Storage::disk('photos')->allFiles())->toBe(["{$first}/avatar.webp"]);
+});
+
 it('shrugs off removing a picture that was never there', function (): void {
     Storage::fake('photos');
 
