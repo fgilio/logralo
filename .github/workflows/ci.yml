@@ -46,9 +46,15 @@ env:
   PHP_INI_VALUES: "memory_limit=512M, opcache.enable_cli=1, opcache.jit=tracing, opcache.jit_buffer_size=64M"
   # Same list without the JIT directives, for the one job that loads a coverage
   # driver. pcov overrides zend_execute_ex, so PHP disables the JIT itself at
-  # startup and prints a warning while doing it — requesting JIT there buys
-  # nothing and the warning lands in the setup action's version probe, which
-  # then reports "8.5 does not match requested php-version 8.5" and fails.
+  # startup and prints a warning while doing it. Requesting the JIT there buys
+  # no JIT and costs that warning on stdout — display_errors defaults there on
+  # the CLI SAPI — from every php and composer invocation in the job, including
+  # the ones whose output something else reads.
+  #
+  # php-ci-static keeps the warning out of its own version probe, so it no
+  # longer fails the setup step outright. That is a narrower fix than it sounds:
+  # it is scoped to that one command, and every other invocation still prints.
+  # Merging the two lists back together is not what it enables.
   PHP_INI_VALUES_COVERAGE: "memory_limit=512M, opcache.enable_cli=1"
 
 jobs:
