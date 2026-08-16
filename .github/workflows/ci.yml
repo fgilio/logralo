@@ -1,6 +1,5 @@
-# CI for Logralo. Adapted from the Publica.la Laravel-app baseline for a
-# public personal repo on GitHub-hosted runners (public repos get unlimited
-# GitHub-hosted minutes, so ubuntu-latest is the right call here).
+# CI for Logralo: a public personal repo on GitHub-hosted runners (public repos
+# get unlimited GitHub-hosted minutes, so ubuntu-latest is the right call here).
 #
 # Laravel Cloud auto-deploys every push to `main`, so this workflow has no
 # deploy job. Its role is to keep `main` deployable: it runs the same gates
@@ -35,18 +34,40 @@ permissions:
   contents: read
 
 env:
-  # Keep in sync with the `php` constraint in composer.json.
+  # Keep in sync with the `php` constraint in composer.json and with
+  # .github/php-version, which the cloud bootstrap and the snapshot workflow
+  # read. The lint job asserts the two agree rather than trusting the comment:
+  # a silent split means sandboxes provision one series while CI tests another.
   PHP_VERSION: "8.5"
+  # Passed to every PHP setup step, including the one in cloud-snapshot.yml that
+  # builds the binary sandboxes run. scripts/cloud/php.sh renders the same
+  # directives into the restored binary's scan dir, so a sandbox is configured
+  # like CI rather than merely running the same version.
+  PHP_INI_VALUES: "memory_limit=512M, opcache.enable_cli=1, opcache.jit=tracing, opcache.jit_buffer_size=64M"
+  # Same list without the JIT directives, for the one job that loads a coverage
+  # driver. pcov overrides zend_execute_ex, so PHP disables the JIT itself at
+  # startup and prints a warning while doing it — requesting JIT there buys
+  # nothing and the warning lands in the setup action's version probe, which
+  # then reports "8.5 does not match requested php-version 8.5" and fails.
+  PHP_INI_VALUES_COVERAGE: "memory_limit=512M, opcache.enable_cli=1"
 
 jobs:
   lint:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
-      - uses: shivammathur/setup-php@v2
+      - name: Assert the PHP pin matches .github/php-version
+        run: |
+          pinned="$(tr -d '[:space:]' < .github/php-version)"
+          if [ "$pinned" != "${{ env.PHP_VERSION }}" ]; then
+            echo "::error::.github/php-version is '$pinned' but ci.yml PHP_VERSION is '${{ env.PHP_VERSION }}'. Cloud sessions would provision a different series than CI tests."
+            exit 1
+          fi
+      - uses: publicala/php-ci-static@v1
         with:
           php-version: ${{ env.PHP_VERSION }}
           coverage: none
+          ini-values: ${{ env.PHP_INI_VALUES }}
       - uses: actions/cache@v6
         with:
           path: vendor
@@ -64,11 +85,11 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
-      - uses: shivammathur/setup-php@v2
+      - uses: publicala/php-ci-static@v1
         with:
           php-version: ${{ env.PHP_VERSION }}
           coverage: none
-          ini-values: memory_limit=512M
+          ini-values: ${{ env.PHP_INI_VALUES }}
       - uses: actions/cache@v6
         with:
           path: vendor
@@ -81,10 +102,11 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
-      - uses: shivammathur/setup-php@v2
+      - uses: publicala/php-ci-static@v1
         with:
           php-version: ${{ env.PHP_VERSION }}
           coverage: none
+          ini-values: ${{ env.PHP_INI_VALUES }}
       - uses: actions/cache@v6
         with:
           path: vendor
@@ -122,11 +144,13 @@ jobs:
       DB_PASSWORD: password
     steps:
       - uses: actions/checkout@v7
-      - uses: shivammathur/setup-php@v2
+      # No `extensions:` input, and none needed: the static build links every
+      # extension in, pdo_pgsql included.
+      - uses: publicala/php-ci-static@v1
         with:
           php-version: ${{ env.PHP_VERSION }}
-          extensions: pdo_pgsql # not in setup-php's default set
           coverage: pcov # pest --coverage needs a driver
+          ini-values: ${{ env.PHP_INI_VALUES_COVERAGE }}
       - uses: actions/cache@v6
         with:
           path: vendor
@@ -155,11 +179,13 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
-      - uses: shivammathur/setup-php@v2
+      # sockets (pest-plugin-browser runs its own HTTP server) is linked into
+      # the static build, so there is no extensions input to carry here.
+      - uses: publicala/php-ci-static@v1
         with:
           php-version: ${{ env.PHP_VERSION }}
-          extensions: sockets # pest-plugin-browser runs its own HTTP server
           coverage: none
+          ini-values: ${{ env.PHP_INI_VALUES }}
       - uses: actions/cache@v6
         with:
           path: vendor

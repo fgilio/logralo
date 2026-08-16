@@ -1,0 +1,184 @@
+# Builds the provisioning snapshot that hosted agent sandboxes restore from
+# (scripts/cloud/snapshot.sh).
+#
+# Why this exists: the sandbox egress proxy scopes GitHub to the session's own
+# repositories, so a session cannot download third-party composer dists —
+# api.github.com zipballs answer 403 with a token and without one. Falling back
+# to `--prefer-source` does not help either, because phpstan/phpstan is
+# published dist-only and has no `source` entry to clone. The one GitHub
+# surface a session can always reach is this repo itself. CI has unrestricted
+# egress and the Flux Pro secrets, so it builds a complete vendor/ and
+# publishes it as an asset on a release of this repo.
+#
+# The snapshot also carries the PHP binary, for the same reason as vendor/: it
+# is built by publicala/php-ci-static, whose release assets a sandbox cannot
+# download either. That action is what makes shipping a runtime possible at
+# all — its build is statically linked against everything but glibc, so the
+# binary relocates into a sandbox unchanged. A dynamically linked PHP from a
+# runner would not.
+#
+# ci.yml installs PHP through the same action with the same ini-values, so a
+# sandbox is not merely running the same version as CI, it is running the same
+# binary configured the same way.
+#
+# Draft releases on purpose: a draft creates no git tag, is invisible to users
+# without push access, and stays deletable, so the retention step can prune old
+# snapshots. The session credential has push access, so sandboxes can list and
+# download draft assets through the egress relay.
+name: Cloud snapshot
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - composer.json
+      - composer.lock
+      - .github/php-version
+      - .github/workflows/cloud-snapshot.yml
+  # Mint a snapshot on demand: after adopting this workflow, and whenever
+  # retention has pruned the snapshot a still-checked-out lock needs.
+  workflow_dispatch:
+
+concurrency:
+  group: cloud-snapshot-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: write
+
+jobs:
+  snapshot:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Read the pinned PHP series
+        id: php
+        run: echo "series=$(tr -d '[:space:]' < .github/php-version)" >> "$GITHUB_OUTPUT"
+
+      # Keep ini-values identical to ci.yml's PHP_INI_VALUES. They are separate
+      # workflows so the value cannot be shared; scripts/cloud/php.sh renders
+      # the same directives on restore, and drift shows up as a sandbox tuned
+      # differently from CI.
+      - uses: publicala/php-ci-static@v1
+        with:
+          php-version: ${{ steps.php.outputs.series }}
+          coverage: none
+          ini-values: "memory_limit=512M, opcache.enable_cli=1, opcache.jit=tracing, opcache.jit_buffer_size=64M"
+
+      # The download cache, not ci.yml's `vendor` cache: this job installs with
+      # --no-scripts and that difference is exactly what the snapshot contract
+      # depends on, so it must never restore a vendor/ built any other way. The
+      # prefix restore-key means a lock bump refetches only what changed.
+      - uses: actions/cache@v6
+        with:
+          path: ~/.cache/composer
+          key: composer-files-${{ hashFiles('composer.lock') }}
+          restore-keys: composer-files-
+
+      # The repo is public, so auth.json is not committed; the credentials come
+      # from the same secrets every other job in ci.yml uses.
+      - run: composer config http-basic.composer.fluxui.dev "${{ secrets.FLUX_USERNAME }}" "${{ secrets.FLUX_LICENSE_KEY }}"
+
+      # --no-scripts matches how the sandbox installs: package:discover needs a
+      # database and an .env that CI has no reason to build here, and the
+      # snapshot must contain vendor/ exactly as the sandbox would have it.
+      - run: composer install --prefer-dist --no-ansi --no-interaction --no-progress --no-scripts
+
+      - name: Assemble the snapshot
+        id: assemble
+        run: |
+          set -euo pipefail
+          mkdir -p /tmp/snapshot
+          cd /tmp/snapshot
+
+          # The binary the action just put on PATH, compressed on its own: the
+          # restore side installs it to /usr/local/bin/php without unpacking a
+          # tree, and keeping it a separate asset lets a sandbox that already
+          # has the right version skip downloading it.
+          php_binary="$(command -v php)"
+          php_full_version="$(php -r 'echo PHP_VERSION;')"
+          zstd -T0 -10 -o "php-${{ steps.php.outputs.series }}.zst" "$php_binary"
+
+          # auth.json is written into the workspace by the composer config step
+          # above and must never travel inside the archive.
+          tar -C "$GITHUB_WORKSPACE" -I 'zstd -T0 -10' -cf vendor.tar.zst vendor
+
+          lock_sha="$(sha256sum "$GITHUB_WORKSPACE/composer.lock" | cut -d' ' -f1)"
+          php_asset_sha="$(sha256sum "php-${{ steps.php.outputs.series }}.zst" | cut -d' ' -f1)"
+          vendor_asset_sha="$(sha256sum vendor.tar.zst | cut -d' ' -f1)"
+
+          # The manifest is the restore contract: scripts/cloud/snapshot.sh
+          # matches composer_lock_sha256 against the checkout and verifies the
+          # asset against its recorded digest before unpacking. Consumers pin
+          # schema exactly (fail-safe: an unknown schema is skipped, never
+          # misparsed), so a schema bump strands checkouts still pinning the
+          # old value once their old-schema drafts age out of retention. When
+          # bumping: publish both schemas for a transition window, or move to a
+          # new tag prefix.
+          cat > manifest.json <<EOF
+          {
+            "schema": 1,
+            "repo": "${{ github.repository }}",
+            "commit": "${{ github.sha }}",
+            "ref": "${{ github.ref_name }}",
+            "created_at": "$(date -u +%Y-%m-%dT%H:%M:%SZ)",
+            "php": {
+              "asset": "php-${{ steps.php.outputs.series }}.zst",
+              "sha256": "$php_asset_sha",
+              "version": "$php_full_version"
+            },
+            "vendor": {
+              "asset": "vendor.tar.zst",
+              "sha256": "$vendor_asset_sha",
+              "composer_lock_sha256": "$lock_sha"
+            }
+          }
+          EOF
+          echo "lock_sha=$lock_sha" >> "$GITHUB_OUTPUT"
+          echo "lock12=${lock_sha:0:12}" >> "$GITHUB_OUTPUT"
+
+      - name: Publish as a draft release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          # The tag carries the lock's first 12 hex chars so the prune step can
+          # group snapshots by the lock they serve without fetching each
+          # manifest. The restore side matches on the tag prefix only.
+          gh release create "cloud-snapshot-${{ steps.assemble.outputs.lock12 }}-${{ github.run_id }}-${{ github.run_attempt }}" \
+            --repo "${{ github.repository }}" \
+            --draft \
+            --target "${{ github.sha }}" \
+            --title "cloud snapshot (${{ github.ref_name }}, lock ${{ steps.assemble.outputs.lock_sha }})" \
+            --notes "Provisioning snapshot for hosted agent sandboxes. Consumed by scripts/cloud/snapshot.sh; not for humans. Built from ${{ github.sha }}." \
+            /tmp/snapshot/manifest.json \
+            /tmp/snapshot/php-${{ steps.php.outputs.series }}.zst \
+            /tmp/snapshot/vendor.tar.zst
+
+      - name: Prune old snapshots (newest per lock, 5 newest locks)
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          # The restore side matches a snapshot by composer.lock, so retention
+          # must be lock-aware: a blind keep-N-by-count would let builds that
+          # do not move the lock (workflow edits, a manual dispatch) evict the
+          # snapshot a still-referenced lock needs. Keep the newest draft per
+          # lock group (grouped by the lock hash in the tag), for the 5 newest
+          # groups. --paginate emits one array per page; jq -s add merges them
+          # so drafts can never leak past a page boundary.
+          gh api --paginate "repos/${{ github.repository }}/releases?per_page=100" \
+            | jq -s -r 'add
+                | [ .[] | select(.draft and (.tag_name | startswith("cloud-snapshot-"))) ]
+                | map(. + {lock_group: ((.tag_name | capture("^cloud-snapshot-(?<l>[0-9a-f]{12})-").l)? // .tag_name)})
+                | group_by(.lock_group)
+                | map(sort_by(.created_at) | reverse)
+                | sort_by(.[0].created_at) | reverse
+                | ( .[:5] | map(.[1:]) | flatten ) + ( .[5:] | flatten )
+                | .[].id' \
+            | while read -r release_id; do
+                echo "Deleting old snapshot release $release_id"
+                gh api -X DELETE "repos/${{ github.repository }}/releases/$release_id"
+              done

@@ -9,14 +9,14 @@ description: >
 
 # Logralo Project Kickoff
 
-Distilled from Publica.la's `pla-app-project-kickoff` skill, adapted for Logralo. Read and follow step by step. Everything needed is in this repo — the source skill, its private reference repos, and PLA org infrastructure are NOT required.
+The kickoff for Logralo. Read and follow step by step. Everything needed is in this repo — no private reference repo or external org infrastructure is required.
 
-**Deltas vs the PLA original** (keep these in mind when in doubt):
+**Choices this project made deliberately** (keep these in mind when in doubt):
 
 1. **Latest versions of everything.** Pest 5 (not 4) with the **Tia engine** on (§ 6), latest Pint/Rector/Larastan/PHPStan, PHP 8.5, latest Tailwind 4.x / Vite. Install unpinned to get the latest and verify with `composer outdated -D` / `npm outdated`. Version numbers in reference files are baselines, not pins.
-2. **Personal Laravel Cloud account** (Franco's), not the Publica.la org.
-3. **Public repo.** Secrets are NEVER committed — no committed `auth.json` (the PLA pattern relies on private repos). See § Secrets.
-4. **GitHub-hosted runners** (`ubuntu-latest`): public repo = unlimited free Actions minutes. No Depot runners, no org rulesets, no fleet audit machinery.
+2. **Personal Laravel Cloud account** (Franco's), not an organization.
+3. **Public repo.** Secrets are NEVER committed — no committed `auth.json`, which only works on a private repo. See § Secrets.
+4. **GitHub-hosted runners** (`ubuntu-latest`): public repo = unlimited free Actions minutes. No self-hosted runners, no org rulesets, no audit machinery.
 
 ## 1. Stack
 
@@ -103,8 +103,8 @@ Copy from `references/` (versions there are baselines — install latest):
 | `tia-baseline.yml` | `.github/workflows/tia-baseline.yml` (records the shared Tia baseline; gates nothing) |
 | `claude-md-template.md` | template for root `CLAUDE.md` (replace the pre-kickoff CLAUDE.md) |
 | `claude-settings.json` | `.claude/settings.json` |
-| `session-start.sh` | `.claude/hooks/session-start.sh` (chmod +x) |
-| `cloud-setup.sh` | `scripts/cloud/setup.sh` (chmod +x) |
+| `session-start.sh` | `.claude/hooks/session-start.sh` (chmod +x) — starting point, not Logralo's current hook; see § 3.4 |
+| `cloud-setup.sh` | `scripts/cloud/setup.sh` (chmod +x) — starting point, not Logralo's current bootstrap; see § 3.4 |
 | `cloud-cli.sh` | `scripts/cloud-cli.sh` (chmod +x) |
 | `cloud-link.sh` | `scripts/cloud-link.sh` (chmod +x) |
 
@@ -114,7 +114,9 @@ Copy from `references/` (versions there are baselines — install latest):
 
 `.claude/hooks/session-start.sh` (SessionStart hook wired via `.claude/settings.json`) dispatches to `scripts/cloud/setup.sh`, so every Claude Code session — including web sessions from the phone — lands on a runnable app: composer deps (writing `auth.json` from `FLUX_*` env vars when missing), npm ci, `.env`, SQLite file, migrations, asset build, lefthook install, and the Cloud CLI (§ 3.5, started in the background so its install overlaps the npm work).
 
-Kept intentionally simple (the PLA fleet's heavier vendored bootstrap with static-PHP snapshots is overkill here; revisit only if hosted sandboxes hit restricted-egress failures). Rule that must survive any rewrite: the asset build reads composer `vendor/` (Flux CSS import), so `npm run build` runs after `composer install`, never before or beside it.
+Start a new project from the two reference scripts above and expect to outgrow them. Logralo did: hosted sandboxes need more than a plain `composer install`, because the image's PHP is older than `composer.json` requires and the egress proxy blocks the third-party dist archives composer downloads. Both the runtime and `vendor/` now come from a CI-built snapshot published on the repo itself, restored by a module set under `scripts/cloud/`, and the hook backgrounds that work behind a status file rather than blocking the session on minutes of it. `scripts/cloud/SETUP.md` is the full account, including why the runtime is the exact binary CI ran rather than a distro package of the same version. Do not copy that machinery into a new repo on day one — it restores from snapshots that repo has not built yet.
+
+Rule that must survive any rewrite: the asset build reads composer `vendor/` (Flux CSS import), so `npm run build` runs after `composer install`, never before or beside it.
 
 ### 3.5 Laravel Cloud (personal account)
 

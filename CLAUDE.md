@@ -8,7 +8,7 @@ The product spec is `docs/mvp-v1-scope.md` — it wins over `docs/mvp-decisions.
 
 ## Tech Stack
 
-- **Laravel 13** with PHP 8.5. The default `php` on this machine is 8.4, so anything that shells out goes through `./scripts/php` (the git hooks already do). By hand: `./scripts/php artisan …`, `./scripts/php "$(command -v composer)" test`.
+- **Laravel 13** with PHP 8.5. Where the default `php` is older (Herd keeps several versions side by side, and the sandbox image ships 8.4), anything that shells out goes through `./scripts/php` (the git hooks already do). By hand: `./scripts/php artisan …`, `./scripts/php "$(command -v composer)" test`. In a hosted session the bootstrap installs the pinned series and makes it the default, so commands run directly there — see § Cloud sessions.
 - **Livewire 4 single-file components + Flux Pro**, Tailwind 4, Vite
 - **SQLite** locally and in hosted sessions, **PostgreSQL 18** in CI and on PlanetScale in production. Production shares jarvis's PlanetScale cluster and keeps its own database inside it — `docs/architecture/planetscale-shared-cluster.md`
 - **Pest v5**, PHPStan level 8 via Larastan, Pint, Rector
@@ -61,6 +61,14 @@ php artisan migrate:fresh --seed            # local demo data (DemoSeeder)
 bash scripts/branding.sh                    # regenerate PWA icons and splashes
 ```
 
+## Cloud sessions
+
+On Claude Code on the web and Codex Cloud the environment provisions in the background: `scripts/cloud/setup.sh` restores the PHP binary and `vendor/` from the CI-built snapshot, writes `.env` from `.env.example`, installs the node modules and builds the assets, migrates the SQLite database, and installs the git hooks. Run `bash scripts/cloud/await.sh` before tests or asset-dependent work when a fresh session may still be finishing setup; it exits non-zero if the bootstrap failed, so `await.sh && composer test` stops instead of running against a half-built environment.
+
+Two sandbox constraints drive the whole design, and both are measured rather than assumed: the image ships PHP 8.4 while `composer.json` requires `^8.5`, and the egress proxy 403s every third-party `api.github.com` dist archive, which no `--prefer-source` fallback escapes because `phpstan/phpstan` is published dist-only. So both the runtime and `vendor/` come from a draft release on this repo that `.github/workflows/cloud-snapshot.yml` builds and `scripts/cloud/snapshot.sh` restores.
+
+The runtime is not a lookalike: CI and the snapshot build both install PHP with `publicala/php-ci-static` and pass the same `ini-values`, and the snapshot ships that exact binary, so a session runs the build CI ran rather than a distro package of the same version. That is also why nothing here carries an extension list — the static build links them all in, `imagick` included. `scripts/cloud/SETUP.md` is the full account, including what to do when a dependency bump lands before its snapshot is built.
+
 ## Environment Variables
 
 See `.env.example`. The ones that are not self-explanatory:
@@ -107,6 +115,6 @@ Laravel Cloud auto-deploys every push to `main`. How production is wired, and th
 1. `gh run watch` until CI is green
 2. Wait 3–5 minutes for the rollout, then `cloud deployment:list --json -n` until the newest one says `deployment.succeeded`
 3. Hit the app: `/up`, `/entrar`, and `/` redirecting to `/entrar`
-4. Check for errors in Nightwatch. **The Nightwatch MCP connection in a Claude session is scoped to the Publica.la workspace and cannot see Logralo**, which reports to Franco's personal account — an empty `list_issues` there proves nothing. Ask Franco, or read the Nightwatch web interface.
+4. Check for errors in Nightwatch. **The Nightwatch MCP connection in a Claude session is scoped to a work workspace and cannot see Logralo**, which reports to Franco's personal account — an empty `list_issues` there proves nothing. Ask Franco, or read the Nightwatch web interface.
 
 Never conclude that a resource is missing from `cloud environment:get --fields=environmentVariables`. That list omits everything Cloud injects at deploy time. Ask the running app with `cloud tinker production -n --code='…'`.

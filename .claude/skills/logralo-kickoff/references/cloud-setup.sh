@@ -2,12 +2,17 @@
 # Bootstrap for hosted Claude Code (web) sessions and fresh checkouts.
 # Copy to scripts/cloud/setup.sh during the kickoff.
 #
-# Simple by design: Logralo runs on SQLite locally (PostgreSQL on PlanetScale
-# is production-only), so a full checkout only needs composer deps, node deps,
-# an .env, a database file, built assets, git hooks, and the Cloud CLI.
-# The Publica.la fleet carries a much heavier vendored bootstrap
-# (static-PHP snapshots, restricted-egress fallbacks); adopt pieces of it
-# later only if hosted sandboxes turn out to need them.
+# Simple by design: the app runs on SQLite locally, so a full checkout only
+# needs composer deps, node deps, an .env, a database file, built assets, git
+# hooks, and the Cloud CLI. This is a starting point, not a copy of what
+# Logralo runs today, and the difference is worth knowing before you reach for
+# it: a hosted sandbox can ship a PHP older than composer.json requires and an
+# egress proxy that blocks the dist archives composer downloads, at which point
+# this script cannot finish at all. Logralo answers that with a module set
+# under scripts/cloud/ that restores both the runtime and vendor/ from a
+# snapshot its own CI publishes. Do not lift that machinery on day one — a new
+# repo has no snapshot to restore. Grow into it if a sandbox forces the issue,
+# and read scripts/cloud/SETUP.md in the Logralo repo for what it cost to find.
 #
 # Flux Pro credentials: the repo is public, so auth.json is never committed.
 # Hosted sessions and CI provide FLUX_USERNAME / FLUX_LICENSE_KEY as

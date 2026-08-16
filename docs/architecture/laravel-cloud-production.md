@@ -98,4 +98,4 @@ It prints a link that logs that person in. Treat the output as a credential: it 
 
 ## Errors
 
-Logralo reports to Nightwatch on Franco's **personal** account. The Nightwatch MCP connection available in a Claude session is scoped to the Publica.la workspace and cannot see this application at all — an empty issue list there means "wrong account", not "no errors". Check the Nightwatch web interface, or connect the personal account.
+Logralo reports to Nightwatch on Franco's **personal** account. The Nightwatch MCP connection available in a Claude session is scoped to a work workspace and cannot see this application at all — an empty issue list there means "wrong account", not "no errors". Check the Nightwatch web interface, or connect the personal account.
