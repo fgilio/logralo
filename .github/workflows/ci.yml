@@ -44,6 +44,12 @@ env:
   # directives into the restored binary's scan dir, so a sandbox is configured
   # like CI rather than merely running the same version.
   PHP_INI_VALUES: "memory_limit=512M, opcache.enable_cli=1, opcache.jit=tracing, opcache.jit_buffer_size=64M"
+  # Same list without the JIT directives, for the one job that loads a coverage
+  # driver. pcov overrides zend_execute_ex, so PHP disables the JIT itself at
+  # startup and prints a warning while doing it — requesting JIT there buys
+  # nothing and the warning lands in the setup action's version probe, which
+  # then reports "8.5 does not match requested php-version 8.5" and fails.
+  PHP_INI_VALUES_COVERAGE: "memory_limit=512M, opcache.enable_cli=1"
 
 jobs:
   lint:
@@ -144,7 +150,7 @@ jobs:
         with:
           php-version: ${{ env.PHP_VERSION }}
           coverage: pcov # pest --coverage needs a driver
-          ini-values: ${{ env.PHP_INI_VALUES }}
+          ini-values: ${{ env.PHP_INI_VALUES_COVERAGE }}
       - uses: actions/cache@v6
         with:
           path: vendor
