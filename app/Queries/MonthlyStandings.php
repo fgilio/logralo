@@ -9,6 +9,7 @@ use App\Models\Mark;
 use App\Models\User;
 use App\Services\ScoreCalculator;
 use App\ValueObjects\Standing;
+use App\ValueObjects\UserClock;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Collection;
 
@@ -71,34 +72,25 @@ final readonly class MonthlyStandings
             return collect();
         }
 
-        $goals = Goal::query()->active()->get(['id', 'user_id', 'created_at']);
+        $goalsByUser = Goal::query()->active()->get(['id', 'user_id', 'created_at'])->groupBy('user_id');
 
-        // Only the goals that were already there, counted on each member's own
-        // calendar. A month is scored against what the member was carrying
-        // through it, and `forMonth()` runs at least twelve hours after the
-        // month ended — up to thirty-eight once the group spans timezones —
-        // so without this a goal created in the gap lands in the denominator
-        // of a month it never existed in, and the recap freezes that forever.
-        //
-        // `current()` is unaffected: its window ends today, and every active
-        // goal was created on or before today.
-        $goalCounts = $users->mapWithKeys(function (User $user) use ($goals, $lastDay): array {
-            $lastDayOfWindow = $lastDay($user);
+        // Counted as of the window's last day rather than as of now. A month
+        // closes hours after it ends, so a goal created in that
+        // gap belongs to no part of it.
+        /** @var Collection<string, Collection<int, Goal>> $countedGoals */
+        $countedGoals = $users->mapWithKeys(function (User $user) use ($goalsByUser, $lastDay): array {
+            /** @var Collection<int, Goal> $goals */
+            $goals = $goalsByUser->get($user->id, collect());
+
             $clock = $user->clock();
+            $lastDayOfWindow = $lastDay($user);
 
-            $counted = $goals->filter(function (Goal $goal) use ($user, $clock, $lastDayOfWindow): bool {
-                if ($goal->user_id !== $user->id) {
-                    return false;
-                }
-
-                // A row with no timestamp is older than any month anybody can
-                // ask about; dropping it would quietly shrink the denominator.
-                return $goal->created_at === null
-                    || $clock->dayOf($goal->created_at)->toDateString() <= $lastDayOfWindow;
-            });
-
-            return [$user->id => $counted->count()];
+            return [$user->id => $goals->filter(
+                fn (Goal $goal): bool => $this->existedBy($goal, $clock, $lastDayOfWindow),
+            )];
         });
+
+        $goalCounts = $countedGoals->map(fn (Collection $goals): int => $goals->count());
 
         $earliest = $users->map($firstDay)->min();
 
@@ -108,17 +100,16 @@ final readonly class MonthlyStandings
         // mark from that month up to today to then throw most of them away.
         $latest = $users->map($lastDay)->max();
 
+        // The same goals the denominator counts, so a grace mark on a goal the
+        // window excludes cannot push a frozen score past 100%.
         $marksByUser = Mark::query()
-            ->whereIn('goal_id', $goals->pluck('id')->values()->all())
+            ->whereIn('goal_id', $countedGoals->collapse()->pluck('id')->all())
             ->whereBetween('marked_on', [$earliest, $latest])
             ->get(['user_id', 'marked_on', 'photo_key'])
             ->groupBy('user_id');
 
         $standings = $users
-            // A member needs at least one active goal that the window counts to
-            // appear in the table — so somebody whose only goal was created
-            // after a month ended is absent from that month rather than in it
-            // at nought out of nought.
+            // A member needs at least one counted goal to appear in the table.
             ->filter(fn (User $user): bool => $goalCounts->get($user->id, 0) > 0)
             ->map(function (User $user) use ($marksByUser, $goalCounts, $firstDay, $lastDay, $daysCounted): Standing {
                 $from = $firstDay($user);
@@ -147,5 +138,16 @@ final readonly class MonthlyStandings
             ->all();
 
         return $this->scores->rank(array_values($standings));
+    }
+
+    /**
+     * Whether the goal was on the member's board by $lastDay, read on
+     * their own calendar. A row with no created_at predates
+     * every month that can be asked about.
+     */
+    private function existedBy(Goal $goal, UserClock $clock, string $lastDay): bool
+    {
+        return $goal->created_at === null
+            || $clock->dayOf($goal->created_at)->toDateString() <= $lastDay;
     }
 }

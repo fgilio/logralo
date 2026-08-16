@@ -23,11 +23,12 @@ function closeJulyRecap(): ?MonthlyRecap
 }
 
 /**
- * A goal that was already there in July.
+ * A goal that was already on the member's board during July.
  *
- * These tests travel to August and close July, so a fixture created at that
- * instant belongs to no month under test: the standings count the goals a
- * member carried through the month, and one created after it ended is not one.
+ * These tests travel to August, so a fixture left at the default
+ * created_at counts for no month under test.
+ *
+ * @param  array<string, mixed>  $attributes
  */
 function julyGoal(User $user, array $attributes = []): Goal
 {
@@ -106,17 +107,14 @@ it('returns the same recap on a second call and creates nothing', function (): v
         ->and(MonthlyRecap::query()->count())->toBe(1);
 });
 
-it('scores a month on the goals that lived through it', function (): void {
+it('counts only the goals that existed before the month ended', function (): void {
     $this->travelTo(CarbonImmutable::parse('2026-08-01 15:00', 'UTC'));
 
     $user = User::factory()->create(['name' => 'Ana']);
 
     Mark::factory()->for(julyGoal($user))->on('2026-07-01')->withPhoto()->create();
 
-    // Added in the gap: July ended fifteen hours ago and the sweep is only
-    // running now. Counting this would put July's one marked day over sixty-two
-    // possible ones and freeze that — 3% instead of 3 out of 31, in a recap
-    // nothing ever recomputes.
+    // Created after July ended, in the gap before the sweep runs.
     Goal::factory()->for($user)->create(['position' => 2]);
 
     $frozen = closeJulyRecap()->standingEntries()->first();
@@ -125,7 +123,7 @@ it('scores a month on the goals that lived through it', function (): void {
         ->and($frozen->fullMarks)->toBe(1);
 });
 
-it('leaves a month to the members who were in it', function (): void {
+it('omits a member whose only goal was created after the month ended', function (): void {
     $this->travelTo(CarbonImmutable::parse('2026-08-01 15:00', 'UTC'));
 
     $ana = User::factory()->create(['name' => 'Ana']);
@@ -133,10 +131,29 @@ it('leaves a month to the members who were in it', function (): void {
 
     Mark::factory()->for(julyGoal($ana))->on('2026-07-01')->withPhoto()->create();
 
-    // Beto's first goal is from August. July is not his month to be last in.
     Goal::factory()->for($beto)->create();
 
     expect(closeJulyRecap()->standingEntries()->pluck('name')->all())->toBe(['Ana']);
+});
+
+it('drops a mark on a goal the month never saw', function (): void {
+    $this->travelTo(CarbonImmutable::parse('2026-08-01 15:00', 'UTC'));
+
+    $user = User::factory()->create(['name' => 'Ana']);
+
+    Mark::factory()->for(julyGoal($user))->on('2026-07-31')->withPhoto()->create();
+
+    // Grace reaches this far in production: a goal created on the 1st accepts
+    // a mark dated to the 31st until noon. Counting that mark
+    // while its goal is out of the denominator is how a
+    // frozen score passes 100%.
+    $latecomer = Goal::factory()->for($user)->create(['position' => 2]);
+    Mark::factory()->for($latecomer)->on('2026-07-31')->withPhoto()->create();
+
+    $frozen = closeJulyRecap()->standingEntries()->first();
+
+    expect($frozen->possibleMarks)->toBe(31)
+        ->and($frozen->fullMarks)->toBe(1);
 });
 
 it('freezes the standings so later archiving cannot rewrite them', function (): void {

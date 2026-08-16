@@ -52,15 +52,9 @@ return new class extends Migration
      * Through the query builder rather than the models: a migration outlives
      * whatever shape those classes are in by the time it runs again.
      *
-     * Paged by key rather than by offset. `each()` cuts its pages with limit
-     * and offset, and every update here falsifies the `whereNull` those pages
-     * are cut from — so past the first page the offset skips as many rows as
-     * the last page fixed, and half the table silently keeps a null token,
-     * which is indistinguishable from a revoked one. Logralo ran this over six
-     * rows and never reached page two; a restore into a fuller database would.
-     *
-     * `lazyById` asks for ids after the last one it saw, so a shrinking filter
-     * cannot move the window under it, and it never holds more than a page.
+     * Paged by id rather than by offset. Every update falsifies the
+     * `whereNull` those pages are cut from, so a limit and
+     * offset walk skips a row for each one it fixes.
      */
     private function backfill(): void
     {

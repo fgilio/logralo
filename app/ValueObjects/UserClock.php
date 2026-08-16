@@ -49,11 +49,9 @@ final readonly class UserClock
     /**
      * The member's own calendar day an instant fell on.
      *
-     * Rows carry their timestamps in the app's zone; "was this goal here in
-     * August" is a question about the member's August, and a goal created at
-     * 22:00 on the 31st in Montevideo is already the 1st in UTC. Answering it
-     * anywhere but here would be the timezone arithmetic this class exists to
-     * keep in one place.
+     * Timestamps are stored in the app's zone, so a row written at 22:00 on
+     * 31 August in Montevideo reads as 1 September in UTC. Whose
+     * August a row falls in is a question about the member.
      */
     public function dayOf(CarbonImmutable $instant): CarbonImmutable
     {
