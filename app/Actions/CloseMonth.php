@@ -43,7 +43,7 @@ final readonly class CloseMonth
         Context::add('logralo.month', $month->format('Y-m'));
 
         try {
-            $existing = MonthlyRecap::query()->where('month', $month->toDateString())->first();
+            $existing = MonthlyRecap::query()->covering($month)->first();
 
             if ($existing !== null) {
                 Context::add('logralo.outcome', 'already_closed');

@@ -3,6 +3,8 @@
 declare(strict_types=1);
 
 use App\Actions\CloseMonth;
+use App\Actions\MarkGoal;
+use App\Exceptions\MonthClosedException;
 use App\Models\Goal;
 use App\Models\Mark;
 use App\Models\MonthlyRecap;
@@ -183,6 +185,30 @@ it('freezes the standings so later archiving cannot rewrite them', function (): 
 
     expect($reread->standings)->toBe($recap->standings)
         ->and($reread->standingEntries()->first()->possibleMarks)->toBe(31);
+});
+
+it('stays shut to a member whose clock moves west after the close', function (): void {
+    // Closing asks every member's clock; marking asks one. That is the whole
+    // gap: any change to a member's clock after the close can reopen a day
+    // the recap already scored, and this is how production gets there.
+    $this->travelTo(CarbonImmutable::parse('2026-08-01 15:00', 'UTC'));
+
+    $user = User::factory()->create(['name' => 'Ana']);
+    $goal = julyGoal($user);
+
+    expect(closeJulyRecap())->not->toBeNull();
+
+    // Ana lands in Mexico City and picks the timezone on her profile. Noon on
+    // 1 August has not happened there yet, so 31 July is hers again.
+    $user->forceFill(['timezone' => 'America/Mexico_City'])->save();
+
+    expect($user->clock()->isGraceOpen())->toBeTrue()
+        ->and($user->clock()->yesterday()->toDateString())->toBe('2026-07-31');
+
+    expect(fn (): Mark => resolve(MarkGoal::class)->handle($goal, $user->clock()->yesterday()))
+        ->toThrow(MonthClosedException::class);
+
+    expect(Mark::query()->count())->toBe(0);
 });
 
 it('records the best streak of the month, counting a run that started before it', function (): void {

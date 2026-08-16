@@ -7,9 +7,11 @@ use App\Enums\MarkKind;
 use App\Exceptions\DayClosedException;
 use App\Exceptions\DuplicateMarkException;
 use App\Exceptions\GoalArchivedException;
+use App\Exceptions\MonthClosedException;
 use App\Exceptions\PhotoRequiredException;
 use App\Models\Goal;
 use App\Models\Mark;
+use App\Models\MonthlyRecap;
 use App\Models\User;
 use App\Services\PhotoProcessor;
 use Carbon\CarbonImmutable;
@@ -136,6 +138,33 @@ it('refuses to mark a day older than the grace window', function (): void {
         ->toThrow(DayClosedException::class);
 
     expect(Mark::query()->count())->toBe(0);
+});
+
+it('refuses a grace mark once the month has been recapped', function (): void {
+    // 09:00 on 1 September: 31 August is still open on this member's clock,
+    // so nothing but the recap can refuse it.
+    $this->travelTo(CarbonImmutable::parse('2026-09-01 09:00', 'America/Montevideo')->utc());
+
+    MonthlyRecap::factory()->create(['month' => '2026-08-01']);
+
+    $august = $this->user->clock()->yesterday();
+
+    expect($this->user->clock()->isGraceOpen())->toBeTrue();
+
+    expect(fn (): Mark => $this->mark->handle($this->goal, $august))
+        ->toThrow(MonthClosedException::class);
+
+    expect(Mark::query()->count())->toBe(0);
+});
+
+it('keeps today markable while last month is recapped', function (): void {
+    $this->travelTo(CarbonImmutable::parse('2026-09-01 09:00', 'America/Montevideo')->utc());
+
+    MonthlyRecap::factory()->create(['month' => '2026-08-01']);
+
+    $mark = $this->mark->handle($this->goal, $this->user->clock()->today());
+
+    expect($mark->marked_on->toDateString())->toBe('2026-09-01');
 });
 
 it('demands a photo after two ghost marks in a row, counting marks and not days', function (): void {

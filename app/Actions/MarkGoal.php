@@ -7,10 +7,12 @@ namespace App\Actions;
 use App\Exceptions\DayClosedException;
 use App\Exceptions\DuplicateMarkException;
 use App\Exceptions\GoalArchivedException;
+use App\Exceptions\MonthClosedException;
 use App\Exceptions\PhotoRequiredException;
 use App\Exceptions\UserFacingException;
 use App\Models\Goal;
 use App\Models\Mark;
+use App\Models\MonthlyRecap;
 use App\Queries\GoalHistory;
 use App\Services\PhotoProcessor;
 use App\Services\PhotoRule;
@@ -111,6 +113,13 @@ final readonly class MarkGoal
 
         if ($openDays->doesntContain($day->toDateString())) {
             throw DayClosedException::on($day);
+        }
+
+        // The clocks that closed the month are not the clocks that open this
+        // day: a member who moves west, or a raised grace hour, reopens a
+        // day whose score the recap already froze.
+        if (MonthlyRecap::query()->covering($day)->exists()) {
+            throw MonthClosedException::on($day);
         }
 
         if ($goal->marks()->where('marked_on', $day->toDateString())->exists()) {
