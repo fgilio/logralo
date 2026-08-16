@@ -43,20 +43,26 @@ new class extends Component
     #[Locked]
     public string $date;
 
+    /**
+     * How the card is drawn: a `tile` in the grid, a full-width `row` when
+     * there are too few goals to fill one, or the `chip` the grace banner
+     * packs several of into a line. Presentation only — every variant marks
+     * the same way.
+     */
     #[Locked]
-    public bool $compact = false;
+    public string $variant = 'tile';
 
     /** @var TemporaryUploadedFile|null */
     public $photo;
 
     public string $note = '';
 
-    public function mount(Goal $goal, ?string $date = null, bool $compact = false): void
+    public function mount(Goal $goal, ?string $date = null, string $variant = 'tile'): void
     {
         abort_unless($goal->user_id === Auth::id(), 403);
 
         $this->goal = $goal;
-        $this->compact = $compact;
+        $this->variant = $variant;
         $this->date = $date ?? $goal->user->clock()->today()->toDateString();
     }
 
@@ -257,117 +263,159 @@ new class extends Component
     $mark = $this->mark;
     $isGhost = $mark?->isGhost() ?? false;
     $isFull = $mark?->isFull() ?? false;
-    // The fuel gauge tops out at a month, so week two still reads as progress
-    // rather than a bar that is full forever.
-    $fuel = min($this->streak / 30, 1);
+    // Both the row and the tile say these two things about a goal, so they are
+    // decided once here rather than written out twice below, where the two
+    // copies could drift into disagreeing about the same goal.
+    $dimFlame = $mark === null && ! $isFull;
+    $owesPhoto = $this->requiresPhoto && $mark === null;
+
+    $shell = match ($variant) {
+        'chip' => 'flex items-center gap-2 rounded-full border py-1.5 pr-3 pl-2.5 text-sm transition',
+        'row' => 'relative flex items-center gap-3 overflow-hidden rounded-2xl border p-2.5 transition-transform duration-150',
+        default => 'relative flex aspect-square w-full flex-col justify-between overflow-hidden rounded-2xl border p-3 text-left transition-transform duration-150',
+    };
+
+    // A grace chip is amber because the day it marks is running out. The cards
+    // on today's own goals carry the mark's own state instead.
+    $tone = match (true) {
+        $variant === 'chip' && $mark === null => 'border-amber-500/40 bg-amber-500/10',
+        $variant === 'chip' => 'border-transparent bg-accent/15 text-accent-content',
+        $isFull => 'border-transparent bg-zinc-900 text-white',
+        $isGhost => 'border-dashed border-ghost/60 bg-ghost/5',
+        default => 'border-zinc-200 bg-white dark:border-white/10 dark:bg-white/5',
+    };
+
+    // The chip is small enough that it needs the deeper of the two nudges to
+    // register as a press at all.
+    $pressScale = $variant === 'chip' ? 'scale-95' : 'scale-[0.97]';
+    $testId = ($variant === 'chip' ? 'grace-goal' : 'goal-card').'-'.$goal->id;
 @endphp
 
+{{-- One interaction wrapper for all three variants: tap marks, hold opens the
+     sheet, and only what sits inside changes. Every variant is a div with
+     `role="button"` rather than a `<button>`, because `short-press` rides on
+     pointerup, which a keyboard never sends — the keydown handlers below are
+     what makes Enter and Space work, and on a real button they would
+     double-fire against the click the browser synthesises.
+
+     Nothing here reaches `press()` without a pointer or a key, so the guarded
+     click covers what neither sends: VoiceOver activates a role="button" by
+     dispatching a click on its own, and `onClick` only ever suppresses the
+     click a long press leaves behind. `detail` is 0 exactly when no pointer
+     drew the click, so a tap — which already marked on pointerup — cannot
+     come back through here a second time.
+
+     `press()` is the card's own, not `$wire.press()`: it reads the
+     `aria-pressed` below off this element and sends it along, which is what
+     tells a deliberate un-mark from the second half of a double tap. Every
+     variant hangs it on the same root, so all three get that for free. --}}
 <div wire:key="goal-card-{{ $goal->id }}-{{ $date }}">
-    @if ($compact)
-        <button
-            type="button"
-            x-data="goalCard({ delay: 420 })"
-            @pointerdown="start($event)"
-            @pointermove="move($event)"
-            @pointerup="end()"
-            @pointercancel="cancel()"
-            @lostpointercapture="cancel()"
-            @contextmenu.prevent
-            @click.capture="onClick($event)"
-            @short-press="press()"
-            @long-press="$flux.modal('{{ $this->sheetName }}').show()"
-            {{-- `short-press` rides on pointerup, which a keyboard never
-                 sends, so without this Enter and Space did nothing at all on
-                 the grace chip. detail is 0 only for keyboard-activated
-                 clicks, so a tap cannot double-fire through here. The full
-                 card next door has always had its own keydown handlers. --}}
-            @click="$event.detail === 0 && press()"
-            aria-pressed="{{ $mark !== null ? 'true' : 'false' }}"
-            @class([
-                'tap-target flex items-center gap-2 rounded-full border py-1.5 pr-3 pl-2.5 text-sm transition',
-                'border-amber-500/40 bg-amber-500/10' => $mark === null,
-                'border-transparent bg-accent/15 text-accent-content' => $mark !== null,
-            ])
-            :class="pressing && 'scale-95'"
-            data-test="grace-goal-{{ $goal->id }}"
-        >
+    <div
+        x-data="goalCard({ delay: 420 })"
+        @pointerdown="start($event)"
+        @pointermove="move($event)"
+        @pointerup="end()"
+        @pointercancel="cancel()"
+        @lostpointercapture="cancel()"
+        @contextmenu.prevent
+        @click.capture="onClick($event)"
+        @short-press="press()"
+        @long-press="$flux.modal('{{ $this->sheetName }}').show()"
+        @keydown.enter.prevent="press()"
+        @keydown.space.prevent="press()"
+        @click="$event.detail === 0 && press()"
+        class="tap-target {{ $shell }} {{ $tone }}"
+        :class="pressing && '{{ $pressScale }}'"
+        role="button"
+        tabindex="0"
+        aria-pressed="{{ $mark !== null ? 'true' : 'false' }}"
+        aria-label="{{ $goal->name }}"
+        data-test="{{ $testId }}"
+    >
+        @if ($variant === 'chip')
             <span class="text-base leading-none">{{ $goal->emoji }}</span>
             <span class="max-w-28 truncate font-medium">{{ $goal->name }}</span>
 
             @if ($mark !== null)
                 <flux:icon name="check-circle" variant="micro" />
             @endif
-        </button>
-    @else
-        <div
-            x-data="goalCard({ delay: 420 })"
-            @pointerdown="start($event)"
-            @pointermove="move($event)"
-            @pointerup="end()"
-            @pointercancel="cancel()"
-            @lostpointercapture="cancel()"
-            @contextmenu.prevent
-            @click.capture="onClick($event)"
-            @short-press="press()"
-            @long-press="$flux.modal('{{ $this->sheetName }}').show()"
-            @keydown.enter.prevent="press()"
-            @keydown.space.prevent="press()"
-            @class([
-                'tap-target relative flex aspect-4/5 w-full flex-col justify-between overflow-hidden rounded-2xl p-3 text-left transition-transform duration-150',
-                'border border-zinc-200 bg-white dark:border-white/10 dark:bg-white/5' => $mark === null,
-                'border border-dashed border-ghost/60 bg-ghost/5' => $isGhost,
-                'border border-transparent bg-zinc-900 text-white' => $isFull,
-            ])
-            :class="pressing && 'scale-[0.97]'"
-            role="button"
-            tabindex="0"
-            aria-pressed="{{ $mark !== null ? 'true' : 'false' }}"
-            aria-label="{{ $goal->name }}"
-            data-test="goal-card-{{ $goal->id }}"
-        >
+        @elseif ($variant === 'row')
+            {{-- The proof leads the row when there is one: at this size the
+                 photo is the thing worth showing, and the emoji is only
+                 standing in for it the rest of the time. --}}
+            @if ($isFull && $this->photoLinks !== null)
+                {{-- No `eager` here, unlike the tile: that one is the screen's
+                     largest image and worth a synchronous decode, while this is
+                     a 48px box that has no business blocking a paint. --}}
+                <div class="relative size-12 shrink-0 overflow-hidden rounded-xl">
+                    <x-photo :links="$this->photoLinks" :alt="$goal->name" fill sizes="64px" />
+                </div>
+            @else
+                <span
+                    @class([
+                        'grid size-12 shrink-0 place-items-center rounded-xl text-2xl leading-none',
+                        'bg-zinc-100 dark:bg-white/5' => $mark === null,
+                        'bg-ghost/10 opacity-50 grayscale' => $isGhost,
+                        'bg-white/10' => $isFull,
+                    ])
+                >{{ $goal->emoji }}</span>
+            @endif
+
+            <div class="min-w-0 flex-1">
+                <p class="truncate text-sm font-semibold">{{ $goal->name }}</p>
+
+                <div class="mt-1 flex items-center gap-2">
+                    <x-flame :days="$this->streak" :dim="$dimFlame" size="sm" />
+
+                    @if ($owesPhoto)
+                        <span class="text-xs" title="Esta va con foto">📸</span>
+                    @endif
+                </div>
+            </div>
+
+            <div class="shrink-0 pr-1">
+                <x-mark-status :ghost="$isGhost" :full="$isFull" size="lg" ring />
+            </div>
+        @else
             @if ($isFull && $this->photoLinks !== null)
                 <x-photo :links="$this->photoLinks" :alt="$goal->name" fill eager />
                 <div class="absolute inset-0 bg-linear-to-t from-black/80 via-black/20 to-black/10"></div>
             @else
-                {{-- The streak, drawn as fuel climbing the left edge. --}}
+                {{-- The streak, drawn as fuel: the ember rises off the card's
+                     base as the run grows, so the tile's middle carries the
+                     number the flame is already saying. It tops out at a month,
+                     so week two still reads as progress rather than as an ember
+                     that is full forever. --}}
+                @php($fuel = number_format(min($this->streak / 30, 1), 3, '.', ''))
+
                 <div
-                    class="ember-gauge absolute inset-y-0 left-0 w-1"
-                    style="--fuel: {{ number_format($fuel, 3, '.', '') }}"
+                    class="ember-gauge pointer-events-none absolute inset-0"
+                    style="--fuel: {{ $fuel }}"
                     aria-hidden="true"
                 ></div>
             @endif
 
             <div class="relative flex items-start justify-between">
-                <span class="text-3xl leading-none {{ $isGhost ? 'opacity-50 grayscale' : '' }}">
+                <span class="text-4xl leading-none {{ $isGhost ? 'opacity-50 grayscale' : '' }}">
                     {{ $goal->emoji }}
                 </span>
 
-                <div wire:loading wire:target="press, save, remove">
-                    <flux:icon name="loading" variant="micro" class="animate-spin opacity-60" />
-                </div>
-
-                <div wire:loading.remove wire:target="press, save, remove">
-                    @if ($isGhost)
-                        <span class="text-lg" title="Marcado sin foto">🌫️</span>
-                    @elseif ($isFull)
-                        <flux:icon name="check-circle" variant="solid" class="size-6 text-accent" />
-                    @endif
-                </div>
+                <x-mark-status :ghost="$isGhost" :full="$isFull" />
             </div>
 
             <div class="relative">
                 <p class="line-clamp-2 text-sm leading-tight font-semibold">{{ $goal->name }}</p>
 
                 <div class="mt-1.5 flex items-center justify-between">
-                    <x-flame :days="$this->streak" :dim="$mark === null && ! $isFull" size="sm" />
+                    <x-flame :days="$this->streak" :dim="$dimFlame" size="sm" />
 
-                    @if ($this->requiresPhoto && $mark === null)
+                    @if ($owesPhoto)
                         <span class="text-xs" title="Esta va con foto">📸</span>
                     @endif
                 </div>
             </div>
-        </div>
-    @endif
+        @endif
+    </div>
 
     {{-- The sheet: camera, note, and the way out of a mistap. --}}
     <flux:modal

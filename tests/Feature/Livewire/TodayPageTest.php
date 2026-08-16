@@ -36,7 +36,28 @@ it('shows the active goals and leaves the archived ones off the grid', function 
     $component->assertSee('Natacion')->assertDontSee('Guitarra');
 });
 
-it('offers the add-goal tile until the grid is full', function (): void {
+it('draws few goals as rows and a full set as tiles', function (): void {
+    morningInMontevideo();
+
+    $user = User::factory()->create();
+    Goal::factory()->for($user)->count(2)->create();
+
+    // The container says how the goals are stacked, and `aspect-square` is the
+    // tile's own shape — asserting both keeps the page and the card agreeing.
+    Livewire::actingAs($user)
+        ->test('pages::today')
+        ->assertSeeHtml('flex flex-col gap-2')
+        ->assertDontSeeHtml('aspect-square');
+
+    Goal::factory()->for($user)->create();
+
+    Livewire::actingAs($user)
+        ->test('pages::today')
+        ->assertSeeHtml('grid grid-cols-2 gap-3')
+        ->assertSeeHtml('aspect-square');
+});
+
+it('offers the add-goal link until the member is out of slots', function (): void {
     morningInMontevideo();
 
     $user = User::factory()->create();
