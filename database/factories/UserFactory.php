@@ -24,6 +24,10 @@ final class UserFactory extends Factory
         return [
             'name' => fake()->name(),
             'email' => fake()->unique()->safeEmail(),
+            // Spelled out rather than left to the column default: a nullable
+            // column nothing writes is absent from the instance `create()`
+            // hands back, and strict models throw on reading it.
+            'avatar_key' => null,
             'password' => self::$password ??= Hash::make('password'),
             'timezone' => 'America/Montevideo',
             'remember_token' => Str::random(10),

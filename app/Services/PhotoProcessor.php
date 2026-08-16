@@ -21,13 +21,18 @@ use Intervention\Image\Interfaces\ImageInterface;
 use Throwable;
 
 /**
- * Everything that happens to a goal photo between the phone and the feed.
+ * Everything that happens to a photo between the phone and the screen.
  *
  * Phone cameras hand us 8–12 MB originals and the feed shows them full-bleed
  * over mobile data, so originals are never stored. Each upload becomes a small
  * set of derivatives under one key: WebP at two widths for the srcset, a JPEG
  * that doubles as the share-sheet payload (WhatsApp will not take WebP), and a
  * square thumbnail for the goal card.
+ *
+ * Avatars come through here too, and for the same reasons rather than for
+ * convenience: the pixel-count guard, the auto-orientation, the EXIF strip and
+ * the URL signing are the whole of what a profile picture needs, and a second
+ * class would have been a second copy of every one of them.
  *
  * Every derivative is written with the EXIF stripped. A photo feed has no
  * business shipping everyone's GPS coordinates, and stripping is the reason
@@ -43,6 +48,9 @@ final readonly class PhotoProcessor
     public const int SHARE_WIDTH = 1080;
 
     public const int THUMBNAIL_SIZE = 320;
+
+    /** Avatar keys are namespaced, so one prefix separates them on the disk. */
+    public const string AVATAR_PREFIX = 'avatars';
 
     public function __construct(private ImageManager $images) {}
 
@@ -108,6 +116,47 @@ final readonly class PhotoProcessor
             width: $stored->width(),
             height: $stored->height(),
         );
+    }
+
+    /**
+     * A member's profile picture, cropped square and stored at one size.
+     *
+     * One derivative rather than a set: the largest avatar on screen is the
+     * 56px ring in the pulse strip, so `logralo.avatars.size` is that at DPR 3
+     * and a srcset would be four files to serve the same forty kilobytes.
+     *
+     * @throws PhotoUnreadableException when the upload is not an image this
+     *                                  build of PHP can decode
+     * @throws PhotoTooLargeException when decoding it would not fit in the
+     *                                container
+     */
+    public function storeAvatar(UploadedFile $file): string
+    {
+        $this->guardPixelCount($file);
+
+        $key = self::AVATAR_PREFIX.'/'.Str::ulid();
+        $size = (int) config('logralo.avatars.size');
+
+        // `cover()` crops to the centre rather than letterboxing, which is the
+        // right call for a circle: the corners it throws away are the ones the
+        // border radius was going to eat anyway.
+        $square = $this->decode((string) $file->getRealPath(), $file->getClientOriginalName())
+            ->cover($size, $size);
+
+        $this->disk()->put(
+            "{$key}/avatar.webp",
+            (string) $square->encode(new WebpEncoder(
+                quality: (int) config('logralo.avatars.webp_quality'),
+                strip: true,
+            )),
+        );
+
+        return $key;
+    }
+
+    public function avatarUrl(string $key): string
+    {
+        return $this->url("{$key}/avatar.webp");
     }
 
     public function delete(?string $key): void

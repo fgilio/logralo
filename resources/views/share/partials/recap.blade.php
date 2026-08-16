@@ -20,11 +20,9 @@
                 <span class="text-4xl">🏆</span>
                 <div class="flex -space-x-2">
                     @foreach ($winners as $winner)
-                        <flux:avatar
+                        <x-avatar
+                            :user-id="$winner->userId"
                             :name="$winner->name"
-                            color="auto"
-                            :color:seed="$winner->userId"
-                            circle
                             size="sm"
                             class="ring-2 ring-zinc-900"
                         />

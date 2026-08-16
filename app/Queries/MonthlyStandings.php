@@ -23,7 +23,7 @@ use Illuminate\Support\Collection;
  */
 final readonly class MonthlyStandings
 {
-    public function __construct(private ScoreCalculator $scores) {}
+    public function __construct(private ScoreCalculator $scores, private Members $members) {}
 
     /**
      * This month so far, each member measured on their own calendar.
@@ -65,7 +65,7 @@ final readonly class MonthlyStandings
      */
     private function build(callable $firstDay, callable $lastDay, callable $daysCounted): Collection
     {
-        $users = User::query()->orderBy('name')->get();
+        $users = $this->members->roster();
 
         if ($users->isEmpty()) {
             /** @var Collection<int, Standing> */

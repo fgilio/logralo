@@ -25,14 +25,7 @@
         </div>
 
         <div class="mt-4 flex items-center gap-3">
-            <flux:avatar
-                :name="$mark->user->name"
-                :initials="$mark->user->initials()"
-                color="auto"
-                :color:seed="$mark->user->id"
-                circle
-                size="sm"
-            />
+            <x-avatar :user="$mark->user" size="sm" />
             <p class="min-w-0 truncate text-sm font-semibold">{{ $mark->user->name }}</p>
         </div>
 

@@ -4,21 +4,27 @@ declare(strict_types=1);
 
 use App\Actions\ArchiveGoal;
 use App\Actions\CreateGoal;
+use App\Actions\RemoveAvatar;
 use App\Actions\RenameGoal;
 use App\Actions\RestoreGoal;
+use App\Actions\UpdateAvatar;
 use App\Concerns\InteractsWithMember;
 use App\Concerns\PasswordValidationRules;
+use App\Concerns\PhotoValidationRules;
 use App\Exceptions\UserFacingException;
 use App\Models\Goal;
 use Carbon\CarbonImmutable;
 use Flux\Flux;
 use Illuminate\Database\Eloquent\Collection as EloquentCollection;
+use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
 use Livewire\Attributes\Computed;
 use Livewire\Attributes\Title;
 use Livewire\Component;
+use Livewire\Features\SupportFileUploads\TemporaryUploadedFile;
+use Livewire\WithFileUploads;
 
 /**
  * Everything that is not "Hoy": goals, timezone, password, logout.
@@ -27,9 +33,14 @@ new #[Title('Perfil')] class extends Component
 {
     use InteractsWithMember;
     use PasswordValidationRules;
+    use PhotoValidationRules;
+    use WithFileUploads;
 
     /** A few starters, so nobody has to hunt for the emoji keyboard. */
     public const array EMOJI_SUGGESTIONS = ['🏋️', '🏃', '📚', '🧘', '💧', '🥗', '🛏️', '🎸', '🧠', '🚭'];
+
+    /** @var TemporaryUploadedFile|null */
+    public $avatar;
 
     public string $name = '';
 
@@ -74,6 +85,45 @@ new #[Title('Perfil')] class extends Component
     public function timezones(): array
     {
         return timezone_identifiers_list();
+    }
+
+    /**
+     * The picker uploads and this applies it, with no Guardar in between: a
+     * profile picture has nothing else to fill in alongside it, and a photo
+     * sitting in a temp file behind a button nobody pressed is a photo the
+     * member believes they changed.
+     */
+    public function saveAvatar(): void
+    {
+        $photo = $this->avatar;
+
+        // The picker calls this itself once the bytes are up, so an empty
+        // property is a call that raced the upload rather than a member with
+        // something to correct.
+        if (! $photo instanceof UploadedFile) {
+            return;
+        }
+
+        $this->validate(['avatar' => $this->photoRules()]);
+
+        try {
+            resolve(UpdateAvatar::class)->handle($this->member(), $photo);
+        } catch (UserFacingException $userFacingException) {
+            Flux::toast(text: $userFacingException->userMessage(), variant: 'warning');
+
+            return;
+        } finally {
+            $this->reset('avatar');
+        }
+
+        Flux::toast(text: 'Foto actualizada', variant: 'success');
+    }
+
+    public function removeAvatar(): void
+    {
+        resolve(RemoveAvatar::class)->handle($this->member());
+
+        $this->reset('avatar');
     }
 
     public function saveProfile(): void
@@ -194,6 +244,14 @@ new #[Title('Perfil')] class extends Component
 
 ?>
 
+@php
+    $user = $this->member();
+
+    // "Do they have one of their own?" — asked once, so the buttons and the
+    // helper text underneath them cannot disagree about the answer.
+    $hasUpload = $user->avatar_key !== null;
+@endphp
+
 <div class="mx-auto min-h-dvh w-full max-w-lg px-4 pt-safe-t pb-safe-b">
     <header class="flex items-center gap-3 py-4">
         <flux:button
@@ -290,7 +348,85 @@ new #[Title('Perfil')] class extends Component
         <section>
             <flux:heading>Tus datos</flux:heading>
 
-            <form wire:submit="saveProfile" class="mt-3 flex flex-col gap-4">
+            {{-- The picture, outside the form below: it saves on its own the
+                 moment the upload lands, and a Guardar that only covered half
+                 the section would be worse than none. --}}
+            <div
+                class="mt-3 flex items-center gap-4"
+                x-data="photoPicker({ property: 'avatar', then: 'saveAvatar' })"
+            >
+                {{-- No `capture`, unlike the goal card's camera: a profile
+                     picture is usually one the phone already has. --}}
+                <input
+                    type="file"
+                    accept="image/*"
+                    @change="pick($event)"
+                    x-ref="camera"
+                    class="sr-only"
+                    data-test="avatar-input"
+                >
+
+                <button
+                    type="button"
+                    @click="open()"
+                    x-bind:disabled="busy"
+                    class="tap-target relative rounded-full transition active:scale-95"
+                    aria-label="Cambiar foto"
+                    data-test="open-avatar-picker"
+                >
+                    <x-avatar :user="$user" size="xl" />
+
+                    <div
+                        x-show="busy"
+                        x-cloak
+                        class="absolute inset-0 grid place-items-center rounded-full bg-zinc-900/60 text-white"
+                    >
+                        <flux:icon name="loading" class="size-5 animate-spin" />
+                    </div>
+                </button>
+
+                <div class="min-w-0 flex-1">
+                    <div class="flex flex-wrap gap-2">
+                        <flux:button
+                            @click="open()"
+                            x-bind:disabled="busy"
+                            variant="filled"
+                            size="sm"
+                            icon="camera"
+                            data-test="change-avatar"
+                        >
+                            {{ $hasUpload ? 'Cambiar' : 'Subir foto' }}
+                        </flux:button>
+
+                        @if ($hasUpload)
+                            <flux:button
+                                wire:click="removeAvatar"
+                                variant="subtle"
+                                size="sm"
+                                data-test="remove-avatar"
+                            >
+                                Quitar
+                            </flux:button>
+                        @endif
+                    </div>
+
+                    <flux:text size="sm" class="mt-2">
+                        @if ($hasUpload)
+                            Si la quitás volvemos a tu Gravatar, y si no tenés, a tus iniciales.
+                        @elseif ($user->gravatarUrl() !== null)
+                            Mientras no subas ninguna usamos la de
+                            <a href="https://gravatar.com" target="_blank" rel="noopener" class="underline">Gravatar</a>
+                            de {{ $user->email }}.
+                        @else
+                            Mientras no subas ninguna van tus iniciales.
+                        @endif
+                    </flux:text>
+                </div>
+            </div>
+
+            <flux:error name="avatar" class="mt-2" />
+
+            <form wire:submit="saveProfile" class="mt-4 flex flex-col gap-4">
                 <flux:input wire:model="name" label="Nombre" required data-test="name" />
 
                 <flux:select wire:model="timezone" label="Zona horaria" data-test="timezone">

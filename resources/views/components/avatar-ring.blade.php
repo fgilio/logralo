@@ -15,14 +15,7 @@
         <div
             class="grid {{ $inner }} place-items-center rounded-full bg-zinc-100 dark:bg-zinc-950"
         >
-            <flux:avatar
-                :name="$user->name"
-                :initials="$user->initials()"
-                color="auto"
-                :color:seed="$user->id"
-                circle
-                :size="$size === 'sm' ? 'sm' : 'md'"
-            />
+            <x-avatar :user="$user" :size="$size === 'sm' ? 'sm' : 'md'" />
         </div>
     </div>
 

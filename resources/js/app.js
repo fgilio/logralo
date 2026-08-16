@@ -12,7 +12,8 @@ import { compressPhoto } from "./compress-photo";
  * becomes a `$_FILES` entry and no upload can complete. This is the seam the
  * test drives instead.
  */
-window.Logralo = { compressPhoto };
+// Merged, not assigned: the head has already put the resize budget here.
+window.Logralo = { ...window.Logralo, compressPhoto };
 
 document.addEventListener("alpine:init", () => {
     /**
@@ -173,12 +174,20 @@ document.addEventListener("alpine:init", () => {
      * `busy` covers both halves, which is the other reason this replaced
      * `wire:loading`: that only knows about the upload, and the resize in
      * front of it is the slower of the two on an older phone.
+     *
+     * `options` carries only what differs between the two pickers on this
+     * site: `property`, the Livewire property the finished file lands on, and
+     * `then`, a component method to call once the bytes are up, for the picker
+     * with no save button behind it — the avatar applies on pick, where a mark
+     * waits for the note to be written.
+     *
+     * The resize budget is not among them. It comes off `window.Logralo.photo`,
+     * which the head renders from `config/logralo.php`, so the budget and the
+     * quality exist there and as fallbacks in `compress-photo.js`, and in no
+     * third place that could drift from either.
      */
     Alpine.data("photoPicker", (options = {}) => ({
-        // Handed through untouched: `compress-photo.js` owns the fallbacks, so
-        // the budget and the quality exist in `config/logralo.php` and in that
-        // module, and in no third place that could drift from either.
-        options,
+        options: { ...(window.Logralo?.photo ?? {}), ...options },
 
         busy: false,
         progress: 0,
@@ -212,9 +221,13 @@ document.addEventListener("alpine:init", () => {
                 const upload = await compressPhoto(file, this.options);
 
                 this.$wire.upload(
-                    "photo",
+                    this.options.property ?? "photo",
                     upload,
-                    () => this.settle(),
+                    () => {
+                        this.settle();
+
+                        if (this.options.then) this.$wire[this.options.then]();
+                    },
                     () => this.settle(),
                     (sent) => (this.progress = sent.detail.progress),
                 );

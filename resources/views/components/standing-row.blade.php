@@ -19,13 +19,7 @@
         {{ $medal ?? $standing->rank }}
     </span>
 
-    <flux:avatar
-        :name="$standing->name"
-        color="auto"
-        :color:seed="$standing->userId"
-        circle
-        size="sm"
-    />
+    <x-avatar :user-id="$standing->userId" :name="$standing->name" size="sm" />
 
     <div class="min-w-0 flex-1">
         <div class="flex items-baseline justify-between gap-2">

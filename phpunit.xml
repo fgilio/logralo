@@ -53,6 +53,12 @@
         <env name="SESSION_DRIVER" value="array"/>
         <env name="LOGRALO_PHOTO_DISK" value="photos"/>
         <env name="LOGRALO_GRACE_CUTOFF_HOUR" value="12"/>
+        <!-- Off by default so no test reaches gravatar.com. The PHP suite
+             forbids stray requests outright; the browser suite has a real
+             Chromium in it, which would happily fetch one avatar per member
+             per page and hold the load event open until it answered. The
+             tests that are about Gravatar switch it on themselves. -->
+        <env name="LOGRALO_GRAVATAR" value="false"/>
         <env name="PULSE_ENABLED" value="false"/>
         <env name="TELESCOPE_ENABLED" value="false"/>
         <env name="NIGHTWATCH_ENABLED" value="false"/>
