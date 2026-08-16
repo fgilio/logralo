@@ -51,18 +51,24 @@ return new class extends Migration
      *
      * Through the query builder rather than the models: a migration outlives
      * whatever shape those classes are in by the time it runs again.
+     *
+     * The ids are collected before anything is written. `each()` pages with
+     * limit and offset, and every update falsifies the `whereNull` the pages
+     * are cut from — so past the first page the offset skips as many rows as
+     * the last page fixed, and half the table silently keeps a null token that
+     * is indistinguishable from a revoked one. Logralo ran this over six rows
+     * and never reached page two; a restore into a fuller database would.
      */
     private function backfill(): void
     {
         foreach (self::TABLES as $table) {
-            DB::table($table)
-                ->whereNull('share_token')
-                ->orderBy('id')
-                ->each(function (object $row) use ($table): void {
-                    DB::table($table)
-                        ->where('id', $row->id)
-                        ->update(['share_token' => Str::random(24)]);
-                });
+            $ids = DB::table($table)->whereNull('share_token')->orderBy('id')->pluck('id');
+
+            foreach ($ids as $id) {
+                DB::table($table)
+                    ->where('id', $id)
+                    ->update(['share_token' => Str::random(24)]);
+            }
         }
     }
 };

@@ -71,8 +71,34 @@ final readonly class MonthlyStandings
             return collect();
         }
 
-        $goals = Goal::query()->active()->get(['id', 'user_id']);
-        $goalCounts = $goals->groupBy('user_id')->map(fn (Collection $userGoals): int => $userGoals->count());
+        $goals = Goal::query()->active()->get(['id', 'user_id', 'created_at']);
+
+        // Only the goals that were already there, counted on each member's own
+        // calendar. A month is scored against what the member was carrying
+        // through it, and `forMonth()` runs at least twelve hours after the
+        // month ended — up to thirty-eight once the group spans timezones —
+        // so without this a goal created in the gap lands in the denominator
+        // of a month it never existed in, and the recap freezes that forever.
+        //
+        // `current()` is unaffected: its window ends today, and every active
+        // goal was created on or before today.
+        $goalCounts = $users->mapWithKeys(function (User $user) use ($goals, $lastDay): array {
+            $lastDayOfWindow = $lastDay($user);
+            $clock = $user->clock();
+
+            $counted = $goals->filter(function (Goal $goal) use ($user, $clock, $lastDayOfWindow): bool {
+                if ($goal->user_id !== $user->id) {
+                    return false;
+                }
+
+                // A row with no timestamp is older than any month anybody can
+                // ask about; dropping it would quietly shrink the denominator.
+                return $goal->created_at === null
+                    || $clock->dayOf($goal->created_at)->toDateString() <= $lastDayOfWindow;
+            });
+
+            return [$user->id => $counted->count()];
+        });
 
         $earliest = $users->map($firstDay)->min();
 
@@ -89,7 +115,10 @@ final readonly class MonthlyStandings
             ->groupBy('user_id');
 
         $standings = $users
-            // A member needs at least one active goal to appear in the table.
+            // A member needs at least one active goal that the window counts to
+            // appear in the table — so somebody whose only goal was created
+            // after a month ended is absent from that month rather than in it
+            // at nought out of nought.
             ->filter(fn (User $user): bool => $goalCounts->get($user->id, 0) > 0)
             ->map(function (User $user) use ($marksByUser, $goalCounts, $firstDay, $lastDay, $daysCounted): Standing {
                 $from = $firstDay($user);

@@ -31,7 +31,8 @@ score = (full marks × 1 + ghost marks × 0.5) / (days elapsed × active goals)
 ```
 
 - **Days elapsed** includes today, counted on the member's own calendar. Every member is measured the same way, so the morning dip applies to everyone.
-- **Active goals** is the count right now. Marks on archived goals count for neither the numerator nor the denominator: archiving "stops the goal counting from that day", and removing it from both sides is what stops a member archiving four goals on the 31st to inflate their percentage.
+- **Active goals** is the count of the goals that were already there, on the member's own calendar, by the last day the window covers. For the live table that is every active goal, since they were all created on or before today. It matters at close: a month is scored twelve to thirty-eight hours after it ended, and a goal created in that gap belongs to no part of it — counting it would push the denominator up and freeze a number the member never had a chance to earn.
+- Marks on archived goals count for neither the numerator nor the denominator: archiving "stops the goal counting from that day", and removing it from both sides is what stops a member archiving four goals on the 31st to inflate their percentage. This is still read as of now rather than as of the window, so a goal archived in that same gap does leave the month it lived through — the smaller mirror of the rule above, and the one case still open.
 - A member with **no active goals** does not appear in the table at all.
 - **Ties share a rank** and the next rank skips (1, 1, 3), so "runner-up" never means "beat nobody".
 
