@@ -35,7 +35,7 @@ final readonly class RevokeSharing
 
         try {
             if (! $shared->isShareable()) {
-                Context::add('logralo.outcome', 'already-revoked');
+                Context::add('logralo.outcome', 'already_revoked');
 
                 return;
             }

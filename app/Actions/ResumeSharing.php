@@ -21,7 +21,7 @@ use Throwable;
  * A row that is already shared keeps the token it has. Rotating it here would
  * quietly break links the group is still passing around.
  */
-final class ResumeSharing
+final readonly class ResumeSharing
 {
     public function handle(Mark|MonthlyRecap $shared): void
     {
@@ -30,7 +30,7 @@ final class ResumeSharing
 
         try {
             if ($shared->isShareable()) {
-                Context::add('logralo.outcome', 'already-shared');
+                Context::add('logralo.outcome', 'already_shared');
 
                 return;
             }

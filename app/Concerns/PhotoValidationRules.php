@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Concerns;
 
+use Illuminate\Validation\Rules\File;
+
 /**
  * One definition of what the app will take a picture as, shared by every
  * screen that accepts one.
@@ -15,13 +17,12 @@ namespace App\Concerns;
  */
 trait PhotoValidationRules
 {
-    /** @return list<string> */
+    /** @return list<File> */
     protected function photoRules(): array
     {
         return [
-            'file',
-            'mimetypes:image/jpeg,image/png,image/webp,image/heic,image/heif',
-            'max:'.config('logralo.photos.max_upload_kilobytes'),
+            File::types(['image/jpeg', 'image/png', 'image/webp', 'image/heic', 'image/heif'])
+                ->max(config()->integer('logralo.photos.max_upload_kilobytes')),
         ];
     }
 }
