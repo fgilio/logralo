@@ -49,6 +49,36 @@ it('marks a goal when the card is tapped', function (): void {
         ->and($mark->marked_on->toDateString())->toBe($user->clock()->today()->toDateString());
 });
 
+it('marks a goal activated without a pointer or a key', function (): void {
+    $user = User::factory()->create();
+    $goal = Goal::factory()->for($user)->create(['name' => 'Correr']);
+
+    $this->actingAs($user);
+
+    $page = visit('/')->on()->iPhone15Pro();
+
+    $page->assertAriaAttribute('@goal-card-'.$goal->id, 'pressed', 'false');
+
+    // VoiceOver activates a role="button" by dispatching a click of its own:
+    // no pointerup, so no `short-press`, and no keydown either. `element.click()`
+    // is that same path, and the card is a div rather than a button on purpose,
+    // so nothing synthesises the press for it.
+    $page->script(<<<JS
+        (() => {
+            document.querySelector('[data-test="goal-card-{$goal->id}"]').click();
+
+            return 'clicked';
+        })()
+    JS);
+
+    $page->wait(1)
+        ->assertAriaAttribute('@goal-card-'.$goal->id, 'pressed', 'true')
+        ->assertNoJavaScriptErrors();
+
+    expect(Mark::query()->where('goal_id', $goal->id)->sole()->marked_on->toDateString())
+        ->toBe($user->clock()->today()->toDateString());
+});
+
 /**
  * The resize that happens between the shutter and the upload.
  *

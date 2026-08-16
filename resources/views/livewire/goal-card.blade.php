@@ -279,7 +279,14 @@ new class extends Component
      `role="button"` rather than a `<button>`, because `short-press` rides on
      pointerup, which a keyboard never sends — the keydown handlers below are
      what makes Enter and Space work, and on a real button they would
-     double-fire against the click the browser synthesises. --}}
+     double-fire against the click the browser synthesises.
+
+     Nothing here reaches `press()` without a pointer or a key, so the guarded
+     click covers what neither sends: VoiceOver activates a role="button" by
+     dispatching a click on its own, and `onClick` only ever suppresses the
+     click a long press leaves behind. `detail` is 0 exactly when no pointer
+     drew the click, so a tap — which already marked on pointerup — cannot
+     come back through here a second time. --}}
 <div wire:key="goal-card-{{ $goal->id }}-{{ $date }}">
     <div
         x-data="longPress({ delay: 420 })"
@@ -294,6 +301,7 @@ new class extends Component
         @long-press="$flux.modal('{{ $this->sheetName }}').show()"
         @keydown.enter.prevent="$wire.press()"
         @keydown.space.prevent="$wire.press()"
+        @click="$event.detail === 0 && $wire.press()"
         class="tap-target {{ $shell }} {{ $tone }}"
         :class="pressing && '{{ $variant === 'chip' ? 'scale-95' : 'scale-[0.97]' }}'"
         role="button"
