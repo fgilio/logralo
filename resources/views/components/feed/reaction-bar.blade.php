@@ -13,9 +13,12 @@
     x-on:pointerdown.stop
     x-on:click.outside="close()"
     x-on:keydown.escape.window="close()"
+    {{-- Centred on the press so the emoji sit under the finger, and held clear
+         of both edges so the card's own overflow cannot clip the pill. --}}
+    :style="`top: clamp(2.25rem, ${anchor}px, calc(100% - 2.25rem))`"
     {{-- The band spans the card, so it may not take the taps that belong to the
          controls underneath it. --}}
-    class="pointer-events-none absolute inset-x-0 bottom-0 z-10 flex justify-center p-2"
+    class="pointer-events-none absolute inset-x-0 z-10 flex -translate-y-1/2 justify-center p-2"
     role="group"
     aria-label="Reaccionar"
 >

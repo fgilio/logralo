@@ -125,10 +125,20 @@ new class extends Component
         return "sheet-{$this->goal->id}-{$this->date}";
     }
 
-    /** A single tap: mark, or un-mark what a mistap marked. */
-    public function press(): void
+    /**
+     * A single tap: mark, or un-mark what a mistap marked.
+     *
+     * The tap answers the card the finger saw. Livewire queues a call made
+     * while a request is in flight, so an impatient double tap arrives as two
+     * presses, and the second one would take back the mark the first wrote.
+     */
+    public function press(bool $marked): void
     {
-        if ($this->mark !== null) {
+        if ($marked !== ($this->mark !== null)) {
+            return;
+        }
+
+        if ($marked) {
             $this->remove();
 
             return;
@@ -256,7 +266,7 @@ new class extends Component
     @if ($compact)
         <button
             type="button"
-            x-data="longPress({ delay: 420 })"
+            x-data="goalCard({ delay: 420 })"
             @pointerdown="start($event)"
             @pointermove="move($event)"
             @pointerup="end()"
@@ -264,14 +274,14 @@ new class extends Component
             @lostpointercapture="cancel()"
             @contextmenu.prevent
             @click.capture="onClick($event)"
-            @short-press="$wire.press()"
+            @short-press="press()"
             @long-press="$flux.modal('{{ $this->sheetName }}').show()"
             {{-- `short-press` rides on pointerup, which a keyboard never
                  sends, so without this Enter and Space did nothing at all on
                  the grace chip. detail is 0 only for keyboard-activated
                  clicks, so a tap cannot double-fire through here. The full
                  card next door has always had its own keydown handlers. --}}
-            @click="$event.detail === 0 && $wire.press()"
+            @click="$event.detail === 0 && press()"
             aria-pressed="{{ $mark !== null ? 'true' : 'false' }}"
             @class([
                 'tap-target flex items-center gap-2 rounded-full border py-1.5 pr-3 pl-2.5 text-sm transition',
@@ -290,7 +300,7 @@ new class extends Component
         </button>
     @else
         <div
-            x-data="longPress({ delay: 420 })"
+            x-data="goalCard({ delay: 420 })"
             @pointerdown="start($event)"
             @pointermove="move($event)"
             @pointerup="end()"
@@ -298,10 +308,10 @@ new class extends Component
             @lostpointercapture="cancel()"
             @contextmenu.prevent
             @click.capture="onClick($event)"
-            @short-press="$wire.press()"
+            @short-press="press()"
             @long-press="$flux.modal('{{ $this->sheetName }}').show()"
-            @keydown.enter.prevent="$wire.press()"
-            @keydown.space.prevent="$wire.press()"
+            @keydown.enter.prevent="press()"
+            @keydown.space.prevent="press()"
             @class([
                 'tap-target relative flex aspect-4/5 w-full flex-col justify-between overflow-hidden rounded-2xl p-3 text-left transition-transform duration-150',
                 'border border-zinc-200 bg-white dark:border-white/10 dark:bg-white/5' => $mark === null,
