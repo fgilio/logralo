@@ -41,6 +41,20 @@ new #[Title('Hoy')] class extends Component
         return $this->member()->activeGoals()->get();
     }
 
+    /**
+     * How today's goals are drawn.
+     *
+     * One or two goals do not fill a two-column grid: the tiles are sized for
+     * the five-goal case, and at that count the screen reads as a couple of
+     * mostly-empty boxes. Rows carry the same tap target and the same streak
+     * in a third of the height.
+     */
+    #[Computed]
+    public function layout(): string
+    {
+        return $this->goals->count() > 2 ? 'tile' : 'row';
+    }
+
     /** Goals still open from yesterday, only while grace lasts.
      *
      * @return EloquentCollection<int, Goal>
@@ -77,7 +91,7 @@ new #[Title('Hoy')] class extends Component
     #[On('mark-updated')]
     public function reload(): void
     {
-        unset($this->goals, $this->graceGoals, $this->pulse, $this->standings);
+        unset($this->goals, $this->layout, $this->graceGoals, $this->pulse, $this->standings);
     }
 };
 
@@ -189,7 +203,7 @@ new #[Title('Hoy')] class extends Component
                     <livewire:goal-card
                         :goal="$goal"
                         :date="$yesterday->toDateString()"
-                        compact
+                        variant="chip"
                         :wire:key="'grace-' . $goal->id"
                     />
                 @endforeach
@@ -214,29 +228,31 @@ new #[Title('Hoy')] class extends Component
                 </flux:button>
             </div>
         @else
-            <div class="grid grid-cols-2 gap-3">
+            <div @class(['grid grid-cols-2 gap-3' => $this->layout === 'tile', 'flex flex-col gap-2' => $this->layout === 'row'])>
                 @foreach ($this->goals as $goal)
                     <livewire:goal-card
                         :goal="$goal"
                         :date="$today->toDateString()"
+                        :variant="$this->layout"
                         :wire:key="'today-' . $goal->id"
                     />
                 @endforeach
-
-                @if ($this->goals->count() < config('logralo.goals.max_active'))
-                    <a
-                        href="{{ route('profile') }}"
-                        wire:navigate
-                        class="grid aspect-4/5 w-full place-items-center rounded-2xl border border-dashed border-zinc-300 text-zinc-400 transition active:scale-[0.97] dark:border-white/15 dark:text-zinc-500"
-                        data-test="add-goal"
-                    >
-                        <span class="flex flex-col items-center gap-1.5">
-                            <flux:icon name="plus" class="size-6" />
-                            <span class="text-xs font-medium">Agregar</span>
-                        </span>
-                    </a>
-                @endif
             </div>
+
+            {{-- A footnote rather than a card of its own: adding a goal happens
+                 a handful of times ever, and as a tile it held a slot of the
+                 grid open every day for something nobody was about to tap. --}}
+            @if ($this->goals->count() < config('logralo.goals.max_active'))
+                <a
+                    href="{{ route('profile') }}"
+                    wire:navigate
+                    class="tap-target mt-3 inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-sm font-medium text-zinc-500 transition active:scale-95 dark:text-zinc-400"
+                    data-test="add-goal"
+                >
+                    <flux:icon name="plus" variant="micro" />
+                    Agregar objetivo
+                </a>
+            @endif
         @endif
     </section>
 

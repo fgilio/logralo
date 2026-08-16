@@ -212,9 +212,9 @@ it('marks yesterday while the grace window is open', function (): void {
     $goal = Goal::factory()->for($user)->create();
 
     Livewire::actingAs($user)
-        ->test('goal-card', ['goal' => $goal, 'date' => '2026-08-10', 'compact' => true])
+        ->test('goal-card', ['goal' => $goal, 'date' => '2026-08-10', 'variant' => 'chip'])
         ->assertSet('date', '2026-08-10')
-        ->assertSet('compact', true)
+        ->assertSet('variant', 'chip')
         ->call('press')
         ->assertDispatched('mark-updated');
 

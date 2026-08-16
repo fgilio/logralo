@@ -36,7 +36,20 @@ it('shows the active goals and leaves the archived ones off the grid', function 
     $component->assertSee('Natacion')->assertDontSee('Guitarra');
 });
 
-it('offers the add-goal tile until the grid is full', function (): void {
+it('draws few goals as rows and a full set as tiles', function (): void {
+    morningInMontevideo();
+
+    $user = User::factory()->create();
+    Goal::factory()->for($user)->count(2)->create();
+
+    expect(Livewire::actingAs($user)->test('pages::today')->get('layout'))->toBe('row');
+
+    Goal::factory()->for($user)->create();
+
+    expect(Livewire::actingAs($user)->test('pages::today')->get('layout'))->toBe('tile');
+});
+
+it('offers the add-goal link until the member is out of slots', function (): void {
     morningInMontevideo();
 
     $user = User::factory()->create();

@@ -122,12 +122,12 @@
 
 @utility ember-gauge {
     /* A goal card's streak, drawn as fuel: the longer the run, the higher the
-       ember climbs up the left edge. --fuel is set inline, 0 to 1. */
+       ember rises off the card's base. It fills the tile rather than edging it,
+       so the body of a card carries the streak instead of sitting empty.
+       --fuel is set inline, 0 to 1, and at 0 the whole wash is transparent. */
     background: linear-gradient(
         to top,
-        var(--color-accent) 0%,
-        color-mix(in oklab, var(--color-accent) 55%, transparent)
-            calc(var(--fuel, 0) * 100%),
+        color-mix(in oklab, var(--color-accent) 26%, transparent) 0%,
         transparent calc(var(--fuel, 0) * 100%)
     );
 }
