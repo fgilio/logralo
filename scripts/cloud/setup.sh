@@ -4,7 +4,7 @@
 #
 # Simple by design: Logralo runs on SQLite locally (PostgreSQL on PlanetScale
 # is production-only), so a full checkout only needs composer deps, node deps,
-# an .env, a database file, built assets, and git hooks.
+# an .env, a database file, built assets, git hooks, and the Cloud CLI.
 # The Publica.la fleet carries a much heavier vendored bootstrap
 # (static-PHP snapshots, restricted-egress fallbacks); adopt pieces of it
 # later only if hosted sandboxes turn out to need them.
@@ -40,3 +40,8 @@ if command -v lefthook >/dev/null 2>&1; then
 elif [[ -x node_modules/.bin/lefthook ]]; then
     node_modules/.bin/lefthook install
 fi
+
+# Laravel Cloud CLI, for inspecting and deploying production. Non-fatal: the
+# app builds and its tests run without it, so a missing token or a Packagist
+# hiccup must not take the rest of the bootstrap down with it.
+bash scripts/cloud/cli.sh || echo "cloud CLI setup failed; rerun: bash scripts/cloud/cli.sh" >&2
