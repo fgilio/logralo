@@ -1,55 +1,115 @@
 #!/usr/bin/env bash
-# Bootstrap for hosted Claude Code (web) sessions and fresh checkouts.
-# Copy to scripts/cloud/setup.sh during the kickoff.
+# Bootstrap for hosted Claude Code (web) and Codex Cloud sessions, and for
+# fresh checkouts on a developer machine.
 #
-# Simple by design: Logralo runs on SQLite locally (PostgreSQL on PlanetScale
-# is production-only), so a full checkout only needs composer deps, node deps,
-# an .env, a database file, built assets, git hooks, and the Cloud CLI.
-# The Publica.la fleet carries a much heavier vendored bootstrap
-# (static-PHP snapshots, restricted-egress fallbacks); adopt pieces of it
-# later only if hosted sandboxes turn out to need them.
-#
-# Flux Pro credentials: the repo is public, so auth.json is never committed.
-# Hosted sessions and CI provide FLUX_USERNAME / FLUX_LICENSE_KEY as
-# environment variables; this script writes the gitignored auth.json from
-# them when it is missing.
+# What a cold sandbox needs that a laptop does not, and why each piece exists,
+# is in scripts/cloud/SETUP.md. The short version: the image ships PHP 8.4 and
+# this app requires ^8.5, and the egress proxy blocks the third-party dist
+# archives composer downloads, so both the runtime and vendor/ have to come
+# from somewhere else.
 set -euo pipefail
 
-cd "$(git rev-parse --show-toplevel)"
+here="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+source "$here/lib.sh"
 
-if [[ ! -f auth.json && -n "${FLUX_USERNAME:-}" && -n "${FLUX_LICENSE_KEY:-}" ]]; then
-    composer config http-basic.composer.fluxui.dev "$FLUX_USERNAME" "$FLUX_LICENSE_KEY"
+# Local sessions manage their own PHP and dependencies and only need the git
+# hooks. They run this synchronously, with no status file, so await.sh stays a
+# no-op. pla_cloud_session recognizes Claude Code on the web and Codex Cloud,
+# so the same entrypoint serves both harnesses; LOGRALO_CLOUD_SETUP_SKIP_DEPS=1
+# forces the light path anywhere, PLA_CLOUD_SESSION=1 forces the full one.
+skip_deps_var="${PLA_PROJECT_ENV_PREFIX}_CLOUD_SETUP_SKIP_DEPS"
+if [ "${!skip_deps_var:-}" = '1' ] || ! pla_cloud_session; then
+    local_mode=1
+else
+    local_mode=0
 fi
 
-composer install --no-progress --prefer-dist --no-interaction
-
-# Laravel Cloud CLI, for inspecting and deploying production. It reads nothing
-# the steps below produce, and a cold install is ~17s of Packagist, so it runs
-# alongside them rather than after. Started here, not earlier, to keep two
-# Composer processes off the shared cache at once.
-bash scripts/cloud-cli.sh &
-cloud_cli_pid=$!
-
-npm ci
-
-[[ -f .env ]] || cp .env.example .env
-grep -q '^APP_KEY=.\+' .env || php artisan key:generate --ansi
-[[ -f database/database.sqlite ]] || touch database/database.sqlite
-php artisan migrate --force
-
-# Assets read composer vendor/ (Flux CSS import), so the build must run after
-# composer install, never before it.
-npm run build
-
-# Install git hooks. Local dev has lefthook on PATH via brew; hosted sandboxes
-# and CI fall back to the npm-installed binary.
-if command -v lefthook >/dev/null 2>&1; then
-    lefthook install
-elif [[ -x node_modules/.bin/lefthook ]]; then
-    node_modules/.bin/lefthook install
+# On the web the hook already wrote 'running' to the status file when the
+# session started. Arm the trap before resolving the project directory so even
+# an early failure is recorded as failed:N rather than leaving the status stuck
+# on 'running'.
+if [ "$local_mode" -eq 0 ]; then
+    trap 'rc=$?; if [ "$rc" -eq 0 ]; then printf "done\n" > "$CLOUD_SETUP_STATUS_FILE"; else printf "failed:%s\n" "$rc" > "$CLOUD_SETUP_STATUS_FILE"; fi' EXIT
+    printf 'running\n' > "$CLOUD_SETUP_STATUS_FILE"
 fi
 
-# Non-fatal: the app builds and its tests run without the Cloud CLI, so a
-# missing token or a Packagist hiccup must not take the bootstrap down with it.
-# cli.sh has already said what went wrong on stderr; this only adds the retry.
-wait "$cloud_cli_pid" || echo "cloud: setup failed; rerun: bash scripts/cloud-cli.sh" >&2
+project_dir="$(pla_project_dir)" || exit 1
+cd "$project_dir"
+log "Preparing ${PLA_PROJECT_SLUG} in $project_dir"
+
+if [ "$local_mode" -eq 1 ]; then
+    bash "$here/lefthook.sh"
+    # The Claude hook writes 'running' before this script runs, and a hosted
+    # session can still take the light path (LOGRALO_CLOUD_SETUP_SKIP_DEPS=1).
+    # Clear that marker so await.sh treats setup as never started instead of
+    # waiting for a bootstrap that will not happen. A 'done'/'failed' status
+    # from an earlier full run is left alone.
+    if [ "$(cat "$CLOUD_SETUP_STATUS_FILE" 2>/dev/null)" = 'running' ]; then
+        rm -f "$CLOUD_SETUP_STATUS_FILE"
+    fi
+    exit 0
+fi
+
+# Cheap and independent, so it runs alongside the heavy work.
+bash "$here/lefthook.sh" &
+lefthook_pid=$!
+
+# One serialized track, not a fan-out, because each step needs the one before
+# it:
+#
+#   php.sh         the runtime and vendor/
+#   environment.sh .env — after vendor/, because its key:generate step shells
+#                  out to artisan, which fatals on a missing autoloader; and
+#                  before the build, which reads the VITE_* variables
+#   node.sh        npm ci and the Vite build. resources/css/app.css imports
+#                  vendor/livewire/flux/dist/flux.css, so a build racing the
+#                  vendor restore either fails outright or emits CSS missing
+#                  every Flux class — and node.sh's warm-resume marker, written
+#                  after a degraded build, would make those bad assets stick
+#                  for the rest of the session
+#   playwright.sh  needs the CLI npm just installed. Best-effort: only
+#                  test:browser wants the browser binary, so it never fails the
+#                  track on its own
+assets_track() {
+    bash "$here/php.sh" || return 1
+    bash "$here/environment.sh" || warn 'Writing .env failed.'
+    bash "$here/node.sh" || return 2
+    bash "$here/playwright.sh" || warn 'Playwright browser setup failed.'
+}
+assets_track && assets_rc=0 || assets_rc=$?
+wait "$lefthook_pid" || true
+
+setup_failed=0
+if [ "$assets_rc" -eq 1 ]; then
+    warn 'PHP dependency setup failed. Skipping the asset build and the database.'
+    setup_failed=1
+elif [ "$assets_rc" -ne 0 ]; then
+    warn 'Node dependency setup failed.'
+    setup_failed=1
+fi
+
+# The database step needs artisan, so it only runs once the PHP track is in.
+if [ "$assets_rc" -ne 1 ]; then
+    bash "$here/databases.sh" || {
+        warn 'Database setup failed. Artisan and the app will not have a usable database.'
+        setup_failed=1
+    }
+fi
+
+# package:discover and optimize:clear are what composer's skipped
+# post-autoload-dump would have run. They need vendor/, and without it artisan
+# just fatals on the missing autoloader.
+if [ -f vendor/autoload.php ]; then
+    log 'Discovering packages and clearing caches'
+    php artisan package:discover --ansi || warn 'Package discovery failed.'
+    php artisan optimize:clear || true
+else
+    warn 'vendor/autoload.php is missing. Skipping package discovery.'
+fi
+
+if [ "$setup_failed" -ne 0 ]; then
+    warn 'Cloud setup finished with errors. See the log above.'
+    exit 1
+fi
+
+log 'Cloud setup complete.'
