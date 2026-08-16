@@ -41,7 +41,9 @@ At month close the standings are **frozen** onto the recap row. Nothing that hap
 
 That holds only because the marks table is shut too. Closing asks every member's clock and marking asks one, so the two agree only while the set of clocks stays fixed — a member who edits their timezone westward, a member seeded after the sweep, or a raised `LOGRALO_GRACE_CUTOFF_HOUR` each reopen a day whose score is already frozen. `MarkGoal` and `UnmarkGoal` therefore refuse any day whose month carries a recap, with `MonthClosedException`. The recap row is the durable fact; recomputing closability from the new clocks would answer for the wrong month.
 
-One gap is left open: `CloseMonth` reads the standings and inserts the recap without a lock, so a mark landing between those two statements is counted by neither rule. The window is a few milliseconds once a month.
+One gap is left open: `CloseMonth` reads the standings and inserts the recap without a lock. A mark landing between those two statements is counted by neither rule, and an un-mark landing there leaves the frozen score standing on a mark that no longer exists.
+
+Reaching it takes more than winning the milliseconds. `isClosable()` and `openDays()` are the same predicate — `now < closesAt(last day)` — read off the same member's clock, so a day open to a member while their month is closing means their clock changed, or they were created, between the two reads. A lock would have to be taken on every tap, the hottest path in the app, to serialize against a sweep that runs once a month.
 
 ## Best streak of the month
 
