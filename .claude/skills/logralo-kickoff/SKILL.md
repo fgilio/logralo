@@ -105,7 +105,7 @@ Copy from `references/` (versions there are baselines — install latest):
 | `claude-settings.json` | `.claude/settings.json` |
 | `session-start.sh` | `.claude/hooks/session-start.sh` (chmod +x) |
 | `cloud-setup.sh` | `scripts/cloud/setup.sh` (chmod +x) |
-| `cloud-cli.sh` | `scripts/cloud/cli.sh` (chmod +x) |
+| `cloud-cli.sh` | `scripts/cloud-cli.sh` (chmod +x) |
 | `cloud-link.sh` | `scripts/cloud-link.sh` (chmod +x) |
 
 `.env.example`: `DB_CONNECTION=sqlite`. CI overrides it with `DB_*` job env vars pointing at its Postgres service (§ 8).
@@ -119,12 +119,12 @@ Kept intentionally simple (the PLA fleet's heavier vendored bootstrap with stati
 ### 3.5 Laravel Cloud (personal account)
 
 ```bash
-bash scripts/cloud/cli.sh       # installs the CLI; seeds LARAVEL_CLOUD_API_TOKEN when set
+bash scripts/cloud-cli.sh       # installs the CLI; seeds LARAVEL_CLOUD_API_TOKEN when set
 cloud auth                      # only on a laptop, where that variable is not set
 cloud skills:install --global   # deploying-laravel-cloud skill (one-time)
 ```
 
-`cli.sh` exists because the CLI does **not** read `LARAVEL_CLOUD_API_TOKEN`; without a token in `~/.config/cloud/config.json` every command falls back to browser OAuth, which in a headless session blocks until the caller times out instead of failing. Do not hand-install the CLI in an agent session — that is the trap. `scripts/cloud/setup.sh` already runs this, so a hosted session needs none of the above.
+`cloud-cli.sh` exists because the CLI does **not** read `LARAVEL_CLOUD_API_TOKEN`; without a token in `~/.config/cloud/config.json` every command falls back to browser OAuth, which in a headless session blocks until the caller times out instead of failing. Do not hand-install the CLI in an agent session — that is the trap. `scripts/cloud/setup.sh` already runs this, so a hosted session needs none of the above.
 
 Create the app on Laravel Cloud (dashboard or CLI), then link non-interactively:
 
@@ -220,7 +220,7 @@ resources/
     components/     # Reusable Blade/Livewire components
     layouts/
     pages/          # Livewire SFC page components
-scripts/            # cloud/setup.sh, cloud/cli.sh, cloud-link.sh
+scripts/            # cloud/setup.sh, cloud-cli.sh, cloud-link.sh
 tests/
   Arch/  Browser/  Feature/  Unit/  fixtures/  Pest.php
 ```

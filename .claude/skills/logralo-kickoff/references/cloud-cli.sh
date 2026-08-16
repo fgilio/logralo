@@ -9,10 +9,8 @@
 # Requires: composer, jq. Safe to rerun, and a no-op without a token.
 set -euo pipefail
 
-# Everything below this point is a global mutation — a Composer install, a
-# symlink, a file in $HOME — and none of it is worth anything without the
-# token. Hosted sessions inject the variable; a laptop does not, so a fresh
-# checkout stops here instead of paying for a CLI it never asked for.
+# First, because everything below is a global mutation — a Composer install, a
+# symlink, a file in $HOME — and none of it is worth anything without the token.
 if [[ -z ${LARAVEL_CLOUD_API_TOKEN:-} ]]; then
     echo "cloud: LARAVEL_CLOUD_API_TOKEN is unset; run \`cloud auth\` to log in" >&2
     exit 0
@@ -29,6 +27,7 @@ composer_bin=""
 for candidate in "$HOME/.config/composer/vendor/bin" "$HOME/.composer/vendor/bin"; do
     if [[ -x $candidate/cloud ]]; then
         composer_bin=$candidate
+        break
     fi
 done
 
@@ -60,8 +59,6 @@ fi
 
 config_file=$HOME/.config/cloud/config.json
 
-mkdir -p "$(dirname "$config_file")"
-
 existing='{}'
 if [[ -f $config_file ]]; then
     # Also the fail-fast on a corrupt config: without this parse, a malformed
@@ -76,11 +73,10 @@ if jq -e --arg t "$LARAVEL_CLOUD_API_TOKEN" \
     exit 0
 fi
 
-# Append rather than replace: the CLI keeps one token per organization, and a
-# local checkout may already hold tokens for orgs this one knows nothing about.
-# Rotating the token therefore leaves the old one behind — `cloud auth:token
-# --remove` is how it goes away.
+# Append, never replace: a laptop may hold tokens for other orgs. Nothing
+# prunes — see "Authenticating the CLI" in the architecture doc.
 umask 077
+mkdir -p "${config_file%/*}"
 jq --indent 4 --arg t "$LARAVEL_CLOUD_API_TOKEN" \
     '.api_tokens = ((.api_tokens // []) + [$t])' \
     <<<"$existing" \

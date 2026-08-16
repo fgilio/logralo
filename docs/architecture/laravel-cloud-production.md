@@ -41,7 +41,7 @@ Two settings depend on each other and are easy to break apart:
 
 ## Authenticating the CLI
 
-`scripts/cloud/cli.sh` installs `laravel/cloud-cli` and authenticates it, and `scripts/cloud/setup.sh` calls it, so a hosted session comes up able to talk to production without anybody logging in.
+`scripts/cloud-cli.sh` installs `laravel/cloud-cli` and authenticates it, and `scripts/cloud/setup.sh` calls it, so a hosted session comes up able to talk to production without anybody logging in.
 
 The trap it exists for: **the CLI never reads `LARAVEL_CLOUD_API_TOKEN`.** Tokens come from `~/.config/cloud/config.json`, and when that file holds none, every authenticated command falls back to browser-based OAuth — which, headless, blocks until the caller times out rather than failing. A `cloud` command that produces nothing for two minutes is an unauthenticated CLI, not a slow API. The script copies the environment variable into the file the CLI actually reads:
 
