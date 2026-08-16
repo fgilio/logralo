@@ -28,6 +28,16 @@ Everything else the sandbox needs is ordinary: npm and the Vite build reach the 
 
 Two smaller things the bootstrap also fixes, both of which otherwise break `composer test` in a fresh session. Sandbox checkouts arrive without `origin/HEAD`, and Pest's Tia mode aborts rather than guess the branch every baseline falls back to, so `setup.sh` resolves it with `git remote set-head origin --auto`. And sandboxes run as root, where composer refuses to load plugins unless `COMPOSER_ALLOW_SUPERUSER` is set, so `php.sh` persists that variable to the shell profiles rather than only exporting it for its own process.
 
+## Why the runtime comes from apt and not from the snapshot
+
+The snapshot could carry a static PHP binary the same way it carries `vendor/` — CI has the egress to build one, and the sandbox already restores assets from this repo's releases. That is a real option, and it is deliberately not taken.
+
+apt costs nothing extra here: the image already trusts sury, so the interpreter arrives without adding weight to the snapshot. The snapshot is on the critical path of every cold session, and a static binary is tens of megabytes that every session would pay to download and unpack. Building one also means depending on an external toolchain to produce it, which is a coupling this repo does not otherwise have.
+
+What apt costs in exchange is the extension question: a static build has everything compiled in, while apt has to be told what to install. `CLOUD_PHP_APT_EXTENSIONS` in `lib.sh` is that list, and `ensure_php_extensions` verifies it against `php -m` on every run rather than assuming the install covered it.
+
+Worth re-deciding if the runtime install ever becomes slow or unreliable, or if an extension is needed that sury does not package. One measurement to carry into that decision: release assets are only reachable through `api.github.com`, and only on this repo. A `github.com/<owner>/<repo>/releases/download/...` URL answers 403 in a sandbox for _every_ repo, this one included, so a binary published anywhere else cannot be fetched at provisioning time — it would have to be rebuilt into this repo's own snapshot asset.
+
 ## When the snapshot is missing
 
 `composer install` failing twice in a sandbox almost always means no snapshot matches the current `composer.lock` — a dependency bump landed and the snapshot for the new lock has not been built yet. The workflow runs on pushes to `main` that touch `composer.json`, `composer.lock`, `.github/php-version`, or the workflow itself, and can be started by hand from the Actions tab (`workflow_dispatch`) when retention has pruned the snapshot a still-checked-out lock needs. Once it has run, `bash scripts/cloud/setup.sh` picks it up.
