@@ -30,6 +30,14 @@
 const RE_ENCODABLE = /^image\/(jpeg|png|webp|heic|heif|avif)$/i;
 
 /**
+ * The subset of those the server can read as it arrives — the formats GD
+ * decodes and the upload rules accept. For anything outside this list the
+ * conversion to JPEG is the whole point of the trip, so it is kept even when
+ * it comes out heavier than what the camera handed us.
+ */
+const SERVER_READABLE = /^image\/(jpeg|png|webp)$/i;
+
+/**
  * Resize to fit `maxPixels` and re-encode as JPEG at `quality`.
  *
  * Returns the original file untouched when it is already a JPEG within
@@ -86,7 +94,18 @@ export async function compressPhoto(file, options = {}) {
         // Consumes whichever bitmap it is given.
         const blob = await encode(resampled ?? source, width, height, quality);
 
-        if (blob === null || blob.size >= file.size) return file;
+        if (blob === null) return file;
+
+        // A JPEG that came out heavier than the original is usually not worth
+        // sending — but "usually" stops at the formats the server can open. A
+        // HEIC is about twice as dense as JPEG, so the honest re-encode of one
+        // routinely grows; hand the original back and it reaches a GD-only
+        // server that cannot decode it, which is the exact failure this
+        // conversion exists to prevent. An AVIF the upload rules do not even
+        // accept. Bigger beats rejected.
+        if (blob.size >= file.size && SERVER_READABLE.test(file.type)) {
+            return file;
+        }
 
         return new File([blob], asJpegName(file.name), {
             type: "image/jpeg",

@@ -124,6 +124,70 @@ it('shrinks a camera original in the browser before it uploads', function (): vo
     $page->assertNoJavaScriptErrors();
 });
 
+/**
+ * The other half of the size check: a re-encode that came out heavier.
+ *
+ * Discarding it is right for a format the server can already open, and wrong
+ * for one it cannot — a HEIC is dense enough that its honest JPEG routinely
+ * grows, and handing the original back sends it to a GD-only server that
+ * cannot decode it at all. A one-pixel checkerboard makes the case on purpose:
+ * it is two colours in a perfect pattern, which deflate packs to nothing and
+ * which lands on JPEG's worst case, an every-block full of high frequency.
+ */
+it('keeps the JPEG when the original is a format the server cannot read', function (): void {
+    $user = User::factory()->create();
+    Goal::factory()->for($user)->create(['name' => 'Correr']);
+
+    $this->actingAs($user);
+
+    $page = visit('/')->on()->iPhone15Pro();
+
+    // Both runs are the same PNG bytes; only the declared type differs, and
+    // the decoder goes by content, so the format claim is all that is under
+    // test here.
+    $script = <<<'SCRIPT'
+        (async () => {
+            const size = 1200;
+            const source = new OffscreenCanvas(size, size);
+            const context = source.getContext('2d');
+            const image = context.createImageData(size, size);
+
+            for (let pixel = 0; pixel < size * size; pixel++) {
+                const lit = ((pixel % size) + ((pixel / size) | 0)) % 2 === 0 ? 255 : 0;
+
+                image.data.set([lit, lit, lit, 255], pixel * 4);
+            }
+
+            context.putImageData(image, 0, 0);
+
+            const bytes = await source.convertToBlob({ type: 'image/png' });
+
+            const run = async (type) => {
+                const original = new File([bytes], `flat.${type.split('/')[1]}`, { type });
+                const result = await window.Logralo.compressPhoto(original);
+
+                return { type: result.type, grew: result.size >= original.size };
+            };
+
+            return JSON.stringify({
+                png: await run('image/png'),
+                heic: await run('image/heic'),
+            });
+        })()
+    SCRIPT;
+
+    $result = json_decode((string) Playwright::usingTimeout(60_000, fn (): mixed => $page->script($script)), true);
+
+    // The PNG is handed back untouched; the HEIC keeps the heavier JPEG,
+    // because a HEIC the server cannot decode is worse than a big upload.
+    expect($result)->toBe([
+        'png' => ['type' => 'image/png', 'grew' => true],
+        'heic' => ['type' => 'image/jpeg', 'grew' => true],
+    ]);
+
+    $page->assertNoJavaScriptErrors();
+});
+
 it('reacts to a card from the bar the plus button opens', function (): void {
     $ana = User::factory()->create(['name' => 'Ana Pérez']);
     $bruno = User::factory()->create(['name' => 'Bruno']);

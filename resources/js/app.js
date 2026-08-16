@@ -168,8 +168,16 @@ document.addEventListener("alpine:init", () => {
         /**
          * Clearing the value first is what makes retaking the same photo
          * work: an input handed an identical file fires no change event.
+         *
+         * The busy guard is not just an affordance. The overlay lives inside
+         * the camera button, so a tap on the spinner reaches this — and a
+         * second `pick()` would race the first, with whichever upload landed
+         * earliest calling `settle()` and freeing the save button while the
+         * retake was still in flight.
          */
         open() {
+            if (this.busy) return;
+
             this.$refs.camera.value = "";
             this.$refs.camera.click();
         },

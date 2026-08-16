@@ -401,9 +401,13 @@ new class extends Component
                     data-test="camera-input"
                 >
 
+                {{-- Disabled while busy because the overlay below is inside
+                     this button: without it a tap on the spinner reopens the
+                     camera and races a second upload against the first. --}}
                 <button
                     type="button"
                     @click="open()"
+                    x-bind:disabled="busy"
                     class="relative grid aspect-video w-full place-items-center overflow-hidden rounded-xl border-2 border-dashed border-zinc-300 bg-zinc-50 transition active:scale-[0.99] dark:border-white/15 dark:bg-white/5"
                     data-test="open-camera"
                 >
