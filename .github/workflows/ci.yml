@@ -39,6 +39,11 @@ env:
   # read. The lint job asserts the two agree rather than trusting the comment:
   # a silent split means sandboxes provision one series while CI tests another.
   PHP_VERSION: "8.5"
+  # Passed to every PHP setup step, including the one in cloud-snapshot.yml that
+  # builds the binary sandboxes run. scripts/cloud/php.sh renders the same
+  # directives into the restored binary's scan dir, so a sandbox is configured
+  # like CI rather than merely running the same version.
+  PHP_INI_VALUES: "memory_limit=512M, opcache.enable_cli=1, opcache.jit=tracing, opcache.jit_buffer_size=64M"
 
 jobs:
   lint:
@@ -52,10 +57,11 @@ jobs:
             echo "::error::.github/php-version is '$pinned' but ci.yml PHP_VERSION is '${{ env.PHP_VERSION }}'. Cloud sessions would provision a different series than CI tests."
             exit 1
           fi
-      - uses: shivammathur/setup-php@v2
+      - uses: publicala/php-ci-static@v1
         with:
           php-version: ${{ env.PHP_VERSION }}
           coverage: none
+          ini-values: ${{ env.PHP_INI_VALUES }}
       - uses: actions/cache@v6
         with:
           path: vendor
@@ -73,10 +79,11 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
-      - uses: shivammathur/setup-php@v2
+      - uses: publicala/php-ci-static@v1
         with:
           php-version: ${{ env.PHP_VERSION }}
           coverage: none
+          ini-values: ${{ env.PHP_INI_VALUES }}
           ini-values: memory_limit=512M
       - uses: actions/cache@v6
         with:
@@ -90,10 +97,11 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
-      - uses: shivammathur/setup-php@v2
+      - uses: publicala/php-ci-static@v1
         with:
           php-version: ${{ env.PHP_VERSION }}
           coverage: none
+          ini-values: ${{ env.PHP_INI_VALUES }}
       - uses: actions/cache@v6
         with:
           path: vendor
@@ -131,11 +139,13 @@ jobs:
       DB_PASSWORD: password
     steps:
       - uses: actions/checkout@v7
-      - uses: shivammathur/setup-php@v2
+      # No `extensions:` input, and none needed: the static build links every
+      # extension in, pdo_pgsql included.
+      - uses: publicala/php-ci-static@v1
         with:
           php-version: ${{ env.PHP_VERSION }}
-          extensions: pdo_pgsql # not in setup-php's default set
           coverage: pcov # pest --coverage needs a driver
+          ini-values: ${{ env.PHP_INI_VALUES }}
       - uses: actions/cache@v6
         with:
           path: vendor
@@ -164,11 +174,13 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
-      - uses: shivammathur/setup-php@v2
+      # sockets (pest-plugin-browser runs its own HTTP server) is linked into
+      # the static build, so there is no extensions input to carry here.
+      - uses: publicala/php-ci-static@v1
         with:
           php-version: ${{ env.PHP_VERSION }}
-          extensions: sockets # pest-plugin-browser runs its own HTTP server
           coverage: none
+          ini-values: ${{ env.PHP_INI_VALUES }}
       - uses: actions/cache@v6
         with:
           path: vendor

@@ -10,9 +10,16 @@
 # egress and the Flux Pro secrets, so it builds a complete vendor/ and
 # publishes it as an asset on a release of this repo.
 #
-# The snapshot carries no PHP binary: scripts/cloud/php.sh installs the pinned
-# series from sury's apt repository, which the sandbox image already trusts, so
-# the runtime never has to travel through the egress proxy.
+# The snapshot also carries the PHP binary, for the same reason as vendor/: it
+# is built by publicala/php-ci-static, whose release assets a sandbox cannot
+# download either. That action is what makes shipping a runtime possible at
+# all — its build is statically linked against everything but glibc, so the
+# binary relocates into a sandbox unchanged. A dynamically linked PHP from a
+# runner would not.
+#
+# ci.yml installs PHP through the same action with the same ini-values, so a
+# sandbox is not merely running the same version as CI, it is running the same
+# binary configured the same way.
 #
 # Draft releases on purpose: a draft creates no git tag, is invisible to users
 # without push access, and stays deletable, so the retention step can prune old
@@ -24,6 +31,7 @@ on:
   push:
     branches:
       - main
+      - claude/cloud-env-claude-code-web-gntkur # TEMPORARY: verify before merge
     paths:
       - composer.json
       - composer.lock
@@ -50,13 +58,16 @@ jobs:
         id: php
         run: echo "series=$(tr -d '[:space:]' < .github/php-version)" >> "$GITHUB_OUTPUT"
 
-      - uses: shivammathur/setup-php@v2
+      # Keep ini-values identical to ci.yml's PHP_INI_VALUES. They are separate
+      # workflows so the value cannot be shared; scripts/cloud/php.sh renders
+      # the same directives on restore, and drift shows up as a sandbox tuned
+      # differently from CI.
+      - uses: publicala/php-ci-static@v1
         with:
           php-version: ${{ steps.php.outputs.series }}
           coverage: none
+          ini-values: "memory_limit=512M, opcache.enable_cli=1, opcache.jit=tracing, opcache.jit_buffer_size=64M"
 
-      # The repo is public, so auth.json is not committed; the credentials come
-      # from the same secrets every other job in ci.yml uses.
       # The download cache, not ci.yml's `vendor` cache: this job installs with
       # --no-scripts and that difference is exactly what the snapshot contract
       # depends on, so it must never restore a vendor/ built any other way. The
@@ -67,6 +78,8 @@ jobs:
           key: composer-files-${{ hashFiles('composer.lock') }}
           restore-keys: composer-files-
 
+      # The repo is public, so auth.json is not committed; the credentials come
+      # from the same secrets every other job in ci.yml uses.
       - run: composer config http-basic.composer.fluxui.dev "${{ secrets.FLUX_USERNAME }}" "${{ secrets.FLUX_LICENSE_KEY }}"
 
       # --no-scripts matches how the sandbox installs: package:discover needs a
@@ -81,11 +94,20 @@ jobs:
           mkdir -p /tmp/snapshot
           cd /tmp/snapshot
 
+          # The binary the action just put on PATH, compressed on its own: the
+          # restore side installs it to /usr/local/bin/php without unpacking a
+          # tree, and keeping it a separate asset lets a sandbox that already
+          # has the right version skip downloading it.
+          php_binary="$(command -v php)"
+          php_full_version="$(php -r 'echo PHP_VERSION;')"
+          zstd -T0 -10 -o "php-${{ steps.php.outputs.series }}.zst" "$php_binary"
+
           # auth.json is written into the workspace by the composer config step
           # above and must never travel inside the archive.
           tar -C "$GITHUB_WORKSPACE" -I 'zstd -T0 -10' -cf vendor.tar.zst vendor
 
           lock_sha="$(sha256sum "$GITHUB_WORKSPACE/composer.lock" | cut -d' ' -f1)"
+          php_asset_sha="$(sha256sum "php-${{ steps.php.outputs.series }}.zst" | cut -d' ' -f1)"
           vendor_asset_sha="$(sha256sum vendor.tar.zst | cut -d' ' -f1)"
 
           # The manifest is the restore contract: scripts/cloud/snapshot.sh
@@ -103,6 +125,11 @@ jobs:
             "commit": "${{ github.sha }}",
             "ref": "${{ github.ref_name }}",
             "created_at": "$(date -u +%Y-%m-%dT%H:%M:%SZ)",
+            "php": {
+              "asset": "php-${{ steps.php.outputs.series }}.zst",
+              "sha256": "$php_asset_sha",
+              "version": "$php_full_version"
+            },
             "vendor": {
               "asset": "vendor.tar.zst",
               "sha256": "$vendor_asset_sha",
@@ -128,6 +155,7 @@ jobs:
             --title "cloud snapshot (${{ github.ref_name }}, lock ${{ steps.assemble.outputs.lock_sha }})" \
             --notes "Provisioning snapshot for hosted agent sandboxes. Consumed by scripts/cloud/snapshot.sh; not for humans. Built from ${{ github.sha }}." \
             /tmp/snapshot/manifest.json \
+            /tmp/snapshot/php-${{ steps.php.outputs.series }}.zst \
             /tmp/snapshot/vendor.tar.zst
 
       - name: Prune old snapshots (newest per lock, 5 newest locks)

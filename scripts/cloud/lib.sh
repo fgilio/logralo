@@ -29,13 +29,9 @@ cloud_project_markers() {
     # the product spec that only this repo carries, pin this to Logralo.
     [ -f "$1/artisan" ] && [ -f "$1/.github/php-version" ] && [ -f "$1/docs/mvp-v1-scope.md" ]
 }
-# apt extension suffixes php.sh installs as php<version>-<ext>. Logralo needs
-# gd for PhotoProcessor, sqlite3 for the local database, pgsql to reproduce a CI
-# failure against PostgreSQL, and intl/bcmath/mbstring/xml/curl/zip for the
-# framework and the toolchain. Only extensions that need their own package go
-# here: exif (which intervention-image uses to rotate iPhone photos upright),
-# sockets and opcache all arrive with php<version>-common or -cli.
-CLOUD_PHP_APT_EXTENSIONS=(gd sqlite3 pgsql mbstring xml curl zip intl bcmath)
+# No extension list: the runtime is the static build from the snapshot, which
+# links every extension this app uses (gd and exif for PhotoProcessor, sqlite3,
+# pgsql, intl, mbstring, sockets, and imagick) into the binary itself.
 # -----------------------------------------------------------------------------
 
 # The orchestrator records its outcome here so await.sh can block until the
@@ -108,31 +104,34 @@ cloud_pinned_php_series() {
     fi
 }
 
-# Print the series of the `php` currently on PATH, in the same MAJOR.MINOR shape
-# cloud_pinned_php_series prints, so the two can be compared directly. Empty
-# when no usable php is on PATH.
-cloud_running_php_series() {
-    php -r 'echo PHP_MAJOR_VERSION.".".PHP_MINOR_VERSION;' 2>/dev/null
+# Print the ini scan dir the given PHP binary was compiled with, empty when it
+# reports none. The restored binary carries its own scan dir, which is not the
+# distro's, so the drop-ins have to be written where it will actually look.
+cloud_php_scan_dir() {
+    local dir
+    dir="$("$1" --ini 2>/dev/null | sed -n 's/^Scan for additional .ini files in: *//p')"
+    if [ "$dir" = '(none)' ]; then
+        dir=''
+    fi
+    printf '%s\n' "$dir"
 }
 
-# Print the entries of CLOUD_PHP_APT_EXTENSIONS the running php does not load,
-# one per line. Every suffix in that list is also the module name php -m prints,
-# so the comparison needs no translation table. Asking the interpreter what it
-# has is the only check that stays right when the base image changes: a version
-# comparison answers "is this the PHP we wanted", never "does it carry gd".
-cloud_missing_php_extensions() {
-    local loaded extension
-    loaded="$(php -m 2>/dev/null | tr '[:upper:]' '[:lower:]')"
-    for extension in "${CLOUD_PHP_APT_EXTENSIONS[@]}"; do
-        printf '%s\n' "$loaded" | grep -qx "$extension" || printf '%s\n' "$extension"
-    done
+# Write a file that may live under a root-owned path. Tries directly first, so
+# a root session pays nothing, then through passwordless sudo. Returns non-zero
+# when neither works, leaving the caller to decide whether that is fatal.
+cloud_root_write() {
+    local path="$1" content="$2"
+    if printf '%s\n' "$content" > "$path" 2>/dev/null; then
+        return 0
+    fi
+    printf '%s\n' "$content" | sudo -n tee "$path" >/dev/null 2>&1
 }
 
 # Run apt with the recovery the sandbox images need: the baked package lists go
-# stale enough that pool URLs 404 (measured on this image: every php8.5-* .deb
-# 404'd until the lists were refreshed), and a changed release label breaks a
-# plain update too. Install, then refresh allowing the change and retry once,
-# surfacing the real apt error on final failure.
+# stale enough that pool URLs 404, and a changed release label breaks a plain
+# update too. Install, then refresh allowing the change and retry once,
+# surfacing the real apt error on final failure. The runtime no longer comes
+# from apt; this remains for the odd missing tool (zstd, for the snapshot).
 cloud_apt_install() {
     local apt_log
     apt_log="$(mktemp)"

@@ -1,22 +1,22 @@
 #!/usr/bin/env bash
 # PHP runtime and Composer dependencies for cloud sessions.
 #
-# Provisioning order:
+# The runtime and vendor/ both come from the same place: a snapshot CI builds
+# and publishes on this repo's own draft releases (snapshot.sh), which is the
+# one GitHub surface the sandbox proxy always allows. The base image ships PHP
+# 8.4 while composer.json requires ^8.5, so until that restore lands every
+# composer and artisan call fails its platform check.
 #
-# 1. The pinned PHP series (.github/php-version, the same series CI installs)
-#    from the sury apt repository the sandbox image already trusts. The base
-#    image ships PHP 8.4, and composer.json requires ^8.5, so without this
-#    step every composer and artisan call in the session fails its platform
-#    check. apt is the cheapest source that works here: the image already
-#    trusts sury, so no release asset has to travel through the egress proxy
-#    (see SETUP.md).
-# 2. The CI-built vendor snapshot from this repo's own draft releases
-#    (snapshot.sh) — the one GitHub surface the sandbox proxy always allows.
-# 3. composer install. Over a restored snapshot this is a fast no-op that
-#    validates the unpacked vendor against the lock and regenerates the
-#    autoloader. Without a snapshot it is the real install, and in a sandbox it
-#    will fail on the third-party dist archives the proxy blocks — that is
-#    expected, and the warning says so rather than pretending it is transient.
+# The binary is the same static build ci.yml installs, so a session is not just
+# on the same PHP version as CI, it is on the same binary with the same ini
+# directives. That is why there is no extension list anywhere in this
+# bootstrap: the build links them all in.
+#
+# composer install then runs. Over a restored snapshot it is a fast no-op that
+# validates the unpacked vendor against the lock and regenerates the
+# autoloader. Without a snapshot it is the real install, and in a sandbox it
+# will fail on the third-party dist archives the proxy blocks — that is
+# expected, and the warning says so rather than pretending it is transient.
 set -euo pipefail
 here="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "$here/lib.sh"
@@ -71,73 +71,15 @@ ensure_flux_credentials() {
         || warn 'Could not write the Flux Pro credentials.'
 }
 
-# Install the PHP series CI runs, from sury, and make plain `php` resolve to
-# it. Everything in a cloud session (composer, artisan, vendor/bin/*) then runs
-# the same PHP the tests will run under. ./scripts/php stays the entrypoint for
-# developer machines, where Herd may hold several versions side by side.
-ensure_php_runtime() {
-    local pinned_version="$1"
-
-    # Warm resume, or a base image that already ships the pinned series. Either
-    # way the interpreter is right and only the extensions still need checking,
-    # which ensure_php_extensions does next.
-    if [ "$(cloud_running_php_series)" = "$pinned_version" ]; then
-        log "PHP ${pinned_version} is already the default. Skipping the install."
-        return
-    fi
-
-    # Cold path: one apt call for the interpreter and every extension, rather
-    # than installing the CLI and then discovering the extensions missing.
-    local packages=("php${pinned_version}-cli")
-    local extension
-    for extension in "${CLOUD_PHP_APT_EXTENSIONS[@]}"; do
-        packages+=("php${pinned_version}-${extension}")
-    done
-    log "Installing PHP ${pinned_version}: ${packages[*]}"
-    if ! cloud_apt_install "${packages[@]}"; then
-        warn "Could not install PHP ${pinned_version}. Staying on $(php -r 'echo PHP_VERSION;' 2>/dev/null || echo 'the image PHP'); composer will fail its platform check."
-        return
-    fi
-
-    # sury registers every installed series with update-alternatives and leaves
-    # the highest one selected in auto mode only if nothing pinned another.
-    # Select ours explicitly so `php` is unambiguous.
-    if [ -x "/usr/bin/php${pinned_version}" ]; then
-        sudo -n update-alternatives --set php "/usr/bin/php${pinned_version}" >/dev/null 2>&1 \
-            || warn "Could not select /usr/bin/php${pinned_version} as the default php."
-    fi
-    hash -r
-
-    if [ "$(cloud_running_php_series)" = "$pinned_version" ]; then
-        log "Using PHP $(php -r 'echo PHP_VERSION;')."
-    else
-        warn "Installed PHP ${pinned_version}, but 'php' still resolves to $(command -v php) ($(php -r 'echo PHP_VERSION;' 2>/dev/null || echo unknown)). Sessions run that PHP until PATH or update-alternatives puts ${pinned_version} first."
-    fi
-}
-
-# Install any configured extension the running php is missing. Deliberately not
-# folded into ensure_php_runtime: that function returns early whenever the
-# interpreter is already the pinned series, and the day the base image ships
-# that series a cold container would take the early return and never install
-# gd or sqlite3 at all. The failure would surface as an Intervention or PDO
-# fatal deep in a test run rather than as a bootstrap error, so the extension
-# check has to be independent of whether the interpreter needed installing.
-ensure_php_extensions() {
-    local pinned_version="$1" missing
-    mapfile -t missing < <(cloud_missing_php_extensions)
-    if [ "${#missing[@]}" -eq 0 ]; then
-        return
-    fi
-
-    local packages=() extension
-    for extension in "${missing[@]}"; do
-        packages+=("php${pinned_version}-${extension}")
-    done
-
-    log "Installing missing PHP extensions: ${missing[*]}"
-    cloud_apt_install "${packages[@]}" \
-        || warn "Could not install: ${missing[*]}. Code that needs them will fail at runtime."
-}
+# The php.ini directives ci.yml passes to the PHP setup action as
+# PHP_INI_VALUES, rendered here as ini lines for the drop-in the restore writes
+# into the binary's scan dir. Keep the two in sync: the point of shipping CI's
+# binary is that the sandbox is configured like CI, and a directive set in only
+# one of them quietly breaks that.
+ci_php_ini_values='memory_limit=512M
+opcache.enable_cli=1
+opcache.jit=tracing
+opcache.jit_buffer_size=64M'
 
 # --no-scripts keeps post-autoload-dump, which runs artisan package:discover,
 # from booting service providers before .env and the database exist. The
@@ -174,15 +116,11 @@ install_composer() {
     composer install --no-interaction --prefer-dist --no-progress --no-scripts
 }
 
-pinned_php="$(cloud_pinned_php_series)"
-if [ -z "$pinned_php" ]; then
-    warn '.github/php-version is missing. Staying on the image PHP; composer will fail its platform check if it is older than composer.json requires.'
-else
-    ensure_php_runtime "$pinned_php"
-    ensure_php_extensions "$pinned_php"
-fi
-
 ensure_flux_credentials
+
+# One restore brings both the runtime and vendor/. It returns non-zero only on
+# a vendor miss: the PHP component is best-effort on top, and a session that
+# gets vendor but not the binary is degraded rather than broken.
 snapshot_missed=0
-cloud_snapshot_restore || snapshot_missed=1
+cloud_snapshot_restore "$ci_php_ini_values" || snapshot_missed=1
 install_composer "$snapshot_missed"
