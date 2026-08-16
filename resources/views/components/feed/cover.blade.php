@@ -25,14 +25,7 @@
             'bg-linear-to-b from-black/70 via-black/25 to-transparent text-white [text-shadow:0_1px_2px_rgb(0_0_0/0.45)]' => $onPhoto,
         ])
     >
-        <flux:avatar
-            :name="$mark->user->name"
-            :initials="$mark->user->initials()"
-            color="auto"
-            :color:seed="$mark->user->id"
-            circle
-            size="sm"
-        />
+        <x-avatar :user="$mark->user" size="sm" />
 
         <div class="min-w-0 flex-1 leading-tight">
             <p class="truncate text-sm font-semibold">{{ $mark->user->name }}</p>

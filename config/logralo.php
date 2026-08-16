@@ -84,6 +84,32 @@ return [
 
     /*
     |---------------------------------------------------------------------------
+    | Avatars
+    |---------------------------------------------------------------------------
+    |
+    | A member's picture, in order: the one they uploaded, then the Gravatar
+    | their email already has, then the coloured initials that have always been
+    | there. Only the first is stored by this app.
+    |
+    | One size covers every avatar on screen. The biggest is the 56px ring in
+    | the pulse strip, so 192 is that at DPR 3 — and asking Gravatar for a
+    | single width is what lets the four faces in this group be four browser
+    | cache entries rather than one per size.
+    |
+    */
+
+    'avatars' => [
+        'size' => 192,
+        'webp_quality' => 82,
+        // Off flips the whole app back to uploads and initials, without
+        // touching a template. Nothing here reaches Gravatar from the server:
+        // the URL is built from a hash of the email and the browser fetches it.
+        'gravatar' => (bool) env('LOGRALO_GRAVATAR', true),
+        'gravatar_host' => (string) env('LOGRALO_GRAVATAR_HOST', 'https://gravatar.com'),
+    ],
+
+    /*
+    |---------------------------------------------------------------------------
     | Feed
     |---------------------------------------------------------------------------
     */

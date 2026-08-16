@@ -23,17 +23,18 @@ The layering is the thing to keep. It is enforced by `tests/Arch/`.
 - `StreakCalculator` — consecutive marked days, given plain date arrays
 - `ScoreCalculator` — ordering and the shared podium
 - `PhotoRule` — "pics or it didn't happen": when the next mark owes a photo
-- `PhotoProcessor` — uploads to feed derivatives, EXIF stripped
+- `PhotoProcessor` — uploads to feed derivatives and to avatars, EXIF stripped
 - `ShareCardComposer` / `ShareCardRenderer` — the WhatsApp unfurl image, drawn and cached
 - `StreakMilestone` — which streaks are worth interrupting somebody for
+- `Gravatar` — the URL for the picture WordPress may already have for an email, built rather than fetched
 
 ### `app/Queries/` — the read side, where Eloquent lives
 
-- `GroupPulse`, `MonthlyStandings`, `FeedPage`, `GoalHistory`, `SharedEntry`, `MarkEntries`
+- `GroupPulse`, `MonthlyStandings`, `FeedPage`, `GoalHistory`, `SharedEntry`, `MarkEntries`, `Members`
 
 ### `app/Actions/` — the write side, one unit of work each
 
-- `MarkGoal`, `UnmarkGoal`, `ToggleReaction`, `CreateGoal`, `RenameGoal`, `ArchiveGoal`, `RestoreGoal`, `CloseMonth`, `IssueMagicLink`, `RecordShareVisit`, `RevokeSharing`, `ResumeSharing`
+- `MarkGoal`, `UnmarkGoal`, `ToggleReaction`, `CreateGoal`, `RenameGoal`, `ArchiveGoal`, `RestoreGoal`, `CloseMonth`, `IssueMagicLink`, `RecordShareVisit`, `RevokeSharing`, `ResumeSharing`, `UpdateAvatar`, `RemoveAvatar`
 
 ### `app/ValueObjects/` — final readonly
 
@@ -77,6 +78,7 @@ See `.env.example`. The ones that are not self-explanatory:
 - `LOGRALO_PHOTO_DISK` — `photos` locally; in production it is `private`, the name the R2 bucket is mounted under on Laravel Cloud. That bucket is private, so production also sets `LOGRALO_PHOTO_SIGNED_URLS=true`.
 - `LIVEWIRE_TEMPORARY_FILE_UPLOAD_DISK=local` — uploads are decoded from the local filesystem before being stored, so the temp disk must stay local.
 - `IMAGE_DRIVER` — GD by default; only the Imagick driver can read HEIC, and only where ImageMagick has libheif.
+- `LOGRALO_GRAVATAR` — whether an avatar with no upload behind it tries the member's Gravatar before falling back to initials. The URL is built from a hash of the email and fetched by the browser, so this never puts the server on the network — `docs/architecture/photos-and-onboarding.md`.
 
 ## Laravel-First Conventions
 

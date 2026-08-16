@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Providers;
 
+use App\Queries\Members;
 use Carbon\CarbonImmutable;
 use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Database\Eloquent\Model;
@@ -17,6 +18,14 @@ use Livewire\Blaze\Blaze;
 
 final class AppServiceProvider extends ServiceProvider
 {
+    public function register(): void
+    {
+        // The group's roster, read once per request and shared by every avatar
+        // on the page. `scoped` rather than `singleton` so a queue worker or an
+        // Octane request never serves the roster the last one loaded.
+        $this->app->scoped(Members::class);
+    }
+
     public function boot(): void
     {
         $this->configureDates();

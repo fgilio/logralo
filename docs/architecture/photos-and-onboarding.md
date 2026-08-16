@@ -75,6 +75,27 @@ The bucket also needs the app's origins in its CORS allow-list. Sharing to Whats
 
 HEIC only reaches the server from desktop Safari — iOS transcodes to JPEG inside the file input, and the browser-side resize above re-encodes whatever is left as JPEG. GD cannot decode HEIC, so an upload that gets past both raises `PhotoUnreadableException` with copy that tells the member what to change. That is the one place a wasm codec would still earn its download: `libheif-js` would let a Chrome-on-Android HEIC be decoded client-side rather than refused server-side. Nobody in the group has hit it.
 
+## The face on an avatar
+
+Three sources, tried in this order, and `resources/views/components/avatar.blade.php` is the only place that knows the order:
+
+1. **The picture the member uploaded**, from the profile screen.
+2. **The Gravatar their email already has.** Everyone in this group has been leaving comments on somebody's blog since 2009, so most of them arrived with a face nobody had to be asked for.
+3. **Their coloured initials**, which is what the app drew before any of this.
+
+The interesting one is the middle one, and the interesting part is that it never touches the server. `App\Services\Gravatar` builds a URL out of a SHA-256 of the trimmed, lowercased address — Gravatar still answers to MD5, but the security preset in `tests/Arch/CodeQualityTest.php` bans it and it buys nothing — and the browser is what fetches it. No render waits on a third party, and nothing has to cache whether an address has a picture.
+
+That leaves one problem: an address with no Gravatar. `d=404` is the parameter that makes it answer 404 rather than serving a generated silhouette, which would look exactly like a member who has a picture and would mean the initials never show. So the URL cannot be handed over as an `<img src>`, which would leave a broken image behind — it goes **on top of** the initials, inside the avatar's own box, and `onerror` takes it off the page when the guess was wrong. While the request is in flight the initials are what shows, which is also the right answer offline.
+
+Two details that will look arbitrary in the diff:
+
+- **The initials go in Flux's slot, and neither `name` nor `initials` is passed alongside them.** `flux:avatar` renders `$initials ?? $slot` and derives `$initials` from `name` when it is given one, so passing either silently drops the slot — Gravatar layer and all. The colour seed is passed explicitly for the same reason: it defaults to `name`, which is no longer there to read.
+- **`App\Queries\Members` exists for the standings row and the recap card.** Everywhere else carries a `User` to the template, but those two are built from `Standing`, which a recap freezes into JSON at month close — a picture URL frozen there would be a signature that expired the same hour, or a key for a picture the member has since replaced. So the face is looked up live, from a table this product caps at one group of friends, and the container holds the roster scoped so a page of twenty avatars is one query.
+
+An uploaded avatar goes through `PhotoProcessor` like everything else, and for the guards rather than for the convenience: the pixel-count ceiling, the auto-orientation, the EXIF strip and the URL signing are the whole of what a profile picture needs. It is stored as one square WebP under an `avatars/` key — one derivative, because the biggest avatar on screen is the 56px ring in the pulse strip and `avatars.size` (192) is that at DPR 3.
+
+`LOGRALO_GRAVATAR=false` takes the middle source out without touching a template.
+
 ## Joining, over WhatsApp
 
 There is no registration page. `logralo:seed-member` creates the member and prints a signed link.

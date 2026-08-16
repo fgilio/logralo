@@ -162,6 +162,16 @@ document.addEventListener("alpine:init", () => {
         // module, and in no third place that could drift from either.
         options,
 
+        /** The Livewire property the finished file lands on. */
+        property: options.property ?? "photo",
+
+        /**
+         * A component method to call once the bytes are up, for the pickers
+         * with no save button behind them — the avatar applies on pick, where
+         * a mark waits for the note to be written.
+         */
+        then: options.then ?? null,
+
         busy: false,
         progress: 0,
 
@@ -194,9 +204,13 @@ document.addEventListener("alpine:init", () => {
                 const upload = await compressPhoto(file, this.options);
 
                 this.$wire.upload(
-                    "photo",
+                    this.property,
                     upload,
-                    () => this.settle(),
+                    () => {
+                        this.settle();
+
+                        if (this.then !== null) this.$wire[this.then]();
+                    },
                     () => this.settle(),
                     (sent) => (this.progress = sent.detail.progress),
                 );

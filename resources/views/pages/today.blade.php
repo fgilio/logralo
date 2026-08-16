@@ -124,14 +124,7 @@ new #[Title('Hoy')] class extends Component
                 aria-label="Tu perfil"
                 data-test="profile-link"
             >
-                <flux:avatar
-                    :name="$user->name"
-                    :initials="$user->initials()"
-                    color="auto"
-                    :color:seed="$user->id"
-                    circle
-                    size="sm"
-                />
+                <x-avatar :user="$user" size="sm" />
             </a>
         </div>
 
