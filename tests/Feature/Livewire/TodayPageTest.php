@@ -17,14 +17,11 @@ use Livewire\Livewire;
  */
 
 /** 09:00 in Montevideo: today is open, and so is yesterday's grace window. */
-function morningInMontevideo(): void
-{
-    test()->travelTo(CarbonImmutable::parse('2026-08-11 09:00', 'America/Montevideo')->utc());
-}
+beforeEach(function (): void {
+    $this->travelTo(CarbonImmutable::parse('2026-08-11 09:00', 'America/Montevideo')->utc());
+});
 
 it('shows the active goals and leaves the archived ones off the grid', function (): void {
-    morningInMontevideo();
-
     $user = User::factory()->create();
     Goal::factory()->for($user)->create(['name' => 'Natacion', 'emoji' => '🏊']);
     Goal::factory()->for($user)->archived()->create(['name' => 'Guitarra', 'emoji' => '🎸']);
@@ -37,8 +34,6 @@ it('shows the active goals and leaves the archived ones off the grid', function 
 });
 
 it('draws few goals as rows and a full set as tiles', function (): void {
-    morningInMontevideo();
-
     $user = User::factory()->create();
     Goal::factory()->for($user)->count(2)->create();
 
@@ -58,8 +53,6 @@ it('draws few goals as rows and a full set as tiles', function (): void {
 });
 
 it('offers the add-goal link until the member is out of slots', function (): void {
-    morningInMontevideo();
-
     $user = User::factory()->create();
     Goal::factory()->for($user)->count(config()->integer('logralo.goals.max_active') - 1)->create();
 
@@ -71,8 +64,6 @@ it('offers the add-goal link until the member is out of slots', function (): voi
 });
 
 it('shows the grace banner while yesterday is still open', function (): void {
-    morningInMontevideo();
-
     $user = User::factory()->create();
     $goal = Goal::factory()->for($user)->create(['name' => 'Natacion']);
 
@@ -86,8 +77,6 @@ it('shows the grace banner while yesterday is still open', function (): void {
 });
 
 it('tells the member what time the grace window closes', function (): void {
-    morningInMontevideo();
-
     $user = User::factory()->create();
     Goal::factory()->for($user)->create(['name' => 'Natacion']);
 
@@ -111,8 +100,6 @@ it('hides the grace banner once the cutoff has passed', function (): void {
 });
 
 it('keeps a goal already marked yesterday out of the grace banner', function (): void {
-    morningInMontevideo();
-
     $user = User::factory()->create();
     $done = Goal::factory()->for($user)->create(['name' => 'Natacion', 'position' => 1]);
     $pending = Goal::factory()->for($user)->create(['name' => 'Guitarra', 'position' => 2]);
@@ -129,8 +116,6 @@ it('keeps a goal already marked yesterday out of the grace banner', function ():
 });
 
 it('drops the grace banner once every goal is caught up', function (): void {
-    morningInMontevideo();
-
     $user = User::factory()->create();
     $goal = Goal::factory()->for($user)->create();
     Mark::factory()->for($goal)->on('2026-08-10')->create();
@@ -140,8 +125,6 @@ it('drops the grace banner once every goal is caught up', function (): void {
 
 it("reads the grace window off the member's own clock", function (): void {
     // 09:00 in Montevideo is 14:00 in Madrid: past the cutoff there.
-    morningInMontevideo();
-
     $user = User::factory()->inTimezone('Europe/Madrid')->create();
     Goal::factory()->for($user)->create();
 
@@ -149,8 +132,6 @@ it("reads the grace window off the member's own clock", function (): void {
 });
 
 it('lists every member in the pulse', function (): void {
-    morningInMontevideo();
-
     $ana = User::factory()->create(['name' => 'Ana']);
     $bruno = User::factory()->create(['name' => 'Bruno']);
     $caro = User::factory()->create(['name' => 'Caro']);
@@ -185,8 +166,6 @@ it('lists every member in the pulse', function (): void {
 });
 
 it("computes the standings on each member's own calendar", function (): void {
-    morningInMontevideo();
-
     $ana = User::factory()->create(['name' => 'Ana']);
     $bruno = User::factory()->create(['name' => 'Bruno']);
     User::factory()->create(['name' => 'Caro']);
@@ -223,8 +202,6 @@ it("computes the standings on each member's own calendar", function (): void {
 });
 
 it('shares a rank between members on the same score', function (): void {
-    morningInMontevideo();
-
     $members = collect(['Ana', 'Bruno', 'Caro'])
         ->map(fn (string $name): User => User::factory()->create(['name' => $name]));
 
@@ -239,8 +216,6 @@ it('shares a rank between members on the same score', function (): void {
 });
 
 it('leaves a member with no active goals out of the table', function (): void {
-    morningInMontevideo();
-
     $user = User::factory()->create(['name' => 'Ana']);
     Goal::factory()->for($user)->archived()->create();
 
@@ -252,8 +227,6 @@ it('leaves a member with no active goals out of the table', function (): void {
 });
 
 it('sends a member with no goals to the empty state', function (): void {
-    morningInMontevideo();
-
     Livewire::actingAs(User::factory()->create())
         ->test('pages::today')
         ->assertSee('Creá tu primer objetivo')
@@ -261,8 +234,6 @@ it('sends a member with no goals to the empty state', function (): void {
 });
 
 it('recomputes everything when a mark lands anywhere on the page', function (): void {
-    morningInMontevideo();
-
     $user = User::factory()->create();
     $goal = Goal::factory()->for($user)->create();
 
