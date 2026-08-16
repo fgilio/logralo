@@ -3,10 +3,10 @@
 # Best-effort: the browser binary is only needed by `composer test:browser`, so
 # a failure here never blocks the rest of the setup. The base image is expected
 # to already carry Chromium's shared libraries; installing them is the slow,
-# root-only apt path, opt-in via PLA_PLAYWRIGHT_WITH_DEPS=1.
+# root-only apt path, opt-in via LOGRALO_PLAYWRIGHT_WITH_DEPS=1.
 set -uo pipefail
 source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/lib.sh"
-cd "$(pla_project_dir)" || exit 0
+cd "$(cloud_project_dir)" || exit 0
 
 # The Playwright CLI lands under node_modules/.bin only after a successful npm
 # install, so this track no-ops cleanly when node.sh has not run yet.
@@ -32,10 +32,10 @@ if [ -n "${PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD:-}" ]; then
 fi
 
 log 'Ensuring Playwright Chromium is installed'
-if [ "${PLA_PLAYWRIGHT_WITH_DEPS:-}" = '1' ]; then
-    npx --no-install playwright install --with-deps chromium \
-        || warn 'Playwright Chromium (--with-deps) install failed.'
-else
-    npx --no-install playwright install chromium \
-        || warn 'Playwright Chromium install failed.'
+with_deps=()
+if [ "${LOGRALO_PLAYWRIGHT_WITH_DEPS:-}" = '1' ]; then
+    with_deps=(--with-deps)
 fi
+# The same binary the guards above verified, rather than resolving it again.
+node_modules/.bin/playwright install "${with_deps[@]}" chromium \
+    || warn 'Playwright Chromium install failed.'

@@ -1,6 +1,5 @@
-# CI for Logralo. Adapted from the Publica.la Laravel-app baseline for a
-# public personal repo on GitHub-hosted runners (public repos get unlimited
-# GitHub-hosted minutes, so ubuntu-latest is the right call here).
+# CI for Logralo: a public personal repo on GitHub-hosted runners (public repos
+# get unlimited GitHub-hosted minutes, so ubuntu-latest is the right call here).
 #
 # Laravel Cloud auto-deploys every push to `main`, so this workflow has no
 # deploy job. Its role is to keep `main` deployable: it runs the same gates
@@ -35,7 +34,10 @@ permissions:
   contents: read
 
 env:
-  # Keep in sync with the `php` constraint in composer.json.
+  # Keep in sync with the `php` constraint in composer.json and with
+  # .github/php-version, which the cloud bootstrap and the snapshot workflow
+  # read. The lint job asserts the two agree rather than trusting the comment:
+  # a silent split means sandboxes provision one series while CI tests another.
   PHP_VERSION: "8.5"
 
 jobs:
@@ -43,6 +45,13 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
+      - name: Assert the PHP pin matches .github/php-version
+        run: |
+          pinned="$(tr -d '[:space:]' < .github/php-version)"
+          if [ "$pinned" != "${{ env.PHP_VERSION }}" ]; then
+            echo "::error::.github/php-version is '$pinned' but ci.yml PHP_VERSION is '${{ env.PHP_VERSION }}'. Cloud sessions would provision a different series than CI tests."
+            exit 1
+          fi
       - uses: shivammathur/setup-php@v2
         with:
           php-version: ${{ env.PHP_VERSION }}

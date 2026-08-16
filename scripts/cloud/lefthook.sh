@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/lib.sh"
-cd "$(pla_project_dir)" || exit 1
+cd "$(cloud_project_dir)" || exit 1
 
 # Print the path to a usable lefthook binary, or nothing if none is on PATH.
 resolve_lefthook() {

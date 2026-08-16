@@ -17,7 +17,7 @@ source "$CLAUDE_PROJECT_DIR/scripts/cloud/lib.sh"
 #
 # Local sessions are expected to manage their own PHP and dependencies, but
 # still benefit from the git hooks the shared setup installs.
-if pla_cloud_session; then
+if cloud_session; then
     # Claim the status file before backgrounding, so an await.sh that runs
     # before setup.sh has started still sees 'running' and waits, rather than
     # reading "no bootstrap in flight" and greenlighting a bare checkout.
@@ -31,6 +31,8 @@ if pla_cloud_session; then
         >"$CLOUD_SETUP_LOG_FILE" 2>&1 &
     echo "Bootstrapping the environment in the background. Run 'bash scripts/cloud/await.sh' before tests; log: $CLOUD_SETUP_LOG_FILE" >&2
 else
-    LOGRALO_CLOUD_SETUP_SKIP_DEPS=1 bash "$CLAUDE_PROJECT_DIR/scripts/cloud/setup.sh" 1>&2 \
+    # No need to pass the skip-deps override: setup.sh calls the same
+    # cloud_session and reaches the light path on its own.
+    bash "$CLAUDE_PROJECT_DIR/scripts/cloud/setup.sh" 1>&2 \
         || echo "bootstrap failed; rerun: bash scripts/cloud/setup.sh" >&2
 fi

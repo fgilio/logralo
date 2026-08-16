@@ -7,9 +7,9 @@
 #    from the sury apt repository the sandbox image already trusts. The base
 #    image ships PHP 8.4, and composer.json requires ^8.5, so without this
 #    step every composer and artisan call in the session fails its platform
-#    check. The fleet installs a static build from publicala/php-ci-static
-#    instead; that repo is outside this session's GitHub scope and its release
-#    assets 403 here, so apt is Logralo's equivalent (see SETUP.md).
+#    check. apt is the cheapest source that works here: the image already
+#    trusts sury, so no release asset has to travel through the egress proxy
+#    (see SETUP.md).
 # 2. The CI-built vendor snapshot from this repo's own draft releases
 #    (snapshot.sh) — the one GitHub surface the sandbox proxy always allows.
 # 3. composer install. Over a restored snapshot this is a fast no-op that
@@ -21,7 +21,7 @@ set -euo pipefail
 here="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "$here/lib.sh"
 source "$here/snapshot.sh"
-cd "$(pla_project_dir)" || exit 1
+cd "$(cloud_project_dir)" || exit 1
 
 export COMPOSER_ALLOW_SUPERUSER="${COMPOSER_ALLOW_SUPERUSER:-1}"
 
@@ -32,7 +32,7 @@ export COMPOSER_ALLOW_SUPERUSER="${COMPOSER_ALLOW_SUPERUSER:-1}"
 # fail in a session shell. Persist it to the shell profiles so the whole
 # session has it, not just this bootstrap.
 persist_composer_superuser() {
-    if [ "$(id -u)" -ne 0 ] || ! pla_cloud_session; then
+    if [ "$(id -u)" -ne 0 ] || ! cloud_session; then
         return
     fi
     local line='export COMPOSER_ALLOW_SUPERUSER=1 # logralo cloud bootstrap'
@@ -76,28 +76,25 @@ ensure_flux_credentials() {
 # the same PHP the tests will run under. ./scripts/php stays the entrypoint for
 # developer machines, where Herd may hold several versions side by side.
 ensure_php_runtime() {
-    local pinned_version
-    pinned_version="$(pla_pinned_php_series)"
-    if [ -z "$pinned_version" ]; then
-        warn '.github/php-version is missing. Staying on the image PHP; composer will fail its platform check if it is older than composer.json requires.'
-        return
-    fi
+    local pinned_version="$1"
 
-    # Warm resume: a previous session in this container already installed it.
-    if [ "$(php -r 'echo PHP_MAJOR_VERSION.".".PHP_MINOR_VERSION;' 2>/dev/null)" = "$pinned_version" ]; then
+    # Warm resume, or a base image that already ships the pinned series. Either
+    # way the interpreter is right and only the extensions still need checking,
+    # which ensure_php_extensions does next.
+    if [ "$(cloud_running_php_series)" = "$pinned_version" ]; then
         log "PHP ${pinned_version} is already the default. Skipping the install."
         return
     fi
 
+    # Cold path: one apt call for the interpreter and every extension, rather
+    # than installing the CLI and then discovering the extensions missing.
     local packages=("php${pinned_version}-cli")
     local extension
-    for extension in "${PLA_PHP_APT_EXTENSIONS[@]}"; do
+    for extension in "${CLOUD_PHP_APT_EXTENSIONS[@]}"; do
         packages+=("php${pinned_version}-${extension}")
     done
-    packages+=("${PLA_EXTRA_APT_PACKAGES[@]}")
-
     log "Installing PHP ${pinned_version}: ${packages[*]}"
-    if ! pla_apt_install "${packages[@]}"; then
+    if ! cloud_apt_install "${packages[@]}"; then
         warn "Could not install PHP ${pinned_version}. Staying on $(php -r 'echo PHP_VERSION;' 2>/dev/null || echo 'the image PHP'); composer will fail its platform check."
         return
     fi
@@ -111,11 +108,35 @@ ensure_php_runtime() {
     fi
     hash -r
 
-    if [ "$(php -r 'echo PHP_MAJOR_VERSION.".".PHP_MINOR_VERSION;' 2>/dev/null)" = "$pinned_version" ]; then
+    if [ "$(cloud_running_php_series)" = "$pinned_version" ]; then
         log "Using PHP $(php -r 'echo PHP_VERSION;')."
     else
         warn "Installed PHP ${pinned_version}, but 'php' still resolves to $(command -v php) ($(php -r 'echo PHP_VERSION;' 2>/dev/null || echo unknown)). Sessions run that PHP until PATH or update-alternatives puts ${pinned_version} first."
     fi
+}
+
+# Install any configured extension the running php is missing. Deliberately not
+# folded into ensure_php_runtime: that function returns early whenever the
+# interpreter is already the pinned series, and the day the base image ships
+# that series a cold container would take the early return and never install
+# gd or sqlite3 at all. The failure would surface as an Intervention or PDO
+# fatal deep in a test run rather than as a bootstrap error, so the extension
+# check has to be independent of whether the interpreter needed installing.
+ensure_php_extensions() {
+    local pinned_version="$1" missing
+    mapfile -t missing < <(cloud_missing_php_extensions)
+    if [ "${#missing[@]}" -eq 0 ]; then
+        return
+    fi
+
+    local packages=() extension
+    for extension in "${missing[@]}"; do
+        packages+=("php${pinned_version}-${extension}")
+    done
+
+    log "Installing missing PHP extensions: ${missing[*]}"
+    cloud_apt_install "${packages[@]}" \
+        || warn "Could not install: ${missing[*]}. Code that needs them will fail at runtime."
 }
 
 # --no-scripts keeps post-autoload-dump, which runs artisan package:discover,
@@ -123,8 +144,9 @@ ensure_php_runtime() {
 # orchestrator runs discovery once they are ready. The Pest plugin still runs,
 # so vendor/pest-plugins.json is generated for test discovery.
 #
-# $1 is 'restored' when the snapshot supplied vendor/, 'missed' otherwise.
+# $1 is 1 when the snapshot did not supply vendor/, 0 when it did.
 install_composer() {
+    local snapshot_missed="$1"
     if [ ! -f composer.json ]; then
         return
     fi
@@ -140,7 +162,7 @@ install_composer() {
     # whole dependency tree) and futile (phpstan/phpstan is published dist-only
     # and has no source to clone). Retrying buys a second ten-minute walk to
     # the same failure, so say what actually unblocks it and stop.
-    if [ "$1" = 'missed' ] && pla_cloud_session; then
+    if [ "$snapshot_missed" -eq 1 ] && cloud_session; then
         warn 'composer install failed and no cloud snapshot matched composer.lock. Third-party dist archives are blocked in this sandbox, so a live install cannot complete here. Publish a snapshot for this lock (.github/workflows/cloud-snapshot.yml, runnable from the Actions tab) and re-run scripts/cloud/setup.sh. See scripts/cloud/SETUP.md.'
         return 1
     fi
@@ -152,11 +174,15 @@ install_composer() {
     composer install --no-interaction --prefer-dist --no-progress --no-scripts
 }
 
-ensure_php_runtime
-ensure_flux_credentials
-if pla_snapshot_restore; then
-    snapshot_outcome='restored'
+pinned_php="$(cloud_pinned_php_series)"
+if [ -z "$pinned_php" ]; then
+    warn '.github/php-version is missing. Staying on the image PHP; composer will fail its platform check if it is older than composer.json requires.'
 else
-    snapshot_outcome='missed'
+    ensure_php_runtime "$pinned_php"
+    ensure_php_extensions "$pinned_php"
 fi
-install_composer "$snapshot_outcome"
+
+ensure_flux_credentials
+snapshot_missed=0
+cloud_snapshot_restore || snapshot_missed=1
+install_composer "$snapshot_missed"

@@ -13,7 +13,7 @@ if [ ! -f "$CLOUD_SETUP_STATUS_FILE" ]; then
   exit 0
 fi
 
-deadline=$(( $(date +%s) + ${PLA_CLOUD_SETUP_AWAIT_TIMEOUT:-1200} ))
+deadline=$(( $(date +%s) + ${LOGRALO_CLOUD_SETUP_AWAIT_TIMEOUT:-1200} ))
 announced=0
 while true; do
   # The status file can disappear mid-wait: the light (local) path clears a
@@ -52,10 +52,9 @@ while true; do
   esac
 
   if [ "$announced" -eq 0 ]; then
-    # PLA_CLOUD_WAIT_HINT names what this repo's bootstrap provisions. It lives
-    # in lib.sh's per-repo config block so this file stays byte-identical
-    # across the fleet.
-    echo "Waiting for the web environment to finish setting up (${PLA_CLOUD_WAIT_HINT:-dependencies})."
+    # CLOUD_WAIT_HINT names what this repo's bootstrap provisions. It lives
+    # in lib.sh's config block so this file carries no project specifics.
+    echo "Waiting for the web environment to finish setting up (${CLOUD_WAIT_HINT:-dependencies})."
     announced=1
   fi
 
@@ -64,8 +63,8 @@ while true; do
     # `await.sh && <test command>` must stop on an unready environment instead
     # of producing flaky failures against a half-provisioned toolchain. A cold
     # bootstrap that legitimately needs longer (a multi-GB image pull) can
-    # raise PLA_CLOUD_SETUP_AWAIT_TIMEOUT.
-    warn "Timed out after ${PLA_CLOUD_SETUP_AWAIT_TIMEOUT:-1200}s waiting for setup. The bootstrap is still running; see $CLOUD_SETUP_LOG_FILE."
+    # raise LOGRALO_CLOUD_SETUP_AWAIT_TIMEOUT.
+    warn "Timed out after ${LOGRALO_CLOUD_SETUP_AWAIT_TIMEOUT:-1200}s waiting for setup. The bootstrap is still running; see $CLOUD_SETUP_LOG_FILE."
     exit 124
   fi
   sleep 3

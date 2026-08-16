@@ -1,6 +1,5 @@
-# CI for Logralo. Adapted from the Publica.la Laravel-app baseline for a
-# public personal repo on GitHub-hosted runners (public repos get unlimited
-# GitHub-hosted minutes, so ubuntu-latest is the right call here).
+# CI for Logralo: a public personal repo on GitHub-hosted runners (public repos
+# get unlimited GitHub-hosted minutes, so ubuntu-latest is the right call here).
 #
 # Laravel Cloud auto-deploys every push to `main`, so this workflow has no
 # deploy job. Its role is to keep `main` deployable: it runs the same gates

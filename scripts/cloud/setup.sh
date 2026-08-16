@@ -14,11 +14,11 @@ source "$here/lib.sh"
 
 # Local sessions manage their own PHP and dependencies and only need the git
 # hooks. They run this synchronously, with no status file, so await.sh stays a
-# no-op. pla_cloud_session recognizes Claude Code on the web and Codex Cloud,
+# no-op. cloud_session recognizes Claude Code on the web and Codex Cloud,
 # so the same entrypoint serves both harnesses; LOGRALO_CLOUD_SETUP_SKIP_DEPS=1
-# forces the light path anywhere, PLA_CLOUD_SESSION=1 forces the full one.
-skip_deps_var="${PLA_PROJECT_ENV_PREFIX}_CLOUD_SETUP_SKIP_DEPS"
-if [ "${!skip_deps_var:-}" = '1' ] || ! pla_cloud_session; then
+# forces the light path anywhere, LOGRALO_CLOUD_SESSION=1 forces the full one.
+skip_deps_var="${CLOUD_PROJECT_ENV_PREFIX}_CLOUD_SETUP_SKIP_DEPS"
+if [ "${!skip_deps_var:-}" = '1' ] || ! cloud_session; then
     local_mode=1
 else
     local_mode=0
@@ -33,9 +33,9 @@ if [ "$local_mode" -eq 0 ]; then
     printf 'running\n' > "$CLOUD_SETUP_STATUS_FILE"
 fi
 
-project_dir="$(pla_project_dir)" || exit 1
+project_dir="$(cloud_project_dir)" || exit 1
 cd "$project_dir"
-log "Preparing ${PLA_PROJECT_SLUG} in $project_dir"
+log "Preparing ${CLOUD_PROJECT_SLUG} in $project_dir"
 
 if [ "$local_mode" -eq 1 ]; then
     bash "$here/lefthook.sh"
@@ -50,10 +50,9 @@ if [ "$local_mode" -eq 1 ]; then
     exit 0
 fi
 
-# Cheap and independent, so they run alongside the heavy work.
+# Cheap and independent of everything below, so it runs alongside the heavy
+# work. Git hooks are deliberately not here: see the lefthook.sh call at the end.
 {
-    bash "$here/lefthook.sh"
-
     # Pest's Tia mode resolves every branch's baseline through the default
     # branch, and refuses to guess: with a remote but no origin/HEAD it aborts
     # rather than silently re-run the whole suite while reporting a cache hit.
@@ -67,8 +66,8 @@ fi
 } &
 side_pid=$!
 
-# One serialized track, not a fan-out, because each step needs the one before
-# it:
+# Serialized, not a fan-out, because each step needs the one before it. The
+# database step is last for the same reason: it shells out to artisan.
 #
 #   php.sh         the runtime and vendor/
 #   environment.sh .env — after vendor/, because its key:generate step shells
@@ -83,38 +82,44 @@ side_pid=$!
 #   playwright.sh  needs the CLI npm just installed. Best-effort: only
 #                  test:browser wants the browser binary, so it never fails the
 #                  track on its own
-assets_track() {
-    bash "$here/php.sh" || return 1
-    bash "$here/environment.sh" || warn 'Writing .env failed.'
-    bash "$here/node.sh" || return 2
-    bash "$here/playwright.sh" || warn 'Playwright browser setup failed.'
-}
-assets_track && assets_rc=0 || assets_rc=$?
-wait "$side_pid" || true
-
 setup_failed=0
-if [ "$assets_rc" -eq 1 ]; then
+if ! bash "$here/php.sh"; then
     warn 'PHP dependency setup failed. Skipping the asset build and the database.'
     setup_failed=1
-elif [ "$assets_rc" -ne 0 ]; then
-    warn 'Node dependency setup failed.'
-    setup_failed=1
-fi
+else
+    bash "$here/environment.sh" || warn 'Writing .env failed.'
 
-# The database step needs artisan, so it only runs once the PHP track is in.
-if [ "$assets_rc" -ne 1 ]; then
+    if bash "$here/node.sh"; then
+        bash "$here/playwright.sh" || warn 'Playwright browser setup failed.'
+    else
+        warn 'Node dependency setup failed.'
+        setup_failed=1
+    fi
+
     bash "$here/databases.sh" || {
         warn 'Database setup failed. Artisan and the app will not have a usable database.'
         setup_failed=1
     }
 fi
 
-# package:discover and optimize:clear are what composer's skipped
-# post-autoload-dump would have run. They need vendor/, and without it artisan
-# just fatals on the missing autoloader.
+wait "$side_pid" || true
+
+# Last, and not in the parallel branch above: lefthook.sh prefers
+# node_modules/.bin/lefthook and falls back to installing lefthook globally when
+# it is absent. Run alongside node.sh, it either pays for that global install on
+# every cold container (npm ci provides the binary seconds later) or resolves
+# the local binary just before npm ci deletes node_modules wholesale, which
+# leaves the session with no git hooks and only a warning to say so.
+bash "$here/lefthook.sh" || warn 'Git hook install failed.'
+
+# php.sh installs with --no-scripts, so run the hook composer skipped. Invoking
+# the script by name rather than repeating its steps means a future entry added
+# to post-autoload-dump reaches cloud sessions too; today it also clears the
+# compiled-services cache that a bare package:discover would leave stale.
+# Needs vendor/: without it artisan just fatals on the missing autoloader.
 if [ -f vendor/autoload.php ]; then
     log 'Discovering packages and clearing caches'
-    php artisan package:discover --ansi || warn 'Package discovery failed.'
+    composer run-script post-autoload-dump || warn 'Package discovery failed.'
     php artisan optimize:clear || true
 else
     warn 'vendor/autoload.php is missing. Skipping package discovery.'

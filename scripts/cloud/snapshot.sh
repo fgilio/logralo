@@ -16,7 +16,7 @@
 # (.github/workflows/cloud-snapshot.yml); this module finds the snapshot
 # matching the checkout's composer.lock and unpacks it.
 #
-# Sourced by php.sh, which calls pla_snapshot_restore before its composer step.
+# Sourced by php.sh, which calls cloud_snapshot_restore before its composer step.
 # Restore is strictly best-effort: any miss (no snapshot yet, lock mismatch
 # after a fresh dependency bump, download or digest failure) returns 1 and the
 # caller proceeds exactly as if this module did not exist.
@@ -25,26 +25,22 @@
 # push access — which the session credential has. Guarded to cloud sessions:
 # on a developer machine this must never touch vendor/.
 #
-# Deviation from the fleet canonical (pla-stack cloud-bootstrap-audit): that
-# version also ships a static PHP CLI built by publicala/php-ci-static. Logralo
-# cannot use it — publicala/php-ci-static is outside this repo's session scope,
-# so its release assets 403 here too — and does not need to: php.sh installs
-# the pinned PHP series from the sury apt repository the image already trusts.
-# This module is therefore vendor-only, and the manifest it reads has no `php`
-# block. Everything else (schema pin, digest verification, author check, atomic
-# vendor swap, marker file) is the canonical behaviour.
+# The snapshot carries vendor/ only. A PHP binary could travel the same way,
+# but it does not need to: php.sh installs the pinned series from the sury apt
+# repository the image already trusts, which is cheaper to build and to reason
+# about than shipping a runtime through a release asset.
 
 # Derive "owner/repo" from the git remote. In sandboxes the proxy rewrites
 # remotes to http://127.0.0.1:<port>/git/<owner>/<repo>, so match the last two
 # path segments rather than assuming a github.com URL.
-pla_snapshot_repo() {
+cloud_snapshot_repo() {
     local url
     url="$(git config --get remote.origin.url 2>/dev/null)" || return 1
     url="${url%.git}"
     printf '%s\n' "$url" | grep -oE '[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$'
 }
 
-pla_snapshot_api_download() {
+cloud_snapshot_api_download() {
     local path="$1" destination="$2" accept="${3:-application/vnd.github+json}"
     curl -fsSL --retry 2 --retry-delay 2 --max-time 900 \
         -H "Accept: ${accept}" \
@@ -65,7 +61,7 @@ pla_snapshot_api_download() {
 # on the first attempt instead of after one download per newer lock. The
 # manifest's full composer_lock_sha256 stays the authority; the tag only
 # orders the attempts.
-pla_snapshot_candidates() {
+cloud_snapshot_candidates() {
     python3 - "$1" "$2" <<'PY'
 import json, sys
 releases = json.load(open(sys.argv[1]))
@@ -91,7 +87,7 @@ PY
 # name is resolved to a download id here, so the shell never handles it). A
 # malformed manifest makes python exit non-zero and the caller skips the
 # candidate.
-pla_snapshot_release_info() {
+cloud_snapshot_release_info() {
     python3 - "$1" "$2" "$3" <<'PY'
 import json, sys
 releases = json.load(open(sys.argv[1]))
@@ -109,7 +105,7 @@ print(f"vendor_asset_id\t{assets.get(manifest['vendor']['asset'], '')}")
 PY
 }
 
-pla_snapshot_verify() {
+cloud_snapshot_verify() {
     local file="$1" expected="$2"
     [ "$(sha256sum "$file" | cut -d' ' -f1)" = "$expected" ]
 }
@@ -118,12 +114,12 @@ pla_snapshot_verify() {
 # Returns 0 only when vendor/ matches the lock (restored now, or already
 # current per the marker), 1 on every miss so php.sh falls through to its
 # composer step.
-pla_snapshot_restore() {
-    if [ "${PLA_CLOUD_SNAPSHOT:-1}" = '0' ]; then
-        log 'Snapshot restore disabled (PLA_CLOUD_SNAPSHOT=0).'
+cloud_snapshot_restore() {
+    if [ "${LOGRALO_CLOUD_SNAPSHOT:-1}" = '0' ]; then
+        log 'Snapshot restore disabled (LOGRALO_CLOUD_SNAPSHOT=0).'
         return 1
     fi
-    if ! pla_cloud_session; then
+    if ! cloud_session; then
         return 1
     fi
     if ! command -v python3 >/dev/null 2>&1; then
@@ -137,20 +133,20 @@ pla_snapshot_restore() {
     # A previous restore already produced a vendor for exactly this lock: skip
     # the download entirely. The marker dies with vendor/, so a wiped or
     # half-written vendor never short-circuits.
-    if [ -f vendor/.pla-cloud-snapshot ] && [ "$(cat vendor/.pla-cloud-snapshot)" = "$lock_sha" ]; then
+    if [ -f vendor/.cloud-snapshot-marker ] && [ "$(cat vendor/.cloud-snapshot-marker)" = "$lock_sha" ]; then
         log 'vendor/ already matches this composer.lock (snapshot marker). Skipping the download.'
         return 0
     fi
 
     local repo
-    repo="$(pla_snapshot_repo)" || { warn 'Could not derive the repo from the git remote. Skipping snapshot restore.'; return 1; }
+    repo="$(cloud_snapshot_repo)" || { warn 'Could not derive the repo from the git remote. Skipping snapshot restore.'; return 1; }
 
     local work
     work="$(mktemp -d)"
     # shellcheck disable=SC2064
     trap "rm -rf '$work'" RETURN
 
-    if ! pla_snapshot_api_download "repos/${repo}/releases?per_page=100" "$work/releases.json"; then
+    if ! cloud_snapshot_api_download "repos/${repo}/releases?per_page=100" "$work/releases.json"; then
         warn "Could not list ${repo} releases through the session proxy. Skipping snapshot restore."
         return 1
     fi
@@ -158,10 +154,10 @@ pla_snapshot_restore() {
     local release_id manifest_id info key value chosen_release=''
     local meta_schema='' meta_lock_sha='' meta_commit='' meta_vendor_sha='' meta_vendor_asset_id=''
     while IFS=$'\t' read -r release_id manifest_id; do
-        if ! pla_snapshot_api_download "repos/${repo}/releases/assets/${manifest_id}" "$work/manifest.json" 'application/octet-stream'; then
+        if ! cloud_snapshot_api_download "repos/${repo}/releases/assets/${manifest_id}" "$work/manifest.json" 'application/octet-stream'; then
             continue
         fi
-        info="$(pla_snapshot_release_info "$work/releases.json" "$work/manifest.json" "$release_id")" || continue
+        info="$(cloud_snapshot_release_info "$work/releases.json" "$work/manifest.json" "$release_id")" || continue
         while IFS=$'\t' read -r key value; do
             case "$key" in
                 schema) meta_schema="$value" ;;
@@ -175,7 +171,7 @@ pla_snapshot_restore() {
             chosen_release="$release_id"
             break
         fi
-    done < <(pla_snapshot_candidates "$work/releases.json" "${lock_sha:0:12}")
+    done < <(cloud_snapshot_candidates "$work/releases.json" "${lock_sha:0:12}")
 
     if [ -z "$chosen_release" ]; then
         log 'No cloud snapshot matches this composer.lock. Falling back to a live composer install.'
@@ -186,18 +182,18 @@ pla_snapshot_restore() {
 
     # zstd decompresses the snapshot asset, and the live fallback the caller
     # would take on a bail-out is exactly what the proxy blocks — so recover
-    # through pla_apt_install rather than giving up on one attempt. Checked
+    # through cloud_apt_install rather than giving up on one attempt. Checked
     # only now: the marker-skip and no-match exits above never need it.
     if ! command -v zstd >/dev/null 2>&1; then
-        pla_apt_install zstd || true
+        cloud_apt_install zstd || true
     fi
     if ! command -v zstd >/dev/null 2>&1; then
         warn 'zstd is unavailable and could not be installed. Skipping snapshot restore.'
         return 1
     fi
 
-    if ! pla_snapshot_api_download "repos/${repo}/releases/assets/${meta_vendor_asset_id}" "$work/vendor.tar.zst" 'application/octet-stream' \
-        || ! pla_snapshot_verify "$work/vendor.tar.zst" "$meta_vendor_sha"; then
+    if ! cloud_snapshot_api_download "repos/${repo}/releases/assets/${meta_vendor_asset_id}" "$work/vendor.tar.zst" 'application/octet-stream' \
+        || ! cloud_snapshot_verify "$work/vendor.tar.zst" "$meta_vendor_sha"; then
         warn 'Could not download a verified vendor archive from the snapshot. Falling back to a live composer install.'
         return 1
     fi
@@ -205,7 +201,7 @@ pla_snapshot_restore() {
     # Unpack beside the target — same filesystem as vendor/, which $TMPDIR need
     # not be — then swap with the old tree kept until the new one is in place,
     # so no failure mode leaves the checkout with no vendor/ at all.
-    local unpack_dir=".pla-snapshot-unpack.$$" old_vendor=".pla-vendor-old.$$"
+    local unpack_dir=".cloud-snapshot-unpack.$$" old_vendor=".cloud-vendor-old.$$"
     rm -rf "$unpack_dir" "$old_vendor"
     mkdir "$unpack_dir"
     if ! tar -C "$unpack_dir" -xf "$work/vendor.tar.zst" -I zstd; then
@@ -225,7 +221,7 @@ pla_snapshot_restore() {
         return 1
     fi
     rm -rf "$old_vendor" "$unpack_dir"
-    printf '%s' "$lock_sha" > vendor/.pla-cloud-snapshot 2>/dev/null \
+    printf '%s' "$lock_sha" > vendor/.cloud-snapshot-marker 2>/dev/null \
         || warn 'Could not write the snapshot marker; the next run will re-download.'
     log 'vendor/ restored from the cloud snapshot.'
 
@@ -236,6 +232,6 @@ pla_snapshot_restore() {
 if [ "${BASH_SOURCE[0]}" = "$0" ]; then
     set -euo pipefail
     source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/lib.sh"
-    cd "$(pla_project_dir)" || exit 1
-    pla_snapshot_restore
+    cd "$(cloud_project_dir)" || exit 1
+    cloud_snapshot_restore
 fi

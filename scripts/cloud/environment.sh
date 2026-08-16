@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
 set -euo pipefail
 source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/lib.sh"
-cd "$(pla_project_dir)" || exit 1
+cd "$(cloud_project_dir)" || exit 1
 
-# Build the sandbox .env from the committed profile (lib.sh's PLA_ENV_PROFILE,
+# Build the sandbox .env from the committed profile (lib.sh's CLOUD_ENV_PROFILE,
 # .env.ci for repos with a CI profile, .env.example otherwise) and point the
 # service hosts at localhost. The profile names services by their compose
 # aliases, but in the sandbox they listen on 127.0.0.1. Only write .env when it
@@ -12,13 +12,13 @@ if [ -f .env ]; then
     exit 0
 fi
 
-if [ ! -f "$PLA_ENV_PROFILE" ]; then
-    warn "No $PLA_ENV_PROFILE found to build .env from."
+if [ ! -f "$CLOUD_ENV_PROFILE" ]; then
+    warn "No $CLOUD_ENV_PROFILE found to build .env from."
     exit 0
 fi
 
-log "Writing .env from $PLA_ENV_PROFILE"
-cp "$PLA_ENV_PROFILE" .env
+log "Writing .env from $CLOUD_ENV_PROFILE"
+cp "$CLOUD_ENV_PROFILE" .env
 
 # Rewrite any *_HOST whose value is a compose service name, rather than an
 # enumerated key list, so a connection added to the profile is covered

@@ -113,6 +113,6 @@ Laravel Cloud auto-deploys every push to `main`. How production is wired, and th
 1. `gh run watch` until CI is green
 2. Wait 3–5 minutes for the rollout, then `cloud deployment:list --json -n` until the newest one says `deployment.succeeded`
 3. Hit the app: `/up`, `/entrar`, and `/` redirecting to `/entrar`
-4. Check for errors in Nightwatch. **The Nightwatch MCP connection in a Claude session is scoped to the Publica.la workspace and cannot see Logralo**, which reports to Franco's personal account — an empty `list_issues` there proves nothing. Ask Franco, or read the Nightwatch web interface.
+4. Check for errors in Nightwatch. **The Nightwatch MCP connection in a Claude session is scoped to a work workspace and cannot see Logralo**, which reports to Franco's personal account — an empty `list_issues` there proves nothing. Ask Franco, or read the Nightwatch web interface.
 
 Never conclude that a resource is missing from `cloud environment:get --fields=environmentVariables`. That list omits everything Cloud injects at deploy time. Ask the running app with `cloud tinker production -n --code='…'`.

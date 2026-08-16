@@ -12,13 +12,13 @@ bash scripts/cloud/await.sh && composer test
 
 `await.sh` exits 0 once setup is done (or was never started), non-zero when it failed, so chaining with `&&` stops instead of running tests against a half-built environment. The full log is at `$TMPDIR/logralo-cloud-setup.log`. To re-run the bootstrap by hand: `bash scripts/cloud/setup.sh`.
 
-On a developer machine the same entrypoint installs the git hooks and nothing else. `pla_cloud_session()` in `lib.sh` is the single detection contract; `LOGRALO_CLOUD_SETUP_SKIP_DEPS=1` forces the light path anywhere and `PLA_CLOUD_SESSION=1` forces the full one.
+On a developer machine the same entrypoint installs the git hooks and nothing else. `cloud_session()` in `lib.sh` is the single detection contract; `LOGRALO_CLOUD_SETUP_SKIP_DEPS=1` forces the light path anywhere and `LOGRALO_CLOUD_SESSION=1` forces the full one.
 
 ## Why a sandbox needs more than `composer setup`
 
 Two things a laptop has that a sandbox does not. Both were measured in a Claude Code on the web session, not assumed.
 
-**The image ships PHP 8.4 and `composer.json` requires `^8.5`.** Every composer and artisan call fails its platform check until a newer PHP is the default. `php.sh` installs the series pinned in `.github/php-version` from the sury apt repository the image already trusts, then selects it with `update-alternatives`. The one recovery that matters is baked in: the image's package lists are stale enough that every `php8.5-*` pool URL 404s, so `pla_apt_install` refreshes with `--allow-releaseinfo-change` and retries.
+**The image ships PHP 8.4 and `composer.json` requires `^8.5`.** Every composer and artisan call fails its platform check until a newer PHP is the default. `php.sh` installs the series pinned in `.github/php-version` from the sury apt repository the image already trusts, then selects it with `update-alternatives`. The one recovery that matters is baked in: the image's package lists are stale enough that every `php8.5-*` pool URL 404s, so `cloud_apt_install` refreshes with `--allow-releaseinfo-change` and retries.
 
 **The egress proxy blocks the archives composer downloads.** Packagist metadata answers fine, but the dist archives it points at live on `api.github.com`, and those return 403 for every third-party repo — with a token and without one (the sandbox exports `GITHUB_TOKEN=proxy-injected`, a placeholder composer will happily send and GitHub will reject). `--prefer-source` is not a way out: `phpstan/phpstan` is published dist-only, with no `source` entry in `composer.lock` to clone, so an install gets through every other package and then dies on that one.
 
@@ -32,19 +32,26 @@ Two smaller things the bootstrap also fixes, both of which otherwise break `comp
 
 `composer install` failing twice in a sandbox almost always means no snapshot matches the current `composer.lock` — a dependency bump landed and the snapshot for the new lock has not been built yet. The workflow runs on pushes to `main` that touch `composer.json`, `composer.lock`, `.github/php-version`, or the workflow itself, and can be started by hand from the Actions tab (`workflow_dispatch`) when retention has pruned the snapshot a still-checked-out lock needs. Once it has run, `bash scripts/cloud/setup.sh` picks it up.
 
-`PLA_CLOUD_SNAPSHOT=0` disables the restore for a run, which is only useful when debugging the fallback.
+`LOGRALO_CLOUD_SNAPSHOT=0` disables the restore for a run, which is only useful when debugging the fallback.
 
 ## Flux Pro credentials
 
 The repo is public, so `auth.json` is never committed. Hosted sessions and CI provide `FLUX_USERNAME` and `FLUX_LICENSE_KEY` as environment variables (repository secrets of the same name in CI), and `php.sh` writes the gitignored `auth.json` from them. A restored snapshot already contains `livewire/flux-pro`, so a session with the variables unset still gets a working vendor — it just cannot install it live.
 
-## Relationship to the Publica.la fleet
+## Module layout
 
-The layout, the module split, and the `lib.sh` config-block convention come from the fleet bootstrap in [`publicala/pla-stack`](https://github.com/publicala/pla-stack) (`.claude/skills/cloud-bootstrap-audit/`). `await.sh`, `environment.sh` and `lefthook.sh` are the canonical files verbatim; keep them that way, and send improvements upstream rather than editing them here.
+`setup.sh` is the only entrypoint; every other module does one job and is safe to run on its own while debugging.
 
-Two modules deliberately diverge, and the reason is the same for both: `publicala/php-ci-static` is outside this repo's sandbox GitHub scope, so its release assets 403 here exactly like any other third-party repo's.
+| Module           | Job                                                                                    |
+| ---------------- | -------------------------------------------------------------------------------------- |
+| `lib.sh`         | Config block plus the shared helpers. Everything repo-specific lives here.             |
+| `php.sh`         | The pinned PHP series, the Flux credentials, the snapshot restore, `composer install`. |
+| `snapshot.sh`    | Finds and unpacks the CI-built `vendor/` archive. Sourced by `php.sh`.                 |
+| `environment.sh` | Writes `.env` from `.env.example`.                                                     |
+| `node.sh`        | `npm ci` and the Vite build.                                                           |
+| `databases.sh`   | Creates the SQLite file and migrates it.                                               |
+| `playwright.sh`  | The browser binary for `test:browser`. Best-effort.                                    |
+| `lefthook.sh`    | Installs the git hooks.                                                                |
+| `await.sh`       | Blocks until `setup.sh` finishes.                                                      |
 
-- `php.sh` installs PHP from apt instead of restoring a static build from `php-ci-static`.
-- `snapshot.sh` and `cloud-snapshot.yml` carry vendor only, with no `php` block in the manifest, and the workflow builds with `shivammathur/setup-php` and the Flux secrets rather than `publicala/php-ci-static/setup-php-vendor`.
-
-`setup.sh`, `lib.sh`, `node.sh`, `playwright.sh` and `databases.sh` are per-repo in every fleet consumer too, so they carry no sync obligation. Logralo runs on SQLite in sandboxes and has no service daemons, which is why it ships no `ensure-services.sh`.
+Anything a module needs to know about this repo — the slug, the env profile, the apt extension list, the checkout markers — belongs in `lib.sh`'s config block, not inline in the module. That is what keeps the modules readable as generic steps.
