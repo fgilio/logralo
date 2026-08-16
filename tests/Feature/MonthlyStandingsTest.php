@@ -214,7 +214,9 @@ it('reports a finished month over every one of its days', function (): void {
     travelToAugustFifth();
 
     $user = User::factory()->create(['name' => 'Ana']);
-    $goal = Goal::factory()->for($user)->create();
+
+    // Dated into July, where its marks are.
+    $goal = Goal::factory()->for($user)->create(['created_at' => CarbonImmutable::parse('2026-07-01')]);
 
     Mark::factory()->for($goal)->on('2026-07-01')->withPhoto()->create();
     Mark::factory()->for($goal)->on('2026-07-02')->create();

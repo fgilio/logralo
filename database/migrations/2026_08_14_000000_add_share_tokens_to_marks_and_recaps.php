@@ -51,13 +51,17 @@ return new class extends Migration
      *
      * Through the query builder rather than the models: a migration outlives
      * whatever shape those classes are in by the time it runs again.
+     *
+     * Paged by id rather than by offset. Every update falsifies the
+     * `whereNull` those pages are cut from, so a limit and
+     * offset walk skips a row for each one it fixes.
      */
     private function backfill(): void
     {
         foreach (self::TABLES as $table) {
             DB::table($table)
                 ->whereNull('share_token')
-                ->orderBy('id')
+                ->lazyById()
                 ->each(function (object $row) use ($table): void {
                     DB::table($table)
                         ->where('id', $row->id)

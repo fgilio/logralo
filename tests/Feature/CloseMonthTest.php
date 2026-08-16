@@ -22,6 +22,22 @@ function closeJulyRecap(): ?MonthlyRecap
     return resolve(CloseMonth::class)->handle(julyMonth());
 }
 
+/**
+ * A goal that was already on the member's board during July.
+ *
+ * These tests travel to August, so a fixture left at the default
+ * created_at counts for no month under test.
+ *
+ * @param  array<string, mixed>  $attributes
+ */
+function julyGoal(User $user, array $attributes = []): Goal
+{
+    return Goal::factory()->for($user)->create([
+        'created_at' => julyMonth(),
+        ...$attributes,
+    ]);
+}
+
 it('refuses to close while one member is still inside their grace window', function (): void {
     // 06:00 UTC on 1 August: grace on 31 July is over for a member fourteen
     // hours ahead, but the Montevideo member has until 15:00 UTC.
@@ -30,8 +46,8 @@ it('refuses to close while one member is still inside their grace window', funct
     $here = User::factory()->create(['name' => 'Ana']);
     $ahead = User::factory()->inTimezone('Pacific/Kiritimati')->create(['name' => 'Beto']);
 
-    Goal::factory()->for($here)->create();
-    Goal::factory()->for($ahead)->create();
+    julyGoal($here);
+    julyGoal($ahead);
 
     expect($here->clock()->isOpen(CarbonImmutable::parse('2026-07-31', $here->timezone)))->toBeTrue()
         ->and($ahead->clock()->isOpen(CarbonImmutable::parse('2026-07-31', $ahead->timezone)))->toBeFalse()
@@ -46,8 +62,8 @@ it('closes the month once the last member is out of grace', function (): void {
     $here = User::factory()->create(['name' => 'Ana']);
     $ahead = User::factory()->inTimezone('Pacific/Kiritimati')->create(['name' => 'Beto']);
 
-    $hereGoal = Goal::factory()->for($here)->create();
-    Goal::factory()->for($ahead)->create();
+    $hereGoal = julyGoal($here);
+    julyGoal($ahead);
 
     Mark::factory()->for($hereGoal)->on('2026-07-31')->withPhoto()->create();
 
@@ -70,7 +86,7 @@ it('closes the month once the last member is out of grace', function (): void {
 it('posts the recap on the last day of the month', function (): void {
     $this->travelTo(CarbonImmutable::parse('2026-08-01 15:00', 'UTC'));
 
-    Goal::factory()->for(User::factory()->create())->create();
+    julyGoal(User::factory()->create());
 
     expect(closeJulyRecap()->posted_on->toDateString())->toBe('2026-07-31');
 });
@@ -79,7 +95,7 @@ it('returns the same recap on a second call and creates nothing', function (): v
     $this->travelTo(CarbonImmutable::parse('2026-08-01 15:00', 'UTC'));
 
     $user = User::factory()->create(['name' => 'Ana']);
-    $goal = Goal::factory()->for($user)->create();
+    $goal = julyGoal($user);
     Mark::factory()->for($goal)->on('2026-07-04')->withPhoto()->create();
 
     $first = closeJulyRecap();
@@ -91,11 +107,60 @@ it('returns the same recap on a second call and creates nothing', function (): v
         ->and(MonthlyRecap::query()->count())->toBe(1);
 });
 
+it('counts only the goals that existed before the month ended', function (): void {
+    $this->travelTo(CarbonImmutable::parse('2026-08-01 15:00', 'UTC'));
+
+    $user = User::factory()->create(['name' => 'Ana']);
+
+    Mark::factory()->for(julyGoal($user))->on('2026-07-01')->withPhoto()->create();
+
+    // Created after July ended, in the gap before the sweep runs.
+    Goal::factory()->for($user)->create(['position' => 2]);
+
+    $frozen = closeJulyRecap()->standingEntries()->first();
+
+    expect($frozen->possibleMarks)->toBe(31)
+        ->and($frozen->fullMarks)->toBe(1);
+});
+
+it('omits a member whose only goal was created after the month ended', function (): void {
+    $this->travelTo(CarbonImmutable::parse('2026-08-01 15:00', 'UTC'));
+
+    $ana = User::factory()->create(['name' => 'Ana']);
+    $beto = User::factory()->create(['name' => 'Beto']);
+
+    Mark::factory()->for(julyGoal($ana))->on('2026-07-01')->withPhoto()->create();
+
+    Goal::factory()->for($beto)->create();
+
+    expect(closeJulyRecap()->standingEntries()->pluck('name')->all())->toBe(['Ana']);
+});
+
+it('drops a mark on a goal the month never saw', function (): void {
+    $this->travelTo(CarbonImmutable::parse('2026-08-01 15:00', 'UTC'));
+
+    $user = User::factory()->create(['name' => 'Ana']);
+
+    Mark::factory()->for(julyGoal($user))->on('2026-07-31')->withPhoto()->create();
+
+    // Grace reaches this far in production: a goal created on the 1st accepts
+    // a mark dated to the 31st until noon. Counting that mark
+    // while its goal is out of the denominator is how a
+    // frozen score passes 100%.
+    $latecomer = Goal::factory()->for($user)->create(['position' => 2]);
+    Mark::factory()->for($latecomer)->on('2026-07-31')->withPhoto()->create();
+
+    $frozen = closeJulyRecap()->standingEntries()->first();
+
+    expect($frozen->possibleMarks)->toBe(31)
+        ->and($frozen->fullMarks)->toBe(1);
+});
+
 it('freezes the standings so later archiving cannot rewrite them', function (): void {
     $this->travelTo(CarbonImmutable::parse('2026-08-01 15:00', 'UTC'));
 
     $user = User::factory()->create(['name' => 'Ana']);
-    $goal = Goal::factory()->for($user)->create();
+    $goal = julyGoal($user);
 
     Mark::factory()->for($goal)->on('2026-07-01')->withPhoto()->create();
     Mark::factory()->for($goal)->on('2026-07-02')->create();
@@ -126,8 +191,8 @@ it('records the best streak of the month, counting a run that started before it'
     $runner = User::factory()->create(['name' => 'Ana']);
     $walker = User::factory()->create(['name' => 'Beto']);
 
-    $longGoal = Goal::factory()->for($runner)->create(['name' => 'Correr']);
-    $shortGoal = Goal::factory()->for($walker)->create(['name' => 'Caminar']);
+    $longGoal = julyGoal($runner, ['name' => 'Correr']);
+    $shortGoal = julyGoal($walker, ['name' => 'Caminar']);
 
     // Three days of June rolling into five of July: the flame read 8.
     foreach (['06-28', '06-29', '06-30', '07-01', '07-02', '07-03', '07-04', '07-05'] as $day) {
@@ -149,7 +214,7 @@ it('counts a streak on a goal that was archived after the month', function (): v
     $this->travelTo(CarbonImmutable::parse('2026-08-01 15:00', 'UTC'));
 
     $user = User::factory()->create(['name' => 'Ana']);
-    $goal = Goal::factory()->for($user)->archived()->create();
+    $goal = Goal::factory()->for($user)->archived()->create(['created_at' => julyMonth()]);
 
     foreach (['07-20', '07-21', '07-22', '07-23'] as $day) {
         Mark::factory()->for($goal)->on("2026-{$day}")->withPhoto()->create();
@@ -168,7 +233,7 @@ it('counts a streak on a goal that was archived after the month', function (): v
 it('leaves the streak fields empty when nobody marked anything', function (): void {
     $this->travelTo(CarbonImmutable::parse('2026-08-01 15:00', 'UTC'));
 
-    Goal::factory()->for(User::factory()->create())->create();
+    julyGoal(User::factory()->create());
 
     $recap = closeJulyRecap();
 
@@ -180,7 +245,7 @@ it('leaves the streak fields empty when nobody marked anything', function (): vo
 it('logs one canonical line per close', function (): void {
     $this->travelTo(CarbonImmutable::parse('2026-08-01 15:00', 'UTC'));
 
-    Goal::factory()->for(User::factory()->create())->create();
+    julyGoal(User::factory()->create());
 
     Log::spy();
 
@@ -196,7 +261,7 @@ it('logs one canonical line per close', function (): void {
 it('logs the not-yet outcome when the month is still open', function (): void {
     $this->travelTo(CarbonImmutable::parse('2026-08-01 06:00', 'UTC'));
 
-    Goal::factory()->for(User::factory()->create())->create();
+    julyGoal(User::factory()->create());
 
     Log::spy();
 

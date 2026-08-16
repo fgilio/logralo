@@ -125,6 +125,15 @@ it('puts two members in different months at the same instant', function (): void
         ->and($behind->daysElapsedThisMonth())->toBe(31);
 });
 
+it('reads a stored instant as the day the member was living', function (): void {
+    // 22:00 on 31 August in Montevideo, stored as 1 September.
+    $created = CarbonImmutable::parse('2026-09-01 01:00:00', 'UTC');
+
+    expect(UserClock::in('America/Montevideo')->dayOf($created)->toDateString())->toBe('2026-08-31')
+        ->and(UserClock::in('UTC')->dayOf($created)->toDateString())->toBe('2026-09-01')
+        ->and(UserClock::in('Pacific/Kiritimati')->dayOf($created)->toDateString())->toBe('2026-09-01');
+});
+
 it('reads the grace hour from configuration', function (): void {
     config()->set('logralo.grace_cutoff_hour', 9);
 

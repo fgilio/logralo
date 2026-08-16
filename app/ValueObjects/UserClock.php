@@ -47,6 +47,18 @@ final readonly class UserClock
     }
 
     /**
+     * The member's own calendar day an instant fell on.
+     *
+     * Timestamps are stored in the app's zone, so a row written at 22:00 on
+     * 31 August in Montevideo reads as 1 September in UTC. Whose
+     * August a row falls in is a question about the member.
+     */
+    public function dayOf(CarbonImmutable $instant): CarbonImmutable
+    {
+        return $instant->setTimezone($this->timezone)->startOfDay();
+    }
+
+    /**
      * The instant day $day stops accepting marks: the next day at the grace
      * hour.
      */
