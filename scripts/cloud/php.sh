@@ -25,6 +25,28 @@ cd "$(pla_project_dir)" || exit 1
 
 export COMPOSER_ALLOW_SUPERUSER="${COMPOSER_ALLOW_SUPERUSER:-1}"
 
+# The export above only covers this process. Sandboxes run as root, where
+# composer aborts ("no plugin should be loaded if running as super user is not
+# explicitly allowed") rather than running its scripts — which would make every
+# command CLAUDE.md documents (`composer test`, `composer lint`, `composer dev`)
+# fail in a session shell. Persist it to the shell profiles so the whole
+# session has it, not just this bootstrap.
+persist_composer_superuser() {
+    if [ "$(id -u)" -ne 0 ] || ! pla_cloud_session; then
+        return
+    fi
+    local line='export COMPOSER_ALLOW_SUPERUSER=1 # logralo cloud bootstrap'
+    local profile
+    for profile in "$HOME/.bashrc" "$HOME/.profile"; do
+        if [ -f "$profile" ] && grep -qF 'logralo cloud bootstrap' "$profile"; then
+            continue
+        fi
+        printf '%s\n' "$line" >> "$profile" 2>/dev/null \
+            || warn "Could not append COMPOSER_ALLOW_SUPERUSER to $profile."
+    done
+}
+persist_composer_superuser
+
 # Some sandboxes export GITHUB_TOKEN as a literal placeholder (measured value
 # in Claude Code on the web: 'proxy-injected'). Composer sends it as a GitHub
 # credential and every request it authenticates comes back 403. Drop it for

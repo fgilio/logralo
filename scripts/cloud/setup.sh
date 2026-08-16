@@ -50,9 +50,22 @@ if [ "$local_mode" -eq 1 ]; then
     exit 0
 fi
 
-# Cheap and independent, so it runs alongside the heavy work.
-bash "$here/lefthook.sh" &
-lefthook_pid=$!
+# Cheap and independent, so they run alongside the heavy work.
+{
+    bash "$here/lefthook.sh"
+
+    # Pest's Tia mode resolves every branch's baseline through the default
+    # branch, and refuses to guess: with a remote but no origin/HEAD it aborts
+    # rather than silently re-run the whole suite while reporting a cache hit.
+    # Sandbox checkouts arrive without that ref, so `composer test` fails on it
+    # in every fresh session until this runs. Harmless where it is already set.
+    if ! git symbolic-ref -q refs/remotes/origin/HEAD >/dev/null; then
+        log 'Resolving the default branch for Tia (origin/HEAD)'
+        git remote set-head origin --auto >/dev/null 2>&1 \
+            || warn 'Could not resolve origin/HEAD. Pest Tia mode will refuse to run; set it with: git remote set-head origin --auto'
+    fi
+} &
+side_pid=$!
 
 # One serialized track, not a fan-out, because each step needs the one before
 # it:
@@ -77,7 +90,7 @@ assets_track() {
     bash "$here/playwright.sh" || warn 'Playwright browser setup failed.'
 }
 assets_track && assets_rc=0 || assets_rc=$?
-wait "$lefthook_pid" || true
+wait "$side_pid" || true
 
 setup_failed=0
 if [ "$assets_rc" -eq 1 ]; then

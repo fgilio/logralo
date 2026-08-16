@@ -26,6 +26,8 @@ So vendor/ has to arrive some other way. The one GitHub surface a sandbox can al
 
 Everything else the sandbox needs is ordinary: npm and the Vite build reach the public registry directly, and Chromium is pre-provisioned at `PLAYWRIGHT_BROWSERS_PATH`.
 
+Two smaller things the bootstrap also fixes, both of which otherwise break `composer test` in a fresh session. Sandbox checkouts arrive without `origin/HEAD`, and Pest's Tia mode aborts rather than guess the branch every baseline falls back to, so `setup.sh` resolves it with `git remote set-head origin --auto`. And sandboxes run as root, where composer refuses to load plugins unless `COMPOSER_ALLOW_SUPERUSER` is set, so `php.sh` persists that variable to the shell profiles rather than only exporting it for its own process.
+
 ## When the snapshot is missing
 
 `composer install` failing twice in a sandbox almost always means no snapshot matches the current `composer.lock` — a dependency bump landed and the snapshot for the new lock has not been built yet. The workflow runs on pushes to `main` that touch `composer.json`, `composer.lock`, `.github/php-version`, or the workflow itself, and can be started by hand from the Actions tab (`workflow_dispatch`) when retention has pruned the snapshot a still-checked-out lock needs. Once it has run, `bash scripts/cloud/setup.sh` picks it up.
