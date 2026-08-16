@@ -74,15 +74,15 @@ final readonly class MarkGoal
             return $mark;
         } catch (UserFacingException $exception) {
             Context::add('logralo.outcome', 'rejected');
-            Context::add('logralo.reject_reason', class_basename($exception));
+            Context::add('logralo.reject_reason', $exception->reason());
 
             throw $exception;
-        } catch (Throwable $exception) {
+        } catch (Throwable $throwable) {
             Context::add('logralo.outcome', 'error');
-            Context::add('logralo.error', $exception->getMessage());
-            Context::add('logralo.error_class', $exception::class);
+            Context::add('logralo.error', $throwable->getMessage());
+            Context::add('logralo.error_class', $throwable::class);
 
-            throw $exception;
+            throw $throwable;
         } finally {
             Log::info('mark.create.handled');
         }
@@ -95,10 +95,7 @@ final readonly class MarkGoal
     public function requiresPhoto(Goal $goal, CarbonImmutable $day): bool
     {
         return $this->photoRule->requiresPhoto(
-            $this->history->for($goal)->recentFullnessBefore(
-                $day->toDateString(),
-                (int) config('logralo.goals.ghosts_before_camera'),
-            )
+            $this->history->for($goal)->recentFullnessBefore($day->toDateString())
         );
     }
 
@@ -134,7 +131,7 @@ final readonly class MarkGoal
     private function cleanNote(?string $note): ?string
     {
         $clean = Str::of($note ?? '')->squish()->limit(
-            (int) config('logralo.goals.note_max_length'),
+            config()->integer('logralo.goals.note_max_length'),
             end: '',
         );
 

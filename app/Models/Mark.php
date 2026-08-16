@@ -7,6 +7,8 @@ namespace App\Models;
 use App\Casts\LocalDate;
 use App\Concerns\Shareable;
 use App\Enums\MarkKind;
+use App\Services\PhotoProcessor;
+use App\ValueObjects\PhotoLinks;
 use Carbon\CarbonImmutable;
 use Database\Factories\MarkFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
@@ -75,6 +77,23 @@ final class Mark extends Model
     public function isGhost(): bool
     {
         return $this->kind() === MarkKind::Ghost;
+    }
+
+    /**
+     * The photo's derivative links, or null on a ghost mark.
+     *
+     * A photo whose dimensions were never recorded falls back to 4:3 here,
+     * once, so every screen reserves the same box for the same photo.
+     */
+    public function photoLinks(): ?PhotoLinks
+    {
+        return $this->photo_key === null
+            ? null
+            : resolve(PhotoProcessor::class)->links(
+                $this->photo_key,
+                $this->photo_width ?? 4,
+                $this->photo_height ?? 3,
+            );
     }
 
     /** A mark is one person's, so only they can take its link back. */

@@ -9,7 +9,6 @@ use App\Exceptions\UserFacingException;
 use App\Models\Goal;
 use App\Models\Mark;
 use App\Queries\GoalHistory;
-use App\Services\PhotoProcessor;
 use App\Services\PhotoRule;
 use App\Services\StreakCalculator;
 use App\Services\StreakMilestone;
@@ -101,29 +100,14 @@ new class extends Component
     public function requiresPhoto(): bool
     {
         return resolve(PhotoRule::class)->requiresPhoto(
-            $this->history->recentFullnessBefore(
-                $this->date,
-                (int) config('logralo.goals.ghosts_before_camera'),
-            ),
+            $this->history->recentFullnessBefore($this->date),
         );
     }
 
     #[Computed]
     public function photoLinks(): ?PhotoLinks
     {
-        $mark = $this->mark;
-
-        if ($mark === null || $mark->photo_key === null) {
-            return null;
-        }
-
-        return resolve(PhotoProcessor::class)->links(
-            $mark->photo_key,
-            // 4:3 like MarkEntries, not 1:1. Same missing data, and two
-            // different reserved boxes for it is how the pair drifts.
-            $mark->photo_width ?? 4,
-            $mark->photo_height ?? 3,
-        );
+        return $this->mark?->photoLinks();
     }
 
     /** Unique page-wide: the same goal can be on screen for two days at once. */

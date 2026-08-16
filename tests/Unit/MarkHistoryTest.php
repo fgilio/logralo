@@ -74,25 +74,17 @@ it('counts a history made only of ghost marks', function (): void {
         ->and($history->ghostRunEndingOn('2026-07-31'))->toBe(0);
 });
 
-it('reports the recent marks newest first', function (): void {
-    expect(weekOfMarks()->recentFullnessBefore('2026-08-06', 3))->toBe([true, false, false]);
+it('reports the marks before a day newest first', function (): void {
+    expect(weekOfMarks()->recentFullnessBefore('2026-08-06'))->toBe([true, false, false, true, true]);
 });
 
 it('leaves out the day itself and everything after it', function (): void {
     $history = weekOfMarks();
 
-    expect($history->recentFullnessBefore('2026-08-03', 5))->toBe([true, true])
-        ->and($history->recentFullnessBefore('2026-08-01', 5))->toBe([]);
-});
-
-it('stops at the limit it was asked for', function (): void {
-    $history = weekOfMarks();
-
-    expect($history->recentFullnessBefore('2026-08-08', 2))->toBe([false, false])
-        ->and($history->recentFullnessBefore('2026-08-08', 1))->toBe([false])
-        ->and($history->recentFullnessBefore('2026-08-08', 0))->toBe([]);
+    expect($history->recentFullnessBefore('2026-08-03'))->toBe([true, true])
+        ->and($history->recentFullnessBefore('2026-08-01'))->toBe([]);
 });
 
 it('reports nothing recent for an empty history', function (): void {
-    expect(MarkHistory::empty()->recentFullnessBefore('2026-08-08', 2))->toBe([]);
+    expect(MarkHistory::empty()->recentFullnessBefore('2026-08-08'))->toBe([]);
 });
