@@ -14,7 +14,7 @@ use Carbon\CarbonImmutable;
  * A streak only breaks when a day *closes* unmarked, so an unmarked today (and
  * an unmarked yesterday during grace) is skipped rather than counted as a miss.
  */
-final class StreakCalculator
+final readonly class StreakCalculator
 {
     /**
      * The streak a member sees on the goal card right now.

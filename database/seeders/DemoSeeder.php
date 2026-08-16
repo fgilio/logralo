@@ -57,7 +57,7 @@ final class DemoSeeder extends Seeder
         foreach ($users as $user) {
             $goals = collect(self::GOALS)
                 ->shuffle()
-                ->take(random_int(2, 4))
+                ->take(fake()->numberBetween(2, 4))
                 ->values()
                 ->map(fn (array $goal, int $position): Goal => $user->goals()->create([
                     'emoji' => $goal[0],
@@ -70,12 +70,12 @@ final class DemoSeeder extends Seeder
             foreach ($goals as $goal) {
                 for ($daysAgo = 24; $daysAgo >= 0; $daysAgo--) {
                     // A believable streak: mostly kept, occasionally dropped.
-                    if (random_int(1, 100) > 74) {
+                    if (! fake()->boolean(74)) {
                         continue;
                     }
 
                     $day = $clock->today()->subDays($daysAgo);
-                    $withPhoto = random_int(1, 100) <= 62;
+                    $withPhoto = fake()->boolean(62);
 
                     $stored = $withPhoto ? $photos->store($this->fakePhoto()) : null;
 
@@ -86,12 +86,12 @@ final class DemoSeeder extends Seeder
                         'photo_key' => $stored?->key,
                         'photo_width' => $stored?->width,
                         'photo_height' => $stored?->height,
-                        'note' => random_int(1, 100) <= 18 ? 'Costó, pero salió 💪' : null,
-                        'created_at' => $day->setTime(random_int(7, 22), random_int(0, 59)),
-                        'updated_at' => $day->setTime(random_int(7, 22), random_int(0, 59)),
+                        'note' => fake()->boolean(18) ? 'Costó, pero salió 💪' : null,
+                        'created_at' => $day->setTime(fake()->numberBetween(7, 22), fake()->numberBetween(0, 59)),
+                        'updated_at' => $day->setTime(fake()->numberBetween(7, 22), fake()->numberBetween(0, 59)),
                     ]);
 
-                    foreach ($users->reject(fn (User $other): bool => $other->is($user))->random(random_int(0, 3)) as $reactor) {
+                    foreach ($users->reject(fn (User $other): bool => $other->is($user))->random(fake()->numberBetween(0, 3)) as $reactor) {
                         Reaction::query()->create([
                             'mark_id' => $mark->id,
                             'user_id' => $reactor->id,
@@ -110,7 +110,7 @@ final class DemoSeeder extends Seeder
     private function fakePhoto(): UploadedFile
     {
         $image = resolve(ImageManager::class)->createImage(1200, 1500)->fill(
-            sprintf('#%02x%02x%02x', random_int(30, 220), random_int(30, 220), random_int(30, 220)),
+            sprintf('#%02x%02x%02x', fake()->numberBetween(30, 220), fake()->numberBetween(30, 220), fake()->numberBetween(30, 220)),
         );
 
         $path = storage_path('app/'.Str::ulid().'.jpg');

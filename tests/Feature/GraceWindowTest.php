@@ -134,7 +134,7 @@ it('closes a day at the grace hour of the next local day', function (): void {
     expect($closesAt->toDateTimeString())->toBe('2026-08-11 12:00:00')
         ->and($closesAt->timezone->getName())->toBe('America/Montevideo')
         ->and($closesAt->utc()->toDateTimeString())->toBe('2026-08-11 15:00:00')
-        ->and($clock->graceCutoffHour)->toBe((int) config('logralo.grace_cutoff_hour'));
+        ->and($clock->graceCutoffHour)->toBe(config()->integer('logralo.grace_cutoff_hour'));
 });
 
 it('rolls the window forward across a local midnight', function (): void {

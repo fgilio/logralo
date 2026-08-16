@@ -38,7 +38,7 @@ new class extends Component
 
     public function mount(): void
     {
-        $this->limit = (int) config('logralo.feed.page_size');
+        $this->limit = config()->integer('logralo.feed.page_size');
     }
 
     #[Computed]
@@ -88,7 +88,7 @@ new class extends Component
             return;
         }
 
-        $this->limit += (int) config('logralo.feed.page_size');
+        $this->limit += config()->integer('logralo.feed.page_size');
 
         $this->refresh();
     }

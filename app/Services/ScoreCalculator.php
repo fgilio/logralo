@@ -14,7 +14,7 @@ use Illuminate\Support\Collection;
  * shared podium — tied members get the same rank, and the rank after a tie
  * skips (1, 1, 3), so "runner-up" never means "beat nobody".
  */
-final class ScoreCalculator
+final readonly class ScoreCalculator
 {
     /**
      * @param  list<Standing>  $standings  ranks on the way in are ignored

@@ -93,7 +93,7 @@ it('shrinks a camera original in the browser before it uploads', function (): vo
     $user = User::factory()->create();
     Goal::factory()->for($user)->create(['name' => 'Correr']);
 
-    $budget = (int) config('logralo.photos.client_max_megapixels') * 1_000_000;
+    $budget = config()->integer('logralo.photos.client_max_megapixels') * 1_000_000;
 
     // Both sides are scaled by the square root of the ratio between 24 MP and
     // the budget, so these are the exact dimensions the server should receive.

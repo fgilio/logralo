@@ -66,9 +66,9 @@ final readonly class RecapEntry implements FeedEntry
             return null;
         }
 
-        // Spelled out rather than inflected. `Str::plural` is an English
-        // inflector whose third argument is prependCount rather than the plural
-        // form, which is how "La abrieron 7 7 vezs" reached the group chat.
+        // Spelled out rather than inflected: `Str::plural` is an English
+        // inflector, and its third argument is prependCount, not the plural
+        // form.
         $unit = $days === 1 ? 'día' : 'días';
 
         return "{$days} {$unit} · ".($this->recap->bestStreakUser->name ?? '—');

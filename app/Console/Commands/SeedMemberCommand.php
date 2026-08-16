@@ -9,6 +9,7 @@ use App\Models\User;
 use Illuminate\Console\Attributes\Description;
 use Illuminate\Console\Attributes\Signature;
 use Illuminate\Console\Command;
+use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Str;
 
 /**
@@ -25,24 +26,26 @@ final class SeedMemberCommand extends Command
     public function handle(IssueMagicLink $issueMagicLink): int
     {
         $timezone = (string) ($this->argument('timezone') ?? config('logralo.default_timezone'));
+        $email = Str::of((string) $this->argument('email'))->trim()->lower()->value();
 
-        if (! in_array($timezone, timezone_identifiers_list(), true)) {
-            $this->components->error("Unknown timezone [{$timezone}].");
+        $validator = Validator::make(
+            ['email' => $email, 'timezone' => $timezone],
+            ['email' => ['required', 'email'], 'timezone' => ['required', 'timezone:all']],
+            [
+                'email' => "Invalid email [{$email}].",
+                'timezone' => "Unknown timezone [{$timezone}].",
+            ],
+        );
 
-            return self::FAILURE;
-        }
-
-        $email = Str::lower(mb_trim((string) $this->argument('email')));
-
-        if (! filter_var($email, FILTER_VALIDATE_EMAIL)) {
-            $this->components->error("Invalid email [{$email}].");
+        if ($validator->fails()) {
+            $this->components->error($validator->errors()->first());
 
             return self::FAILURE;
         }
 
         $user = User::query()->updateOrCreate(
             ['email' => $email],
-            ['name' => mb_trim((string) $this->argument('name')), 'timezone' => $timezone],
+            ['name' => Str::of((string) $this->argument('name'))->trim()->value(), 'timezone' => $timezone],
         );
 
         $link = $issueMagicLink->handle($user);

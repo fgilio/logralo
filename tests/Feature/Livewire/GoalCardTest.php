@@ -220,7 +220,7 @@ it('rejects a note longer than the limit', function (): void {
 
     Livewire::actingAs($user)
         ->test('goal-card', ['goal' => $goal])
-        ->set('note', str_repeat('a', (int) config('logralo.goals.note_max_length') + 1))
+        ->set('note', str_repeat('a', config()->integer('logralo.goals.note_max_length') + 1))
         ->call('save')
         ->assertHasErrors(['note' => 'max']);
 

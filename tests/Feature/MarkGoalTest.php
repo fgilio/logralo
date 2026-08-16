@@ -83,7 +83,7 @@ it('squishes and trims the note', function (): void {
 it('caps the note at the configured length', function (): void {
     $mark = $this->mark->handle($this->goal, $this->today, note: str_repeat('a', 300));
 
-    $max = (int) config('logralo.goals.note_max_length');
+    $max = config()->integer('logralo.goals.note_max_length');
 
     expect($mark->note)->toBe(str_repeat('a', $max))
         ->and(mb_strlen((string) $mark->note))->toBe($max);

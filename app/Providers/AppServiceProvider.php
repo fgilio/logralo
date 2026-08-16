@@ -28,9 +28,8 @@ final class AppServiceProvider extends ServiceProvider
         // serves the roster the last one loaded.
         $this->app->scoped(Members::class);
 
-        // Both are stateless and both are resolved once per avatar — a page of
-        // twenty faces built each of them twenty times, ImageManager and all,
-        // to call one method that reads config and returns a string.
+        // Both are stateless and both are resolved once per avatar, so held
+        // as singletons a page of faces builds each exactly once.
         $this->app->singleton(PhotoProcessor::class);
         $this->app->singleton(Gravatar::class);
     }

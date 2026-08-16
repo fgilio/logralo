@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace App\ValueObjects;
 
-use Illuminate\Support\Str;
+use Illuminate\Support\Number;
 
 /**
  * One member's line in the monthly standings.
@@ -69,11 +69,7 @@ final readonly class Standing
      */
     public function percentageLabel(): string
     {
-        return Str::of(number_format($this->percentage(), 1, ',', '.'))
-            ->rtrim('0')
-            ->rtrim(',')
-            ->append('%')
-            ->toString();
+        return Number::format($this->percentage(), maxPrecision: 1, locale: 'es').'%';
     }
 
     /** The solid segment of the standings bar. */

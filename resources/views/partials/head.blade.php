@@ -76,7 +76,7 @@
     window.Logralo = {
         photo: {
             maxPixels: {{ (int) (config('logralo.photos.client_max_megapixels') * 1_000_000) }},
-            quality: {{ (int) config('logralo.photos.client_jpeg_quality') / 100 }},
+            quality: {{ config()->integer('logralo.photos.client_jpeg_quality') / 100 }},
         },
     };
 </script>

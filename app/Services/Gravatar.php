@@ -35,7 +35,7 @@ final readonly class Gravatar
      */
     public function url(string $email): ?string
     {
-        if (config('logralo.avatars.gravatar') !== true) {
+        if (! config()->boolean('logralo.avatars.gravatar')) {
             return null;
         }
 
@@ -46,7 +46,7 @@ final readonly class Gravatar
 
         return Uri::of(self::HOST)
             ->withPath("/avatar/{$hash}")
-            ->withQuery(['s' => (int) config('logralo.avatars.size'), 'd' => '404'])
+            ->withQuery(['s' => config()->integer('logralo.avatars.size'), 'd' => '404'])
             ->value();
     }
 }

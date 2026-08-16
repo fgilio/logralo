@@ -61,7 +61,7 @@ it('offers the add-goal link until the member is out of slots', function (): voi
     morningInMontevideo();
 
     $user = User::factory()->create();
-    Goal::factory()->for($user)->count((int) config('logralo.goals.max_active') - 1)->create();
+    Goal::factory()->for($user)->count(config()->integer('logralo.goals.max_active') - 1)->create();
 
     Livewire::actingAs($user)->test('pages::today')->assertSeeHtml('data-test="add-goal"');
 

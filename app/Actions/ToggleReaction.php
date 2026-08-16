@@ -16,7 +16,7 @@ use Throwable;
  * One reaction per member per card. Tapping the same emoji removes it, tapping
  * a different one swaps it. No notifications — reactions are found by looking.
  */
-final class ToggleReaction
+final readonly class ToggleReaction
 {
     public function handle(Mark $mark, User $user, ReactionEmoji $emoji): ?Reaction
     {

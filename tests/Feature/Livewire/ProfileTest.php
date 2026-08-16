@@ -74,7 +74,7 @@ it('refuses a name longer than the limit', function (): void {
     Livewire::actingAs(User::factory()->create())
         ->test('pages::profile')
         ->set('goalEmoji', '🏊')
-        ->set('goalName', str_repeat('a', (int) config('logralo.goals.name_max_length') + 1))
+        ->set('goalName', str_repeat('a', config()->integer('logralo.goals.name_max_length') + 1))
         ->call('saveGoal')
         ->assertHasErrors(['goalName' => 'max']);
 
@@ -82,7 +82,7 @@ it('refuses a name longer than the limit', function (): void {
 });
 
 it('refuses a goal once the grid is full', function (): void {
-    $max = (int) config('logralo.goals.max_active');
+    $max = config()->integer('logralo.goals.max_active');
     $user = User::factory()->create();
     Goal::factory()->for($user)->count($max)->create();
 
@@ -151,7 +151,7 @@ it('restores an archived goal', function (): void {
 });
 
 it('refuses to restore a goal into a full grid', function (): void {
-    $max = (int) config('logralo.goals.max_active');
+    $max = config()->integer('logralo.goals.max_active');
     $user = User::factory()->create();
     Goal::factory()->for($user)->count($max)->create();
     $archived = Goal::factory()->for($user)->archived()->create();
