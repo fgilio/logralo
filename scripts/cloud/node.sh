@@ -29,6 +29,14 @@ pkg_direct() {
 # dependency tree every time a session commits something.
 lock_hash="$(sha256sum package-lock.json 2>/dev/null | cut -d' ' -f1)"
 build_key="${lock_hash}-$(git rev-parse HEAD 2>/dev/null)"
+# The commit half of build_key only describes committed work, so uncommitted
+# edits to a build input are invisible to it: a resumed session whose lockfile
+# and HEAD both still match would skip the build and leave public/build
+# describing the last commit rather than the working tree. Tracking whether
+# those inputs are dirty is enough to fall through to a rebuild; the contents
+# do not need hashing, because any further edit keeps them dirty and the
+# rebuild keeps happening until the work is committed.
+build_inputs_dirty="$(git status --porcelain -- resources vite.config.js 2>/dev/null)"
 install_marker='node_modules/.cloud-npm-lockhash'
 # Outside node_modules, so a reinstall cannot take the build marker with it,
 # and beside the artifacts it describes, so a wiped public/build invalidates it.
@@ -57,6 +65,7 @@ fi
 # either fails outright or emits CSS missing every Flux class. setup.sh
 # serializes the two for exactly this reason.
 if [ -f public/build/manifest.json ] && [ -n "$lock_hash" ] \
+    && [ -z "$build_inputs_dirty" ] \
     && [ "$(cat "$build_marker" 2>/dev/null)" = "$build_key" ]; then
     log 'Assets already built for this lockfile and commit. Skipping the build.'
     exit 0

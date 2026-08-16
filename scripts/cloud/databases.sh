@@ -25,9 +25,17 @@ fi
 # (every encryption path throwing) is not obvious from the symptom.
 [ -f database/database.sqlite ] || touch database/database.sqlite
 
+# Fail the track rather than warn: this is the last attempt, environment.sh
+# having already tried and only warned. An app that reaches the session with an
+# empty APP_KEY throws on every encryption path, and migrate below would still
+# succeed and let setup.sh record 'done' — so await.sh would greenlight an
+# environment nothing encryption-dependent can run in.
 if grep -qE '^APP_KEY=\s*$' .env; then
     log 'Generating the application key'
-    php artisan key:generate --ansi --force || warn 'key:generate failed.'
+    if ! php artisan key:generate --ansi --force; then
+        warn 'key:generate failed. Every encryption path will throw until APP_KEY is set.'
+        exit 1
+    fi
 fi
 
 # migrate, not migrate:fresh: a resumed container keeps whatever the session
