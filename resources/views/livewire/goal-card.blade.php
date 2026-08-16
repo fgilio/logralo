@@ -381,20 +381,33 @@ new class extends Component
         @endif
 
         @if ($mark === null)
-            <div class="mt-5 flex flex-col gap-4" x-data>
+            {{-- The camera original is resized and re-encoded in the browser
+                 before it uploads, so `wire:model` is out and `photoPicker`
+                 does the upload by hand. --}}
+            <div
+                class="mt-5 flex flex-col gap-4"
+                x-data="photoPicker({
+                    maxPixels: {{ (int) (config('logralo.photos.client_max_megapixels') * 1_000_000) }},
+                    quality: {{ (int) config('logralo.photos.client_jpeg_quality') / 100 }},
+                })"
+            >
                 <input
                     type="file"
                     accept="image/*"
                     capture="environment"
-                    wire:model="photo"
+                    @change="pick($event)"
                     x-ref="camera"
                     class="sr-only"
                     data-test="camera-input"
                 >
 
+                {{-- Disabled while busy because the overlay below is inside
+                     this button: without it a tap on the spinner reopens the
+                     camera and races a second upload against the first. --}}
                 <button
                     type="button"
-                    @click="$refs.camera.value = ''; $refs.camera.click()"
+                    @click="open()"
+                    x-bind:disabled="busy"
                     class="relative grid aspect-video w-full place-items-center overflow-hidden rounded-xl border-2 border-dashed border-zinc-300 bg-zinc-50 transition active:scale-[0.99] dark:border-white/15 dark:bg-white/5"
                     data-test="open-camera"
                 >
@@ -408,12 +421,19 @@ new class extends Component
                         </span>
                     @endif
 
+                    {{-- Covers the resize as well as the upload: on an older
+                         phone the resize is the longer half, and it happens
+                         before Livewire knows a file exists. The percentage
+                         only appears once bytes are moving, so the quiet
+                         stretch is the resize and the counting one is the
+                         upload. --}}
                     <div
-                        wire:loading
-                        wire:target="photo"
-                        class="absolute inset-0 grid place-items-center bg-zinc-900/60 text-white"
+                        x-show="busy"
+                        x-cloak
+                        class="absolute inset-0 grid place-items-center gap-1 bg-zinc-900/60 text-white"
                     >
                         <flux:icon name="loading" class="animate-spin" />
+                        <span x-show="progress > 0" x-text="`${progress}%`" class="text-xs"></span>
                     </div>
                 </button>
 
@@ -426,11 +446,21 @@ new class extends Component
                     data-test="note"
                 />
 
+                {{-- Saving mid-upload would mark the day without the photo the
+                     member is watching upload, so the button waits for it.
+
+                     Both bindings are load-bearing — the Flux prop paints the
+                     button before Alpine is up, and the `x-bind` governs it
+                     afterwards — but the rule they share is written once, or
+                     the two would disagree with nothing to notice. --}}
+                @php($photoStillOwed = $this->requiresPhoto && $photo === null)
+
                 <flux:button
                     wire:click="save"
                     variant="primary"
                     class="w-full"
-                    :disabled="$this->requiresPhoto && $photo === null"
+                    :disabled="$photoStillOwed"
+                    x-bind:disabled="busy || @js($photoStillOwed)"
                     data-test="save"
                 >
                     {{ $photo !== null ? 'Marcar con foto' : 'Marcar' }}

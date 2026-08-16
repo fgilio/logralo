@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Services;
 
+use App\Exceptions\PhotoTooLargeException;
 use App\Exceptions\PhotoUnreadableException;
 use App\ValueObjects\PhotoLinks;
 use App\ValueObjects\StoredPhoto;
@@ -49,10 +50,14 @@ final readonly class PhotoProcessor
      * @throws PhotoUnreadableException when the upload is not an image this
      *                                  build of PHP can decode — a HEIC on a
      *                                  GD-only host, in practice
+     * @throws PhotoTooLargeException when decoding it would not fit in the
+     *                                container
      */
     public function store(UploadedFile $file): StoredPhoto
     {
         $path = (string) $file->getRealPath();
+
+        $this->guardPixelCount($file);
 
         // The key is a directory on the photo disk; the disk itself is what
         // decides where that lives.
@@ -179,6 +184,39 @@ final readonly class PhotoProcessor
     public function disk(): Filesystem
     {
         return Storage::disk((string) config('logralo.photos.disk'));
+    }
+
+    /**
+     * What decoding this would cost, asked before anything decodes it.
+     *
+     * Reading the header stops there, so this is free; the decode
+     * it stands in front of is four bytes a pixel, which puts a 48 MP camera
+     * original at 190 MB inside a 512 MiB container. Past the ceiling the
+     * member gets a sentence, rather than every request in flight getting an
+     * OOM kill.
+     *
+     * Phones do not arrive here: `resources/js/compress-photo.js` resizes the
+     * picture before it uploads. This is the net under the upload that skipped
+     * that — a desktop drag-and-drop, or a browser where the resize failed and
+     * handed the original back on purpose.
+     */
+    private function guardPixelCount(UploadedFile $file): void
+    {
+        // `dimensions()` is the framework's own header read — the same one the
+        // `image` validation rule uses, warnings already suppressed. It gives
+        // nothing back for a format the parser does not know, which includes
+        // HEIC: that one is decode()'s to refuse, and its 12 MP is not the
+        // problem this guard exists for.
+        $dimensions = $file->dimensions();
+
+        if (! is_array($dimensions)) {
+            return;
+        }
+
+        $ceiling = (int) config('logralo.photos.max_megapixels');
+        $megapixels = $dimensions[0] * $dimensions[1] / 1_000_000;
+
+        throw_if($megapixels > $ceiling, PhotoTooLargeException::class, $file->getClientOriginalName(), $megapixels, $ceiling);
     }
 
     private function decode(string $path, string $originalName): ImageInterface

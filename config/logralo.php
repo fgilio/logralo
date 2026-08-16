@@ -54,12 +54,27 @@ return [
     | Originals are never kept: every upload is downscaled, stripped of metadata
     | and stored as a feed image plus a card thumbnail.
     |
+    | Two of these numbers are about memory rather than looks. A decoded pixel
+    | costs four bytes, so a 48 MP camera original is 190 MB inside a 512 MiB
+    | container — the browser therefore resizes before it uploads, and the
+    | server refuses anything that still would not fit.
+    |
     */
 
     'photos' => [
         'disk' => (string) env('LOGRALO_PHOTO_DISK', 'photos'),
         'webp_quality' => 78,
         'jpeg_quality' => 80,
+        // What the phone shrinks to before uploading. Generous on purpose:
+        // nothing wider than 1080px is ever stored, so 12 MP is around twenty
+        // times what the pipeline needs, and the headroom is what keeps this
+        // number out of the way if a derivative ever grows.
+        'client_max_megapixels' => 12,
+        'client_jpeg_quality' => 85,
+        // The ceiling the server will decode, with room for the one full-size
+        // bitmap the pipeline holds at a time. Past this an upload is refused
+        // in words rather than by taking the container down with it.
+        'max_megapixels' => 32,
         // Public buckets keep the feed browser-cacheable. Flip this on for a
         // private bucket and every photo URL becomes a short-lived signed one.
         'signed_urls' => (bool) env('LOGRALO_PHOTO_SIGNED_URLS', false),

@@ -2,9 +2,11 @@
 
 declare(strict_types=1);
 
+use App\Exceptions\PhotoTooLargeException;
 use App\Exceptions\PhotoUnreadableException;
 use App\Services\PhotoProcessor;
 use App\ValueObjects\PhotoLinks;
+use App\ValueObjects\StoredPhoto;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
@@ -109,6 +111,46 @@ it('crops the thumbnail square even from a portrait source', function (): void {
         'width' => PhotoProcessor::THUMBNAIL_SIZE,
         'height' => PhotoProcessor::THUMBNAIL_SIZE,
     ]);
+});
+
+it('refuses an upload too big to decode before it decodes it', function (): void {
+    Storage::fake('photos');
+
+    // The ceiling moved rather than the fixture: proving this at the real 32 MP
+    // would mean allocating the 128 MB the guard exists to refuse.
+    config()->set('logralo.photos.max_megapixels', 1);
+
+    expect(fn (): StoredPhoto => resolve(PhotoProcessor::class)->store(
+        UploadedFile::fake()->image('camera.jpg', 1400, 1000),
+    ))->toThrow(PhotoTooLargeException::class);
+
+    // Refused before the first decode, so nothing half-written is left behind.
+    expect(Storage::disk('photos')->allFiles())->toBe([]);
+});
+
+it('lets an upload at the ceiling through', function (): void {
+    Storage::fake('photos');
+
+    config()->set('logralo.photos.max_megapixels', 1);
+
+    // Exactly 1 MP: the guard refuses what is past the ceiling, not what
+    // reaches it, so the boundary belongs to the member.
+    $stored = resolve(PhotoProcessor::class)->store(UploadedFile::fake()->image('camera.jpg', 1000, 1000));
+
+    expect(Storage::disk('photos')->files($stored->key))->toHaveCount(4);
+});
+
+it('leaves a file the header parser cannot read to the decoder', function (): void {
+    Storage::fake('photos');
+
+    config()->set('logralo.photos.max_megapixels', 1);
+
+    // `getimagesize()` returns false here rather than a size, and a guard that
+    // treated that as a refusal would answer "too big" for a HEIC, which is a
+    // different problem with different copy.
+    expect(fn (): StoredPhoto => resolve(PhotoProcessor::class)->store(
+        UploadedFile::fake()->create('note.heic', 12, 'image/heic'),
+    ))->toThrow(PhotoUnreadableException::class);
 });
 
 it('deletes the whole key', function (): void {
