@@ -68,6 +68,19 @@
 
 @include('partials.splash')
 
+{{-- The browser-side resize budget, handed over once. Every picker on the
+     page shrinks to the same ceiling, so spelling it into each `x-data` was
+     the megapixel-to-pixel arithmetic written once per camera on the site.
+     Set before the bundle, which merges rather than replaces. --}}
+<script>
+    window.Logralo = {
+        photo: {
+            maxPixels: {{ (int) (config('logralo.photos.client_max_megapixels') * 1_000_000) }},
+            quality: {{ (int) config('logralo.photos.client_jpeg_quality') / 100 }},
+        },
+    };
+</script>
+
 @fonts
 @vite(['resources/css/app.css', 'resources/js/app.js'])
 

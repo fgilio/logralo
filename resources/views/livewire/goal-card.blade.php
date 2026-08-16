@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 use App\Actions\MarkGoal;
 use App\Actions\UnmarkGoal;
+use App\Concerns\PhotoValidationRules;
 use App\Exceptions\UserFacingException;
 use App\Models\Goal;
 use App\Models\Mark;
@@ -34,6 +35,7 @@ use Livewire\WithFileUploads;
  */
 new class extends Component
 {
+    use PhotoValidationRules;
     use WithFileUploads;
 
     #[Locked]
@@ -148,12 +150,7 @@ new class extends Component
     public function save(): void
     {
         $this->validate([
-            'photo' => [
-                'nullable',
-                'file',
-                'mimetypes:image/jpeg,image/png,image/webp,image/heic,image/heif',
-                'max:'.config('logralo.photos.max_upload_kilobytes'),
-            ],
+            'photo' => ['nullable', ...$this->photoRules()],
             'note' => ['nullable', 'string', 'max:'.config('logralo.goals.note_max_length')],
         ]);
 
@@ -386,10 +383,7 @@ new class extends Component
                  does the upload by hand. --}}
             <div
                 class="mt-5 flex flex-col gap-4"
-                x-data="photoPicker({
-                    maxPixels: {{ (int) (config('logralo.photos.client_max_megapixels') * 1_000_000) }},
-                    quality: {{ (int) config('logralo.photos.client_jpeg_quality') / 100 }},
-                })"
+                x-data="photoPicker()"
             >
                 <input
                     type="file"

@@ -17,23 +17,26 @@
     // than as a member, so the roster is what turns one back into a face.
     $member = $user ?? resolve(App\Queries\Members::class)->find($userId);
 
-    $label = $name ?? $member?->name ?? '';
-    // The seed decides the initials colour, and members have grown to know
-    // their own. It stays the user id wherever there is one.
-    $seed = $member?->id ?? $userId ?? $label;
-
     $picture = $member?->pictureUrl();
-    $gravatar = $member?->gravatarUrl();
 @endphp
 
 @if ($picture !== null)
-    <flux:avatar :name="$label" :src="$picture" circle :size="$size" {{ $attributes }} />
-@elseif ($member === null)
-    {{-- A name and nothing else: no email to hash, so Flux draws the initials
-         it derives itself. This is a member who left the group and a recap
-         that still remembers them. --}}
-    <flux:avatar :name="$label" color="auto" :color:seed="$seed" circle :size="$size" {{ $attributes }} />
+    <flux:avatar :name="$member->name" :src="$picture" circle :size="$size" {{ $attributes }} />
 @else
+    @php
+        // Only asked for once the upload has come up empty, so a member with a
+        // picture never pays for a hash nothing will render.
+        $gravatar = $member?->gravatarUrl();
+
+        // A name with no member behind it is somebody a recap still remembers
+        // and the roster no longer has.
+        $initials = $member?->initials() ?? App\Models\User::initialsFor((string) $name);
+
+        // The seed decides the initials colour, and members have grown to know
+        // their own. It stays the user id wherever there is one.
+        $seed = $member?->id ?? $userId ?? $name;
+    @endphp
+
     {{-- Everything goes in the slot, and neither `name` nor `initials` is
          passed with it. The slot is the only way into the avatar's own
          rounded, `relative` box, which is where the Gravatar layer has to sit
@@ -42,7 +45,7 @@
          all. The colour seed is passed explicitly for the same reason: it
          defaults to `name`, which is no longer there to read. --}}
     <flux:avatar color="auto" :color:seed="$seed" circle :size="$size" {{ $attributes }}>
-        {{ $member->initials() }}
+        {{ $initials }}
 
         @if ($gravatar !== null)
             <img

@@ -6,7 +6,6 @@ use App\Actions\RemoveAvatar;
 use App\Actions\UpdateAvatar;
 use App\Models\Goal;
 use App\Models\User;
-use App\Queries\Members;
 use App\Queries\MonthlyStandings;
 use App\Services\PhotoProcessor;
 use Illuminate\Http\UploadedFile;
@@ -72,9 +71,7 @@ it('falls back to Gravatar once the upload is removed', function (): void {
     resolve(UpdateAvatar::class)->handle($user, UploadedFile::fake()->image('face.jpg', 400, 400));
     $key = (string) $user->avatar_key;
 
-    // An uploaded picture wins outright, so nothing asks Gravatar for one.
-    expect($user->pictureUrl())->toContain("{$key}/avatar.webp")
-        ->and($user->gravatarUrl())->toBeNull();
+    expect($user->pictureUrl())->toContain("{$key}/avatar.webp");
 
     resolve(RemoveAvatar::class)->handle($user);
 
@@ -168,20 +165,25 @@ it('puts the same face on a standings row the recap froze a name into', function
     expect($row)->toContain("{$user->avatar_key}/avatar.webp");
 });
 
-it('reads the roster once however many avatars a page draws', function (): void {
+it('reads the roster once for the whole page', function (): void {
+    $user = User::factory()->create();
+    Goal::factory()->for($user)->create();
     User::factory()->count(4)->create();
-
-    $members = resolve(Members::class);
-    $members->directory();
 
     DB::enableQueryLog();
 
-    // Twenty feed cards, a pulse strip and a standings table all asking.
-    for ($i = 0; $i < 25; $i++) {
-        $members->directory();
-    }
+    Livewire::actingAs($user)->test('pages::today')->html();
 
-    expect(DB::getQueryLog())->toBe([]);
+    // The pulse strip, the monthly table and every avatar on the page want the
+    // same five rows. Before `Members` held the read they took one full scan
+    // each, and the avatars were the ones who added the third. Counted by the
+    // scan's own shape, so the feed's eager load of one mark's author — which
+    // is keyed by id and is not a roster read — stays out of it.
+    $rosterReads = collect(DB::getQueryLog())
+        ->filter(fn (array $query): bool => $query['query'] === 'select * from "users" order by "name" asc')
+        ->values();
+
+    expect($rosterReads)->toHaveCount(1);
 });
 
 it('does nothing when the save races the upload', function (): void {

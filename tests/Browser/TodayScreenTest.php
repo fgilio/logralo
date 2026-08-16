@@ -64,7 +64,6 @@ it('shrinks a camera original in the browser before it uploads', function (): vo
     Goal::factory()->for($user)->create(['name' => 'Correr']);
 
     $budget = (int) config('logralo.photos.client_max_megapixels') * 1_000_000;
-    $quality = (int) config('logralo.photos.client_jpeg_quality') / 100;
 
     // Both sides are scaled by the square root of the ratio between 24 MP and
     // the budget, so these are the exact dimensions the server should receive.
@@ -78,13 +77,13 @@ it('shrinks a camera original in the browser before it uploads', function (): vo
     // the JPEG has something to spend bytes on. The whole round trip — draw
     // 24 MP, encode it, decode it, resample it, encode it again — runs well
     // past the five seconds an assertion is normally given.
-    $script = <<<JS
+    $script = <<<'SHRINK'
         (async () => {
             const source = new OffscreenCanvas(6000, 4000);
             const context = source.getContext('2d', { alpha: false });
 
             for (let drawn = 0; drawn < 300; drawn++) {
-                context.fillStyle = `hsl(\${(drawn * 37) % 360} 80% \${20 + ((drawn * 13) % 60)}%)`;
+                context.fillStyle = `hsl(${(drawn * 37) % 360} 80% ${20 + ((drawn * 13) % 60)}%)`;
                 context.fillRect((drawn * 811) % 6000, (drawn * 577) % 4000, 40 + (drawn % 600), 40 + (drawn % 400));
             }
 
@@ -94,10 +93,10 @@ it('shrinks a camera original in the browser before it uploads', function (): vo
                 { type: 'image/jpeg' },
             );
 
-            const shrunk = await window.Logralo.compressPhoto(original, {
-                maxPixels: {$budget},
-                quality: {$quality},
-            });
+            // The budget the head rendered, not one the test made up — so the
+            // dimensions asserted below only come out right if what reaches
+            // the browser is what `config/logralo.php` says.
+            const shrunk = await window.Logralo.compressPhoto(original, window.Logralo.photo);
 
             const decoded = await createImageBitmap(shrunk);
 
@@ -109,7 +108,7 @@ it('shrinks a camera original in the browser before it uploads', function (): vo
                 shrank: shrunk.size < original.size,
             });
         })()
-    JS;
+    SHRINK;
 
     $result = json_decode((string) Playwright::usingTimeout(60_000, fn (): mixed => $page->script($script)), true);
 

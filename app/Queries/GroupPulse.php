@@ -15,12 +15,14 @@ use Illuminate\Support\Collection;
  * they have already closed. "Today" is each member's own local day, so someone
  * in a different timezone is measured against their day, not yours.
  */
-final class GroupPulse
+final readonly class GroupPulse
 {
+    public function __construct(private Members $members) {}
+
     /** @return Collection<int, PulseEntry> */
     public function today(): Collection
     {
-        $users = User::query()->orderBy('name')->get();
+        $users = $this->members->roster();
 
         if ($users->isEmpty()) {
             /** @var Collection<int, PulseEntry> */

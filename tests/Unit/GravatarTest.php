@@ -38,13 +38,5 @@ it('asks for a 404 rather than a silhouette', function (): void {
 it('says nothing at all when Gravatar is switched off', function (): void {
     config()->set('logralo.avatars.gravatar', false);
 
-    expect(resolve(Gravatar::class)->enabled())->toBeFalse()
-        ->and(resolve(Gravatar::class)->url('franco@example.com'))->toBeNull();
-});
-
-it('takes the host from config without doubling the slash', function (): void {
-    config()->set('logralo.avatars.gravatar_host', 'https://gravatar.example/');
-
-    expect(resolve(Gravatar::class)->url('franco@example.com'))
-        ->toStartWith('https://gravatar.example/avatar/');
+    expect(resolve(Gravatar::class)->url('franco@example.com'))->toBeNull();
 });

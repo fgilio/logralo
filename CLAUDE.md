@@ -31,6 +31,7 @@ The layering is the thing to keep. It is enforced by `tests/Arch/`.
 ### `app/Queries/` — the read side, where Eloquent lives
 
 - `GroupPulse`, `MonthlyStandings`, `FeedPage`, `GoalHistory`, `SharedEntry`, `MarkEntries`, `Members`
+- `Members` is the group's roster, held scoped for the request. `GroupPulse`, `MonthlyStandings` and every avatar read it rather than querying `users` themselves
 
 ### `app/Actions/` — the write side, one unit of work each
 

@@ -48,6 +48,17 @@ final class User extends Authenticatable
     use HasUlids;
     use Notifiable;
 
+    /**
+     * The same two letters for somebody the roster no longer has — a recap
+     * remembers a name long after the member behind it could be looked up.
+     */
+    public static function initialsFor(string $name): string
+    {
+        $firstTwoWords = Str::of($name)->squish()->explode(' ')->take(2)->implode(' ');
+
+        return Str::initials($firstTwoWords, capitalize: true);
+    }
+
     /** @return HasMany<Goal, $this> */
     public function goals(): HasMany
     {
@@ -101,23 +112,22 @@ final class User extends Authenticatable
     }
 
     /**
-     * Where the browser should look for a Gravatar. Null when there is a
-     * picture to show already, or when Gravatar is switched off.
+     * Where the browser should look for a Gravatar, or null when the feature
+     * is switched off.
+     *
+     * Whether it should look at all is not asked here: an upload outranks a
+     * Gravatar, and that ordering lives in `x-avatar`, which is the one place
+     * allowed to know it. Answering null for a member with a picture would be
+     * the same rule written a second time, in the layer underneath.
      */
     public function gravatarUrl(): ?string
     {
-        if ($this->avatar_key !== null) {
-            return null;
-        }
-
         return resolve(Gravatar::class)->url($this->email);
     }
 
     public function initials(): string
     {
-        $firstTwoWords = Str::of($this->name)->squish()->explode(' ')->take(2)->implode(' ');
-
-        return Str::initials($firstTwoWords, capitalize: true);
+        return self::initialsFor($this->name);
     }
 
     /** @return array<string, string> */

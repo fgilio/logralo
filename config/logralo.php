@@ -105,7 +105,6 @@ return [
         // touching a template. Nothing here reaches Gravatar from the server:
         // the URL is built from a hash of the email and the browser fetches it.
         'gravatar' => (bool) env('LOGRALO_GRAVATAR', true),
-        'gravatar_host' => (string) env('LOGRALO_GRAVATAR_HOST', 'https://gravatar.com'),
     ],
 
     /*

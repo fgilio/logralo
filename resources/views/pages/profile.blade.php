@@ -10,6 +10,7 @@ use App\Actions\RestoreGoal;
 use App\Actions\UpdateAvatar;
 use App\Concerns\InteractsWithMember;
 use App\Concerns\PasswordValidationRules;
+use App\Concerns\PhotoValidationRules;
 use App\Exceptions\UserFacingException;
 use App\Models\Goal;
 use Carbon\CarbonImmutable;
@@ -32,6 +33,7 @@ new #[Title('Perfil')] class extends Component
 {
     use InteractsWithMember;
     use PasswordValidationRules;
+    use PhotoValidationRules;
     use WithFileUploads;
 
     /** A few starters, so nobody has to hunt for the emoji keyboard. */
@@ -102,13 +104,7 @@ new #[Title('Perfil')] class extends Component
             return;
         }
 
-        $this->validate([
-            'avatar' => [
-                'file',
-                'mimetypes:image/jpeg,image/png,image/webp,image/heic,image/heif',
-                'max:'.config('logralo.photos.max_upload_kilobytes'),
-            ],
-        ]);
+        $this->validate(['avatar' => $this->photoRules()]);
 
         try {
             resolve(UpdateAvatar::class)->handle($this->member(), $photo);
@@ -248,7 +244,13 @@ new #[Title('Perfil')] class extends Component
 
 ?>
 
-@php($user = $this->member())
+@php
+    $user = $this->member();
+
+    // "Do they have one of their own?" — asked once, so the buttons and the
+    // helper text underneath them cannot disagree about the answer.
+    $hasUpload = $user->avatar_key !== null;
+@endphp
 
 <div class="mx-auto min-h-dvh w-full max-w-lg px-4 pt-safe-t pb-safe-b">
     <header class="flex items-center gap-3 py-4">
@@ -351,12 +353,7 @@ new #[Title('Perfil')] class extends Component
                  the section would be worse than none. --}}
             <div
                 class="mt-3 flex items-center gap-4"
-                x-data="photoPicker({
-                    property: 'avatar',
-                    then: 'saveAvatar',
-                    maxPixels: {{ (int) (config('logralo.photos.client_max_megapixels') * 1_000_000) }},
-                    quality: {{ (int) config('logralo.photos.client_jpeg_quality') / 100 }},
-                })"
+                x-data="photoPicker({ property: 'avatar', then: 'saveAvatar' })"
             >
                 {{-- No `capture`, unlike the goal card's camera: a profile
                      picture is usually one the phone already has. --}}
@@ -398,10 +395,10 @@ new #[Title('Perfil')] class extends Component
                             icon="camera"
                             data-test="change-avatar"
                         >
-                            {{ $user->avatar_key === null ? 'Subir foto' : 'Cambiar' }}
+                            {{ $hasUpload ? 'Cambiar' : 'Subir foto' }}
                         </flux:button>
 
-                        @if ($user->avatar_key !== null)
+                        @if ($hasUpload)
                             <flux:button
                                 wire:click="removeAvatar"
                                 variant="subtle"
@@ -414,9 +411,9 @@ new #[Title('Perfil')] class extends Component
                     </div>
 
                     <flux:text size="sm" class="mt-2">
-                        @if ($user->avatar_key !== null)
+                        @if ($hasUpload)
                             Si la quitás volvemos a tu Gravatar, y si no tenés, a tus iniciales.
-                        @elseif (config('logralo.avatars.gravatar'))
+                        @elseif ($user->gravatarUrl() !== null)
                             Mientras no subas ninguna usamos la de
                             <a href="https://gravatar.com" target="_blank" rel="noopener" class="underline">Gravatar</a>
                             de {{ $user->email }}.

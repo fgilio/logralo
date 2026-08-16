@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Services;
 
 use Illuminate\Support\Str;
+use Illuminate\Support\Uri;
 
 /**
  * The picture WordPress already has for an email address.
@@ -22,10 +23,11 @@ use Illuminate\Support\Str;
  */
 final readonly class Gravatar
 {
-    public function enabled(): bool
-    {
-        return config('logralo.avatars.gravatar') === true;
-    }
+    /**
+     * Not a config knob: Gravatar is one service at one address, and nobody
+     * self-hosts it. A setting here would only be a way to typo it.
+     */
+    private const string HOST = 'https://gravatar.com';
 
     /**
      * Null when Gravatar is switched off, so a caller can pass the answer
@@ -33,22 +35,18 @@ final readonly class Gravatar
      */
     public function url(string $email): ?string
     {
-        if (! $this->enabled()) {
+        if (config('logralo.avatars.gravatar') !== true) {
             return null;
         }
-
-        $host = Str::of((string) config('logralo.avatars.gravatar_host'))->rtrim('/');
 
         // SHA-256 of the trimmed, lowercased address — the modern spelling of
         // the hash. Gravatar still answers to MD5, but `arch()->preset()
         // ->security()` bans it outright and it has nothing to offer here.
         $hash = hash('sha256', Str::of($email)->trim()->lower()->toString());
 
-        $query = http_build_query([
-            's' => (int) config('logralo.avatars.size'),
-            'd' => '404',
-        ]);
-
-        return "{$host}/avatar/{$hash}?{$query}";
+        return Uri::of(self::HOST)
+            ->withPath("/avatar/{$hash}")
+            ->withQuery(['s' => (int) config('logralo.avatars.size'), 'd' => '404'])
+            ->value();
     }
 }

@@ -5,6 +5,8 @@ declare(strict_types=1);
 namespace App\Providers;
 
 use App\Queries\Members;
+use App\Services\Gravatar;
+use App\Services\PhotoProcessor;
 use Carbon\CarbonImmutable;
 use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Database\Eloquent\Model;
@@ -20,10 +22,17 @@ final class AppServiceProvider extends ServiceProvider
 {
     public function register(): void
     {
-        // The group's roster, read once per request and shared by every avatar
-        // on the page. `scoped` rather than `singleton` so a queue worker or an
-        // Octane request never serves the roster the last one loaded.
+        // The group's roster, read once per request and shared by the pulse
+        // strip, the monthly table and every avatar on the page. `scoped`
+        // rather than `singleton` so a queue worker or an Octane request never
+        // serves the roster the last one loaded.
         $this->app->scoped(Members::class);
+
+        // Both are stateless and both are resolved once per avatar — a page of
+        // twenty faces built each of them twenty times, ImageManager and all,
+        // to call one method that reads config and returns a string.
+        $this->app->singleton(PhotoProcessor::class);
+        $this->app->singleton(Gravatar::class);
     }
 
     public function boot(): void
