@@ -5,8 +5,10 @@ declare(strict_types=1);
 use App\Actions\MarkGoal;
 use App\Actions\UnmarkGoal;
 use App\Exceptions\DayClosedException;
+use App\Exceptions\MonthClosedException;
 use App\Models\Goal;
 use App\Models\Mark;
+use App\Models\MonthlyRecap;
 use App\Models\User;
 use App\Services\PhotoProcessor;
 use Carbon\CarbonImmutable;
@@ -94,6 +96,21 @@ it('keeps the photo of a mark it refused to remove', function (): void {
 
     expect(Mark::query()->whereKey($mark->id)->exists())->toBeTrue();
     Storage::disk('photos')->assertExists($key.'/thumb.webp');
+});
+
+it('refuses to remove a mark the recap already counted', function (): void {
+    // 09:00 on 1 September, so 31 August is still open on this member's clock
+    // and the day rule alone would hand the mark back.
+    $this->travelTo(CarbonImmutable::parse('2026-09-01 09:00', 'America/Montevideo')->utc());
+
+    $mark = $this->mark->handle($this->goal, $this->user->clock()->yesterday());
+
+    MonthlyRecap::factory()->create(['month' => '2026-08-01']);
+
+    expect(fn (): null => $this->unmark->handle($mark))
+        ->toThrow(MonthClosedException::class);
+
+    expect(Mark::query()->whereKey($mark->id)->exists())->toBeTrue();
 });
 
 it('frees the day so the goal can be marked again', function (): void {

@@ -11,7 +11,7 @@ Everything else falls out of that:
 - **Today** is always open.
 - **Yesterday** is open until noon — that is the grace banner's entire condition.
 - **A streak** breaks when a day _closes_ unmarked. An unmarked day that is still open is skipped, not counted as a miss, which is why an untouched today never breaks your flame.
-- **A mark becomes immutable** when its day closes. Un-marking is allowed right up to that instant and refused after it.
+- **A mark becomes immutable** when its day closes, or when its month is recapped, whichever comes first. Un-marking is allowed right up to that instant and refused after it.
 - **A month** is closeable only once its last day has closed for _every_ member. With members in different timezones there is no single moment that is "the end of the month" for the group, so `logralo:close-months` runs hourly and asks.
 
 `App\ValueObjects\UserClock` owns all of this arithmetic. Nothing else in the app is allowed to compute a day boundary — if a new feature needs one, add a method there.
@@ -38,6 +38,12 @@ score = (full marks × 1 + ghost marks × 0.5) / (days elapsed × active goals)
 - **Ties share a rank** and the next rank skips (1, 1, 3), so "runner-up" never means "beat nobody".
 
 At month close the standings are **frozen** onto the recap row. Nothing that happens in September can rewrite August.
+
+That holds only because the marks table is shut too. Closing asks every member's clock and marking asks one, so the two agree only while the set of clocks stays fixed — a member who edits their timezone westward, a member seeded after the sweep, or a raised `LOGRALO_GRACE_CUTOFF_HOUR` each reopen a day whose score is already frozen. `MarkGoal` and `UnmarkGoal` therefore refuse any day whose month carries a recap, with `MonthClosedException`. The recap row is the durable fact; recomputing closability from the new clocks would answer for the wrong month.
+
+One gap is left open: `CloseMonth` reads the standings and inserts the recap without a lock. A mark landing between those two statements is counted by neither rule, and an un-mark landing there leaves the frozen score standing on a mark that no longer exists.
+
+Reaching it takes more than winning the milliseconds. `isClosable()` and `openDays()` are the same predicate — `now < closesAt(last day)` — read off the same member's clock, so a day open to a member while their month is closing means their clock changed, or they were created, between the two reads. A lock would have to be taken on every tap, the hottest path in the app, to serialize against a sweep that runs once a month.
 
 ## Best streak of the month
 

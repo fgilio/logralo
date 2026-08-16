@@ -5,8 +5,10 @@ declare(strict_types=1);
 namespace App\Actions;
 
 use App\Exceptions\DayClosedException;
+use App\Exceptions\MonthClosedException;
 use App\Exceptions\UserFacingException;
 use App\Models\Mark;
+use App\Models\MonthlyRecap;
 use App\Services\PhotoProcessor;
 use App\Services\ShareCardRenderer;
 use Illuminate\Support\Facades\Context;
@@ -15,8 +17,8 @@ use Throwable;
 
 /**
  * Undoing a mark. Allowed while the day is still open — a mistap should not
- * cost a day — and refused once the day has closed, which is what makes the
- * feed trustworthy.
+ * cost a day — and refused once the day has closed, or once the month it
+ * belongs to has been recapped, which is what makes the feed trustworthy.
  */
 final readonly class UnmarkGoal
 {
@@ -35,6 +37,12 @@ final readonly class UnmarkGoal
         try {
             if (! $mark->user->clock()->isOpen($mark->marked_on)) {
                 throw DayClosedException::on($mark->marked_on);
+            }
+
+            // The recap counted this mark. Taking it back now would leave a
+            // frozen score standing on a day nobody marked.
+            if (MonthlyRecap::query()->covering($mark->marked_on)->exists()) {
+                throw MonthClosedException::on($mark->marked_on);
             }
 
             $photoKey = $mark->photo_key;

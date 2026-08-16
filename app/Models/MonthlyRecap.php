@@ -10,6 +10,8 @@ use App\ValueObjects\Standing;
 use Carbon\CarbonImmutable;
 use Database\Factories\MonthlyRecapFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
+use Illuminate\Database\Eloquent\Attributes\Scope;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Concerns\HasUlids;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -85,6 +87,18 @@ final class MonthlyRecap extends Model
     public function standingEntries(): Collection
     {
         return collect($this->standings)->map(Standing::fromArray(...));
+    }
+
+    /**
+     * The recap covering a day, which exists only once that day's month has
+     * been closed.
+     *
+     * @param  Builder<$this>  $query
+     */
+    #[Scope]
+    protected function covering(Builder $query, CarbonImmutable $day): void
+    {
+        $query->where('month', $day->startOfMonth()->toDateString());
     }
 
     /** @return array<string, string> */
