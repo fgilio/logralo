@@ -30,7 +30,7 @@ it('marks the day when pressed', function (): void {
     Livewire::actingAs($user)
         ->test('goal-card', ['goal' => $goal])
         ->assertSet('date', '2026-08-11')
-        ->call('press')
+        ->call('press', false)
         ->assertDispatched('mark-updated');
 
     $mark = Mark::query()->sole();
@@ -50,11 +50,33 @@ it('un-marks the day when pressed again', function (): void {
 
     $component = Livewire::actingAs($user)
         ->test('goal-card', ['goal' => $goal])
-        ->call('press');
+        ->call('press', false);
 
     expect(Mark::query()->count())->toBe(1);
 
-    $component->call('press')->assertDispatched('mark-updated');
+    $component->call('press', true)->assertDispatched('mark-updated');
+
+    expect(Mark::query()->count())->toBe(0);
+});
+
+it('ignores the second half of a double tap', function (): void {
+    morningOfTheEleventh();
+
+    $user = User::factory()->create();
+    $goal = Goal::factory()->for($user)->create();
+
+    // Both presses carry the unmarked card the finger saw. The second one
+    // reaches a day the first has already marked, and taking it back is what a
+    // double tap must never do.
+    $component = Livewire::actingAs($user)
+        ->test('goal-card', ['goal' => $goal])
+        ->call('press', false)
+        ->call('press', false)
+        ->assertNotDispatched('mark-updated');
+
+    expect(Mark::query()->count())->toBe(1);
+
+    $component->call('press', true)->call('press', true)->assertNotDispatched('mark-updated');
 
     expect(Mark::query()->count())->toBe(0);
 });
@@ -71,7 +93,7 @@ it('deletes the photo of the mark it un-marks', function (): void {
         ->test('goal-card', ['goal' => $goal])
         ->upload('photo', [UploadedFile::fake()->image('proof.jpg', 400, 500)])
         ->call('save')
-        ->call('press');
+        ->call('press', true);
 
     expect(Mark::query()->count())->toBe(0)
         ->and(Storage::disk('photos')->allFiles())->toBe([]);
@@ -99,7 +121,7 @@ it('does not mark when the photo rule wants proof', function (): void {
     Livewire::actingAs($user)
         ->test('goal-card', ['goal' => $goal])
         ->assertSet('requiresPhoto', true)
-        ->call('press')
+        ->call('press', false)
         ->assertNotDispatched('mark-updated');
 
     expect(Mark::query()->where('marked_on', '2026-08-11')->exists())->toBeFalse();
@@ -215,7 +237,7 @@ it('marks yesterday while the grace window is open', function (): void {
         ->test('goal-card', ['goal' => $goal, 'date' => '2026-08-10', 'variant' => 'chip'])
         ->assertSet('date', '2026-08-10')
         ->assertSet('variant', 'chip')
-        ->call('press')
+        ->call('press', false)
         ->assertDispatched('mark-updated');
 
     expect(Mark::query()->sole()->marked_on->toDateString())->toBe('2026-08-10');
@@ -230,7 +252,7 @@ it('refuses to mark yesterday once the grace window has closed', function (): vo
 
     Livewire::actingAs($user)
         ->test('goal-card', ['goal' => $goal, 'date' => '2026-08-10'])
-        ->call('press')
+        ->call('press', false)
         ->assertNotDispatched('mark-updated');
 
     expect(Mark::query()->count())->toBe(0);
@@ -245,7 +267,7 @@ it('keeps a mark whose day has already closed', function (): void {
 
     Livewire::actingAs($user)
         ->test('goal-card', ['goal' => $goal, 'date' => '2026-08-05'])
-        ->call('press')
+        ->call('press', true)
         ->assertNotDispatched('mark-updated');
 
     expect(Mark::query()->count())->toBe(1);
@@ -259,7 +281,7 @@ it('refuses to mark an archived goal', function (): void {
 
     Livewire::actingAs($user)
         ->test('goal-card', ['goal' => $goal])
-        ->call('press')
+        ->call('press', false)
         ->assertNotDispatched('mark-updated');
 
     expect(Mark::query()->count())->toBe(0);
@@ -296,7 +318,7 @@ it('counts the streak the mark belongs to', function (): void {
     expect($component->get('streak'))->toBe(3);
 
     // Today's own mark extends it, and the card says so straight away.
-    $component->call('press');
+    $component->call('press', false);
 
     expect($component->get('streak'))->toBe(4);
 });

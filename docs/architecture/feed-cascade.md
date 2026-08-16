@@ -78,7 +78,11 @@ Showing and adding are two different problems. A five-emoji bar under every card
 1. **The `＋` button.** Beside the summary, which is what makes the feature discoverable. At 1u it lives in the panel the row opens, so a row carries the summary and no button.
 2. **Press and hold, then drag to the emoji and release.** Anywhere on the card except the `＋` and the share button, which own their own press.
 
-Opening one bar closes any other. It stays in the DOM hidden rather than being built on demand, because a bar created inside the click that opens it hears that same click as an outside click and shuts again. The card takes `touch-action: pan-y` so a sideways drag along the bar belongs to the picker while the page keeps its scroll. The hit test runs on coordinates rather than on hover, because a touch pointer captured by the card never fires `pointerenter` on the bar.
+Opening one bar closes any other. It stays in the DOM hidden rather than being built on demand, because a bar created inside the click that opens it hears that same click as an outside click and shuts again. The hit test runs on coordinates rather than on hover, because a touch pointer captured by the card never fires `pointerenter` on the bar.
+
+The card takes `touch-action: pan-y` so a sideways drag along the bar belongs to the picker while the page keeps its scroll. That is also why **the hold opens the bar centred on the press** rather than at the foot of the card: every vertical move is the page's, and a bar the finger has to travel down to is one the browser scrolls away from, cancelling the pointer on the way. The `＋` button has no press point of its own, so it opens the bar at the foot, and either way the bar is held clear of both edges since the card clips its own overflow.
+
+A hold that never travels is still only a hold: it leaves the bar open for a tap. Sliding is what turns the same press into a choice, which is what keeps the emoji the bar happens to open under from being picked on release.
 
 `ReactionEmoji` is where "one reaction per member per mark, and choosing the current one takes it away" is written down. It also carries each emoji's Spanish name, because left to the glyph a screen reader reads the Unicode name in its own language and 🫵 has none worth hearing.
 

@@ -131,10 +131,20 @@ new class extends Component
         return "sheet-{$this->goal->id}-{$this->date}";
     }
 
-    /** A single tap: mark, or un-mark what a mistap marked. */
-    public function press(): void
+    /**
+     * A single tap: mark, or un-mark what a mistap marked.
+     *
+     * The tap answers the card the finger saw. Livewire queues a call made
+     * while a request is in flight, so an impatient double tap arrives as two
+     * presses, and the second one would take back the mark the first wrote.
+     */
+    public function press(bool $marked): void
     {
-        if ($this->mark !== null) {
+        if ($marked !== ($this->mark !== null)) {
+            return;
+        }
+
+        if ($marked) {
             $this->remove();
 
             return;
@@ -293,10 +303,15 @@ new class extends Component
      dispatching a click on its own, and `onClick` only ever suppresses the
      click a long press leaves behind. `detail` is 0 exactly when no pointer
      drew the click, so a tap — which already marked on pointerup — cannot
-     come back through here a second time. --}}
+     come back through here a second time.
+
+     `press()` is the card's own, not `$wire.press()`: it reads the
+     `aria-pressed` below off this element and sends it along, which is what
+     tells a deliberate un-mark from the second half of a double tap. Every
+     variant hangs it on the same root, so all three get that for free. --}}
 <div wire:key="goal-card-{{ $goal->id }}-{{ $date }}">
     <div
-        x-data="longPress({ delay: 420 })"
+        x-data="goalCard({ delay: 420 })"
         @pointerdown="start($event)"
         @pointermove="move($event)"
         @pointerup="end()"
@@ -304,11 +319,11 @@ new class extends Component
         @lostpointercapture="cancel()"
         @contextmenu.prevent
         @click.capture="onClick($event)"
-        @short-press="$wire.press()"
+        @short-press="press()"
         @long-press="$flux.modal('{{ $this->sheetName }}').show()"
-        @keydown.enter.prevent="$wire.press()"
-        @keydown.space.prevent="$wire.press()"
-        @click="$event.detail === 0 && $wire.press()"
+        @keydown.enter.prevent="press()"
+        @keydown.space.prevent="press()"
+        @click="$event.detail === 0 && press()"
         class="tap-target {{ $shell }} {{ $tone }}"
         :class="pressing && '{{ $pressScale }}'"
         role="button"
