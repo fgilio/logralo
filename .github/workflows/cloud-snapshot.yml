@@ -31,7 +31,6 @@ on:
   push:
     branches:
       - main
-      - claude/cloud-env-claude-code-web-gntkur # TEMPORARY: verify before merge
     paths:
       - composer.json
       - composer.lock

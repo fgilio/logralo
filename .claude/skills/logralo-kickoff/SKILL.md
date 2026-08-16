@@ -103,8 +103,8 @@ Copy from `references/` (versions there are baselines — install latest):
 | `tia-baseline.yml` | `.github/workflows/tia-baseline.yml` (records the shared Tia baseline; gates nothing) |
 | `claude-md-template.md` | template for root `CLAUDE.md` (replace the pre-kickoff CLAUDE.md) |
 | `claude-settings.json` | `.claude/settings.json` |
-| `session-start.sh` | `.claude/hooks/session-start.sh` (chmod +x) |
-| `cloud-setup.sh` | `scripts/cloud/setup.sh` (chmod +x) |
+| `session-start.sh` | `.claude/hooks/session-start.sh` (chmod +x) — starting point, not Logralo's current hook; see § 3.4 |
+| `cloud-setup.sh` | `scripts/cloud/setup.sh` (chmod +x) — starting point, not Logralo's current bootstrap; see § 3.4 |
 | `cloud-cli.sh` | `scripts/cloud-cli.sh` (chmod +x) |
 | `cloud-link.sh` | `scripts/cloud-link.sh` (chmod +x) |
 
@@ -114,7 +114,9 @@ Copy from `references/` (versions there are baselines — install latest):
 
 `.claude/hooks/session-start.sh` (SessionStart hook wired via `.claude/settings.json`) dispatches to `scripts/cloud/setup.sh`, so every Claude Code session — including web sessions from the phone — lands on a runnable app: composer deps (writing `auth.json` from `FLUX_*` env vars when missing), npm ci, `.env`, SQLite file, migrations, asset build, lefthook install, and the Cloud CLI (§ 3.5, started in the background so its install overlaps the npm work).
 
-Hosted sandboxes turned out to need more than a plain `composer install`: the image's PHP is older than `composer.json` requires, and the egress proxy blocks the third-party dist archives, so the runtime comes from apt and `vendor/` from a CI-built snapshot. `scripts/cloud/SETUP.md` is the full account. Rule that must survive any rewrite: the asset build reads composer `vendor/` (Flux CSS import), so `npm run build` runs after `composer install`, never before or beside it.
+Start a new project from the two reference scripts above and expect to outgrow them. Logralo did: hosted sandboxes need more than a plain `composer install`, because the image's PHP is older than `composer.json` requires and the egress proxy blocks the third-party dist archives composer downloads. Both the runtime and `vendor/` now come from a CI-built snapshot published on the repo itself, restored by a module set under `scripts/cloud/`, and the hook backgrounds that work behind a status file rather than blocking the session on minutes of it. `scripts/cloud/SETUP.md` is the full account, including why the runtime is the exact binary CI ran rather than a distro package of the same version. Do not copy that machinery into a new repo on day one — it restores from snapshots that repo has not built yet.
+
+Rule that must survive any rewrite: the asset build reads composer `vendor/` (Flux CSS import), so `npm run build` runs after `composer install`, never before or beside it.
 
 ### 3.5 Laravel Cloud (personal account)
 

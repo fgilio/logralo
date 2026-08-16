@@ -83,10 +83,19 @@ side_pid=$!
 #                  test:browser wants the browser binary, so it never fails the
 #                  track on its own
 setup_failed=0
+cloud_cli_pid=''
 if ! bash "$here/php.sh"; then
     warn 'PHP dependency setup failed. Skipping the asset build and the database.'
     setup_failed=1
 else
+    # The Laravel Cloud CLI, so a session can talk to production without an
+    # interactive login. It needs composer, which php.sh just provided, and
+    # nothing below needs it, so it runs alongside the rest rather than after:
+    # a cold install is ~17s of Packagist. Started here rather than at the top
+    # to keep two Composer processes off the shared cache at once.
+    bash "$project_dir/scripts/cloud-cli.sh" &
+    cloud_cli_pid=$!
+
     bash "$here/environment.sh" || warn 'Writing .env failed.'
 
     if bash "$here/node.sh"; then
@@ -103,6 +112,13 @@ else
 fi
 
 wait "$side_pid" || true
+
+# Non-fatal: the app builds and its tests run without the Cloud CLI, so a
+# missing token or a Packagist hiccup must not take the bootstrap down with it.
+# cloud-cli.sh has already said what went wrong on stderr; this only adds the retry.
+if [ -n "$cloud_cli_pid" ]; then
+    wait "$cloud_cli_pid" || warn 'Cloud CLI setup failed; rerun: bash scripts/cloud-cli.sh'
+fi
 
 # Last, and not in the parallel branch above: lefthook.sh prefers
 # node_modules/.bin/lefthook and falls back to installing lefthook globally when
