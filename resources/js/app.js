@@ -91,7 +91,7 @@ document.addEventListener("alpine:init", () => {
      * Tap and hold on the same element. Announces itself with `long-press` and
      * `short-press`, and leaves the deciding to the card.
      */
-    Alpine.data("longPress", (options = {}) => ({
+    const pressGesture = (options = {}) => ({
         ...holdGesture(options),
 
         fired: false,
@@ -140,6 +140,24 @@ document.addEventListener("alpine:init", () => {
         cancel() {
             this.disarm();
             this.pressing = false;
+        },
+    });
+
+    Alpine.data("longPress", pressGesture);
+
+    /**
+     * A goal card's tap and hold.
+     *
+     * The press carries the state the card was showing, which is what tells a
+     * deliberate un-mark apart from the second half of a double tap.
+     */
+    Alpine.data("goalCard", (options = {}) => ({
+        ...pressGesture(options),
+
+        press() {
+            this.$wire.press(
+                this.$root.getAttribute("aria-pressed") === "true",
+            );
         },
     }));
 
@@ -379,12 +397,22 @@ document.addEventListener("alpine:init", () => {
 
         showing: false,
         active: null,
+        slid: false,
+
+        /** Where down the card the bar opens, in pixels from its top edge. */
+        anchor: 0,
 
         start(event) {
             if (event.button !== undefined && event.button !== 0) return;
             if (this.pointerId !== null) return this.cancel();
 
             this.arm(event);
+
+            // The bar has to arrive under the finger. `touch-action: pan-y`
+            // gives the page every vertical move, so a bar anywhere else is one
+            // the finger scrolls away from rather than reaches.
+            this.anchor =
+                event.clientY - this.$root.getBoundingClientRect().top;
 
             this.timer = setTimeout(() => {
                 this.timer = null;
@@ -409,7 +437,12 @@ document.addEventListener("alpine:init", () => {
 
             if (event.cancelable) event.preventDefault();
 
-            this.active = this.emojiAt(event.clientX, event.clientY);
+            // The bar opens under the finger, so a hold that never travels is
+            // still only a hold. Sliding is what turns it into a choice.
+            this.slid ||= this.travelled(event);
+            this.active = this.slid
+                ? this.emojiAt(event.clientX, event.clientY)
+                : null;
         },
 
         end(event) {
@@ -419,7 +452,7 @@ document.addEventListener("alpine:init", () => {
             // Where the finger actually let go, rather than the last position
             // a pointermove reported: a mouse dragged off the card stops
             // sending them, and the stale one would react for you.
-            const chosen = this.showing
+            const chosen = this.slid
                 ? this.emojiAt(event.clientX, event.clientY)
                 : null;
 
@@ -433,6 +466,7 @@ document.addEventListener("alpine:init", () => {
         cancel() {
             this.disarm();
             this.active = null;
+            this.slid = false;
         },
 
         emojiAt(x, y) {
@@ -456,8 +490,17 @@ document.addEventListener("alpine:init", () => {
         },
 
         toggle() {
-            this.showing ? this.close() : this.open();
+            if (this.showing) {
+                this.close();
+
+                return;
+            }
+
+            // A button press has no place on the card to speak of, so the bar
+            // keeps its old one at the foot.
+            this.anchor = this.$root.offsetHeight;
             this.active = null;
+            this.open();
         },
 
         close() {
