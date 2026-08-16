@@ -199,7 +199,7 @@ new #[Title('Hoy')] class extends Component
 
     <section class="mt-4" aria-label="Tus objetivos de hoy">
         @if ($this->goals->isEmpty())
-            <div class="rounded-2xl border border-dashed border-zinc-300 p-8 text-center dark:border-white/15">
+            <x-empty-state>
                 <span class="text-4xl">🎯</span>
                 <flux:heading size="lg" class="mt-3">Creá tu primer objetivo</flux:heading>
                 <flux:text class="mt-1">Uno solo alcanza para arrancar. Después sumás hasta cinco.</flux:text>
@@ -212,7 +212,7 @@ new #[Title('Hoy')] class extends Component
                 >
                     Crear objetivo
                 </flux:button>
-            </div>
+            </x-empty-state>
         @else
             <div class="{{ $layout === 'tile' ? 'grid grid-cols-2 gap-3' : 'flex flex-col gap-2' }}">
                 @foreach ($this->goals as $goal)
@@ -254,14 +254,7 @@ new #[Title('Hoy')] class extends Component
 
 
     {{-- The month's table. The split bars are the scoring rule, explained. --}}
-    <flux:modal
-        name="standings"
-        flyout
-        position="bottom"
-        class="max-h-[85dvh] overscroll-contain rounded-t-2xl p-5 pb-[max(1.25rem,env(safe-area-inset-bottom))]"
-    >
-        <div class="mx-auto mb-4 h-1 w-10 rounded-full bg-zinc-300 dark:bg-white/20"></div>
-
+    <x-sheet name="standings">
         <flux:heading size="lg" class="font-display tracking-wide">Tabla de {{ $month }}</flux:heading>
         <flux:text size="sm" class="mt-1">
             Sobre lo que cada uno podía marcar. Con foto vale 1, sin foto vale ½.
@@ -283,5 +276,5 @@ new #[Title('Hoy')] class extends Component
                 <span class="hatched h-2 w-5 rounded-full"></span> sin foto
             </span>
         </div>
-    </flux:modal>
+    </x-sheet>
 </div>

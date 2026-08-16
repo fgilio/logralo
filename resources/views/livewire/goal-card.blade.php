@@ -399,14 +399,7 @@ new class extends Component
     </div>
 
     {{-- The sheet: camera, note, and the way out of a mistap. --}}
-    <flux:modal
-        :name="$this->sheetName"
-        flyout
-        position="bottom"
-        class="max-h-[85dvh] overscroll-contain rounded-t-2xl p-5 pb-[max(1.25rem,env(safe-area-inset-bottom))]"
-    >
-        <div class="mx-auto mb-4 h-1 w-10 rounded-full bg-zinc-300 dark:bg-white/20"></div>
-
+    <x-sheet :name="$this->sheetName">
         <flux:heading size="lg" class="flex items-center gap-2">
             <span>{{ $goal->emoji }}</span>
             <span>{{ $goal->name }}</span>
@@ -517,5 +510,5 @@ new class extends Component
                 </flux:text>
             </div>
         @endif
-    </flux:modal>
+    </x-sheet>
 </div>

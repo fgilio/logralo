@@ -7,6 +7,7 @@ use App\Enums\ReactionEmoji;
 use App\Models\Mark;
 use App\Models\Reaction;
 use Illuminate\Database\Eloquent\Collection as EloquentCollection;
+use Illuminate\Support\Collection;
 use Livewire\Attributes\Computed;
 use Livewire\Attributes\Locked;
 use Livewire\Component;
@@ -31,9 +32,11 @@ new class extends Component
         return $this->mark->reactions()->get();
     }
 
-    public function countFor(ReactionEmoji $emoji): int
+    /** @return Collection<string, int> */
+    #[Computed]
+    public function counts(): Collection
     {
-        return $this->reactions->where('emoji', $emoji)->count();
+        return $this->reactions->countBy(fn (Reaction $reaction): string => $reaction->emoji->value);
     }
 
     #[Computed]
@@ -54,7 +57,7 @@ new class extends Component
 
         resolve(ToggleReaction::class)->handle($this->mark, $user, ReactionEmoji::from($emoji));
 
-        unset($this->reactions, $this->mine);
+        unset($this->reactions, $this->counts, $this->mine);
     }
 };
 
@@ -64,7 +67,7 @@ new class extends Component
     <div class="flex flex-wrap items-center gap-1.5">
         @foreach (ReactionEmoji::cases() as $emoji)
             @php
-                $count = $this->countFor($emoji);
+                $count = $this->counts->get($emoji->value, 0);
                 $mine = $this->mine === $emoji;
             @endphp
 

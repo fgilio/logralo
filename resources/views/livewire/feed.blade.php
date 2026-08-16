@@ -145,11 +145,11 @@ new class extends Component
             @endif
         @endforeach
     @empty
-        <div class="rounded-2xl border border-dashed border-zinc-300 p-10 text-center dark:border-white/10">
+        <x-empty-state>
             <x-brand-mark muted class="mx-auto size-8" />
             <flux:heading class="mt-3">Todavía no hay nada</flux:heading>
             <flux:text class="mt-1">Marcá tu primer objetivo y arrancá la racha.</flux:text>
-        </div>
+        </x-empty-state>
     @endforelse
 
     @if ($this->page->hasMore)
@@ -159,7 +159,6 @@ new class extends Component
             type="button"
             x-intersect.margin.400px="$wire.loadMore()"
             wire:click="loadMore"
-            wire:target="loadMore"
             class="tap-target grid h-20 place-items-center text-xs tracking-[0.2em] text-zinc-400 uppercase dark:text-zinc-500"
             data-test="feed-more"
         >
