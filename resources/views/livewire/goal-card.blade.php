@@ -253,9 +253,11 @@ new class extends Component
     $mark = $this->mark;
     $isGhost = $mark?->isGhost() ?? false;
     $isFull = $mark?->isFull() ?? false;
-    // The fuel gauge tops out at a month, so week two still reads as progress
-    // rather than an ember that is full forever.
-    $fuel = number_format(min($this->streak / 30, 1), 3, '.', '');
+    // Both the row and the tile say these two things about a goal, so they are
+    // decided once here rather than written out twice below, where the two
+    // copies could drift into disagreeing about the same goal.
+    $dimFlame = $mark === null && ! $isFull;
+    $owesPhoto = $this->requiresPhoto && $mark === null;
 
     $shell = match ($variant) {
         'chip' => 'flex items-center gap-2 rounded-full border py-1.5 pr-3 pl-2.5 text-sm transition',
@@ -265,13 +267,18 @@ new class extends Component
 
     // A grace chip is amber because the day it marks is running out. The cards
     // on today's own goals carry the mark's own state instead.
-    $tone = $variant === 'chip'
-        ? ($mark === null ? 'border-amber-500/40 bg-amber-500/10' : 'border-transparent bg-accent/15 text-accent-content')
-        : match (true) {
-            $isFull => 'border-transparent bg-zinc-900 text-white',
-            $isGhost => 'border-dashed border-ghost/60 bg-ghost/5',
-            default => 'border-zinc-200 bg-white dark:border-white/10 dark:bg-white/5',
-        };
+    $tone = match (true) {
+        $variant === 'chip' && $mark === null => 'border-amber-500/40 bg-amber-500/10',
+        $variant === 'chip' => 'border-transparent bg-accent/15 text-accent-content',
+        $isFull => 'border-transparent bg-zinc-900 text-white',
+        $isGhost => 'border-dashed border-ghost/60 bg-ghost/5',
+        default => 'border-zinc-200 bg-white dark:border-white/10 dark:bg-white/5',
+    };
+
+    // The chip is small enough that it needs the deeper of the two nudges to
+    // register as a press at all.
+    $pressScale = $variant === 'chip' ? 'scale-95' : 'scale-[0.97]';
+    $testId = ($variant === 'chip' ? 'grace-goal' : 'goal-card').'-'.$goal->id;
 @endphp
 
 {{-- One interaction wrapper for all three variants: tap marks, hold opens the
@@ -303,12 +310,12 @@ new class extends Component
         @keydown.space.prevent="$wire.press()"
         @click="$event.detail === 0 && $wire.press()"
         class="tap-target {{ $shell }} {{ $tone }}"
-        :class="pressing && '{{ $variant === 'chip' ? 'scale-95' : 'scale-[0.97]' }}'"
+        :class="pressing && '{{ $pressScale }}'"
         role="button"
         tabindex="0"
         aria-pressed="{{ $mark !== null ? 'true' : 'false' }}"
         aria-label="{{ $goal->name }}"
-        data-test="{{ $variant === 'chip' ? 'grace-goal' : 'goal-card' }}-{{ $goal->id }}"
+        data-test="{{ $testId }}"
     >
         @if ($variant === 'chip')
             <span class="text-base leading-none">{{ $goal->emoji }}</span>
@@ -322,8 +329,11 @@ new class extends Component
                  photo is the thing worth showing, and the emoji is only
                  standing in for it the rest of the time. --}}
             @if ($isFull && $this->photoLinks !== null)
+                {{-- No `eager` here, unlike the tile: that one is the screen's
+                     largest image and worth a synchronous decode, while this is
+                     a 48px box that has no business blocking a paint. --}}
                 <div class="relative size-12 shrink-0 overflow-hidden rounded-xl">
-                    <x-photo :links="$this->photoLinks" :alt="$goal->name" fill eager sizes="64px" />
+                    <x-photo :links="$this->photoLinks" :alt="$goal->name" fill sizes="64px" />
                 </div>
             @else
                 <span
@@ -340,34 +350,16 @@ new class extends Component
                 <p class="truncate text-sm font-semibold">{{ $goal->name }}</p>
 
                 <div class="mt-1 flex items-center gap-2">
-                    <x-flame :days="$this->streak" :dim="$mark === null && ! $isFull" size="sm" />
+                    <x-flame :days="$this->streak" :dim="$dimFlame" size="sm" />
 
-                    @if ($this->requiresPhoto && $mark === null)
+                    @if ($owesPhoto)
                         <span class="text-xs" title="Esta va con foto">📸</span>
                     @endif
                 </div>
             </div>
 
             <div class="shrink-0 pr-1">
-                <div wire:loading wire:target="press, save, remove">
-                    <flux:icon name="loading" variant="micro" class="animate-spin opacity-60" />
-                </div>
-
-                <div wire:loading.remove wire:target="press, save, remove">
-                    @if ($isGhost)
-                        <span class="text-lg" title="Marcado sin foto">🌫️</span>
-                    @elseif ($isFull)
-                        <flux:icon name="check-circle" variant="solid" class="size-7 text-accent" />
-                    @else
-                        {{-- An empty ring is the row's whole affordance: a tile
-                             is obviously tappable at that size, a line of text
-                             is not. --}}
-                        <span
-                            class="block size-7 rounded-full border-2 border-zinc-300 dark:border-white/20"
-                            aria-hidden="true"
-                        ></span>
-                    @endif
-                </div>
+                <x-mark-status :ghost="$isGhost" :full="$isFull" size="lg" ring />
             </div>
         @else
             @if ($isFull && $this->photoLinks !== null)
@@ -376,7 +368,11 @@ new class extends Component
             @else
                 {{-- The streak, drawn as fuel: the ember rises off the card's
                      base as the run grows, so the tile's middle carries the
-                     number the flame is already saying. --}}
+                     number the flame is already saying. It tops out at a month,
+                     so week two still reads as progress rather than as an ember
+                     that is full forever. --}}
+                @php($fuel = number_format(min($this->streak / 30, 1), 3, '.', ''))
+
                 <div
                     class="ember-gauge pointer-events-none absolute inset-0"
                     style="--fuel: {{ $fuel }}"
@@ -389,26 +385,16 @@ new class extends Component
                     {{ $goal->emoji }}
                 </span>
 
-                <div wire:loading wire:target="press, save, remove">
-                    <flux:icon name="loading" variant="micro" class="animate-spin opacity-60" />
-                </div>
-
-                <div wire:loading.remove wire:target="press, save, remove">
-                    @if ($isGhost)
-                        <span class="text-lg" title="Marcado sin foto">🌫️</span>
-                    @elseif ($isFull)
-                        <flux:icon name="check-circle" variant="solid" class="size-6 text-accent" />
-                    @endif
-                </div>
+                <x-mark-status :ghost="$isGhost" :full="$isFull" />
             </div>
 
             <div class="relative">
                 <p class="line-clamp-2 text-sm leading-tight font-semibold">{{ $goal->name }}</p>
 
                 <div class="mt-1.5 flex items-center justify-between">
-                    <x-flame :days="$this->streak" :dim="$mark === null && ! $isFull" size="sm" />
+                    <x-flame :days="$this->streak" :dim="$dimFlame" size="sm" />
 
-                    @if ($this->requiresPhoto && $mark === null)
+                    @if ($owesPhoto)
                         <span class="text-xs" title="Esta va con foto">📸</span>
                     @endif
                 </div>

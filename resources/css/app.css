@@ -127,7 +127,7 @@
        --fuel is set inline, 0 to 1, and at 0 the whole wash is transparent. */
     background: linear-gradient(
         to top,
-        color-mix(in oklab, var(--color-accent) 26%, transparent) 0%,
+        color-mix(in oklab, var(--color-accent) 26%, transparent),
         transparent calc(var(--fuel, 0) * 100%)
     );
 }

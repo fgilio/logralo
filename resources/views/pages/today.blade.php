@@ -41,20 +41,6 @@ new #[Title('Hoy')] class extends Component
         return $this->member()->activeGoals()->get();
     }
 
-    /**
-     * How today's goals are drawn.
-     *
-     * One or two goals do not fill a two-column grid: the tiles are sized for
-     * the five-goal case, and at that count the screen reads as a couple of
-     * mostly-empty boxes. Rows carry the same tap target and the same streak
-     * in a third of the height.
-     */
-    #[Computed]
-    public function layout(): string
-    {
-        return $this->goals->count() > 2 ? 'tile' : 'row';
-    }
-
     /** Goals still open from yesterday, only while grace lasts.
      *
      * @return EloquentCollection<int, Goal>
@@ -91,7 +77,7 @@ new #[Title('Hoy')] class extends Component
     #[On('mark-updated')]
     public function reload(): void
     {
-        unset($this->goals, $this->layout, $this->graceGoals, $this->pulse, $this->standings);
+        unset($this->goals, $this->graceGoals, $this->pulse, $this->standings);
     }
 };
 
@@ -103,6 +89,13 @@ new #[Title('Hoy')] class extends Component
     $yesterday = $this->clock->yesterday();
     $graceEndsAt = $this->clock->closesAt($yesterday)->format('H:i');
     $month = Str::ucfirst($today->translatedFormat('F'));
+
+    // How today's goals are drawn. The threshold is the grid's column count,
+    // not a taste setting: at two or fewer the tiles cannot fill even one row,
+    // and since they are sized for the five-goal case the screen reads as a
+    // couple of mostly-empty boxes. Rows carry the same tap target and the same
+    // streak in a third of the height. Moving `grid-cols-2` below moves this.
+    $layout = $this->goals->count() > 2 ? 'tile' : 'row';
 @endphp
 
 <div
@@ -228,12 +221,12 @@ new #[Title('Hoy')] class extends Component
                 </flux:button>
             </div>
         @else
-            <div @class(['grid grid-cols-2 gap-3' => $this->layout === 'tile', 'flex flex-col gap-2' => $this->layout === 'row'])>
+            <div class="{{ $layout === 'tile' ? 'grid grid-cols-2 gap-3' : 'flex flex-col gap-2' }}">
                 @foreach ($this->goals as $goal)
                     <livewire:goal-card
                         :goal="$goal"
                         :date="$today->toDateString()"
-                        :variant="$this->layout"
+                        :variant="$layout"
                         :wire:key="'today-' . $goal->id"
                     />
                 @endforeach
@@ -243,15 +236,17 @@ new #[Title('Hoy')] class extends Component
                  a handful of times ever, and as a tile it held a slot of the
                  grid open every day for something nobody was about to tap. --}}
             @if ($this->goals->count() < config('logralo.goals.max_active'))
-                <a
+                <flux:button
                     href="{{ route('profile') }}"
                     wire:navigate
-                    class="tap-target mt-3 inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-sm font-medium text-zinc-500 transition active:scale-95 dark:text-zinc-400"
+                    variant="subtle"
+                    size="sm"
+                    icon="plus"
+                    class="mt-3"
                     data-test="add-goal"
                 >
-                    <flux:icon name="plus" variant="micro" />
                     Agregar objetivo
-                </a>
+                </flux:button>
             @endif
         @endif
     </section>
