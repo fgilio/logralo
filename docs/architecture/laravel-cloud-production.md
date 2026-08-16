@@ -39,6 +39,22 @@ Two settings depend on each other and are easy to break apart:
 - The attach makes `private` the environment's **default** disk. `LIVEWIRE_TEMPORARY_FILE_UPLOAD_DISK=local` must stay set, or Livewire uploads a temporary file to R2 and `PhotoProcessor` then cannot read it off the local filesystem.
 - `aws/aws-sdk-php` is a direct requirement in `composer.json`. It was already in the lock file through `league/flysystem-aws-s3-v3`, but Laravel Cloud refuses to deploy an environment with a managed queue unless the package is required outright.
 
+## Authenticating the CLI
+
+`scripts/cloud-cli.sh` installs `laravel/cloud-cli` and authenticates it, and `scripts/cloud/setup.sh` calls it, so a hosted session comes up able to talk to production without anybody logging in.
+
+The trap it exists for: **the CLI never reads `LARAVEL_CLOUD_API_TOKEN`.** Tokens come from `~/.config/cloud/config.json`, and when that file holds none, every authenticated command falls back to browser-based OAuth — which, headless, blocks until the caller times out rather than failing. A `cloud` command that produces nothing for two minutes is an unauthenticated CLI, not a slow API. The script copies the environment variable into the file the CLI actually reads:
+
+```json
+{ "api_tokens": ["…"] }
+```
+
+`LARAVEL_CLOUD_API_TOKEN` comes from the session environment, the same way `FLUX_USERNAME` and `FLUX_LICENSE_KEY` do — set on the hosted sessions and never committed. A laptop generally does not have it, and does not need it: `cloud auth` stores a token there once, and the script's first act is to notice the variable is missing and do nothing at all.
+
+It appends rather than replaces, because the CLI keeps one token per organisation and a laptop is likely to hold others. Nothing prunes: rotate the token and the revoked one stays in the file until `cloud auth:token --remove` takes it out.
+
+The committed `.cloud/config.json` pins `organization_id` and `application_id`. That is why `cloud application:get -n` resolves to logralo with no arguments, and why the right token is still chosen when several are stored.
+
 ## The CLI cannot see the variables Cloud injects
 
 `cloud environment:get --fields=environmentVariables` lists what a human typed. It does **not** list what Cloud injects at deploy time — `LARAVEL_CLOUD_DISK_CONFIG`, `NIGHTWATCH_TOKEN`, the managed queue's credentials. Reading that list and concluding a bucket is not attached is wrong, and it has already been concluded once.
