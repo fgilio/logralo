@@ -36,10 +36,7 @@ use Illuminate\Support\Collection;
  * @property CarbonImmutable|null $share_last_viewed_at
  * @property CarbonImmutable|null $created_at
  * @property CarbonImmutable|null $updated_at
- * @property-read User|null $winner
- * @property-read User|null $runnerUp
  * @property-read User|null $bestStreakUser
- * @property-read Goal|null $bestStreakGoal
  */
 #[Fillable([
     'month',
@@ -60,27 +57,9 @@ final class MonthlyRecap extends Model
     use Shareable;
 
     /** @return BelongsTo<User, $this> */
-    public function winner(): BelongsTo
-    {
-        return $this->belongsTo(User::class, 'winner_user_id');
-    }
-
-    /** @return BelongsTo<User, $this> */
-    public function runnerUp(): BelongsTo
-    {
-        return $this->belongsTo(User::class, 'runner_up_user_id');
-    }
-
-    /** @return BelongsTo<User, $this> */
     public function bestStreakUser(): BelongsTo
     {
         return $this->belongsTo(User::class, 'best_streak_user_id');
-    }
-
-    /** @return BelongsTo<Goal, $this> */
-    public function bestStreakGoal(): BelongsTo
-    {
-        return $this->belongsTo(Goal::class, 'best_streak_goal_id');
     }
 
     /** @return Collection<int, Standing> */

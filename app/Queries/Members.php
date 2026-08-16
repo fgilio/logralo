@@ -13,8 +13,7 @@ use Illuminate\Support\Collection;
  * The group is capped at a handful of friends, so the whole roster is one
  * cheap read — and every screen wants all of it. The pulse strip walks it, the
  * monthly table walks it, and the avatars pick members out of it one at a
- * time. Before this there were three identical selects on one render; the
- * container holds this scoped, so now there is one.
+ * time. The container holds this scoped, so one render runs one select.
  *
  * The avatars are why the third caller exists at all. Most of the app carries
  * a `User` to the template that draws one, but the standings row and the recap
@@ -55,7 +54,7 @@ final class Members
     }
 
     /** @return Collection<string, User> */
-    public function directory(): Collection
+    private function directory(): Collection
     {
         return $this->directory ??= $this->roster()->keyBy('id');
     }

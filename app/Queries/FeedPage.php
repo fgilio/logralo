@@ -74,10 +74,8 @@ final readonly class FeedPage
         $floor = $hasMore && $oldest !== null ? $oldest->toDateString() : null;
 
         $recaps = MonthlyRecap::query()
-            // Only the best streak's owner is a relation anything reads: the
-            // podium comes out of the standings JSON column, so `winner`,
-            // `runnerUp` and `bestStreakGoal` were three loaded relations that
-            // no template has ever touched. `SharedEntry` already knew this.
+            // The podium comes out of the standings JSON column; the best
+            // streak's owner is the only relation the cards read.
             ->with('bestStreakUser')
             ->when($floor !== null, fn (Builder $query): Builder => $query->where('posted_on', '>=', $floor))
             ->get()

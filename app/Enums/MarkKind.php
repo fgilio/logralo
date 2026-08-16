@@ -12,12 +12,4 @@ enum MarkKind: string
 {
     case Full = 'full';
     case Ghost = 'ghost';
-
-    public function weight(): float
-    {
-        return match ($this) {
-            self::Full => 1.0,
-            self::Ghost => 0.5,
-        };
-    }
 }

@@ -57,7 +57,7 @@ it('starts at the configured page size', function (): void {
 
     Livewire::actingAs(User::factory()->create())
         ->test('feed')
-        ->assertSet('limit', (int) config('logralo.feed.page_size'));
+        ->assertSet('limit', config()->integer('logralo.feed.page_size'));
 });
 
 it('shows nothing but the empty state when no one has marked', function (): void {
@@ -68,7 +68,7 @@ it('shows nothing but the empty state when no one has marked', function (): void
     /** @var FeedResult $page */
     $page = $component->get('page');
 
-    expect($page->isEmpty())->toBeTrue()
+    expect($page->entries->isEmpty())->toBeTrue()
         ->and($page->hasMore)->toBeFalse();
 
     $component->assertSee('Todavía no hay nada');
@@ -114,7 +114,7 @@ it('groups the entries under one key per day', function (): void {
 it('raises the limit when loadMore is called', function (): void {
     feedMorning();
 
-    $pageSize = (int) config('logralo.feed.page_size');
+    $pageSize = config()->integer('logralo.feed.page_size');
     $user = User::factory()->create();
     $goal = Goal::factory()->for($user)->create();
 
@@ -145,7 +145,7 @@ it('stops raising the limit once the history runs out', function (): void {
     Livewire::actingAs($user)
         ->test('feed')
         ->call('loadMore')
-        ->assertSet('limit', (int) config('logralo.feed.page_size'));
+        ->assertSet('limit', config()->integer('logralo.feed.page_size'));
 });
 
 it('mixes the month-end recaps in with the marks', function (): void {

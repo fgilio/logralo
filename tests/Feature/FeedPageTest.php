@@ -206,7 +206,7 @@ it('reports more as soon as one mark falls past the page', function (): void {
 it('reports an empty feed as empty', function (): void {
     $page = resolve(FeedPage::class)->load(10);
 
-    expect($page->isEmpty())->toBeTrue()
+    expect($page->entries->isEmpty())->toBeTrue()
         ->and($page->hasMore)->toBeFalse();
 });
 

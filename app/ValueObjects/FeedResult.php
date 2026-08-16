@@ -17,9 +17,4 @@ final readonly class FeedResult
         public Collection $entries,
         public bool $hasMore,
     ) {}
-
-    public function isEmpty(): bool
-    {
-        return $this->entries->isEmpty();
-    }
 }
