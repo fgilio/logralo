@@ -6,6 +6,7 @@ use App\Models\Goal;
 use App\Models\Mark;
 use App\Models\Reaction;
 use App\Models\User;
+use Pest\Browser\Playwright\Playwright;
 
 /**
  * The phone smoke tests.
@@ -46,6 +47,81 @@ it('marks a goal when the card is tapped', function (): void {
 
     expect($mark->photo_key)->toBeNull()
         ->and($mark->marked_on->toDateString())->toBe($user->clock()->today()->toDateString());
+});
+
+/**
+ * The resize that happens between the shutter and the upload.
+ *
+ * Driven through `window.Logralo` rather than through the file input, because
+ * an upload cannot complete against this test server at all: Pest's Laravel
+ * driver builds its request with an empty files array, so a multipart body
+ * never reaches PHP as an upload. What is worth proving lives on this side of
+ * that line anyway — a real Chromium, a real 24 MP JPEG, and the real decode,
+ * resample and re-encode the phone will do.
+ */
+it('shrinks a camera original in the browser before it uploads', function (): void {
+    $user = User::factory()->create();
+    Goal::factory()->for($user)->create(['name' => 'Correr']);
+
+    $budget = (int) config('logralo.photos.client_max_megapixels') * 1_000_000;
+    $quality = (int) config('logralo.photos.client_jpeg_quality') / 100;
+
+    // Both sides are scaled by the square root of the ratio between 24 MP and
+    // the budget, so these are the exact dimensions the server should receive.
+    $scale = sqrt($budget / (6000 * 4000));
+
+    $this->actingAs($user);
+
+    $page = visit('/')->on()->iPhone15Pro();
+
+    // The fixture is drawn rather than uploaded, with enough colour in it that
+    // the JPEG has something to spend bytes on. The whole round trip — draw
+    // 24 MP, encode it, decode it, resample it, encode it again — runs well
+    // past the five seconds an assertion is normally given.
+    $script = <<<JS
+        (async () => {
+            const source = new OffscreenCanvas(6000, 4000);
+            const context = source.getContext('2d', { alpha: false });
+
+            for (let drawn = 0; drawn < 300; drawn++) {
+                context.fillStyle = `hsl(\${(drawn * 37) % 360} 80% \${20 + ((drawn * 13) % 60)}%)`;
+                context.fillRect((drawn * 811) % 6000, (drawn * 577) % 4000, 40 + (drawn % 600), 40 + (drawn % 400));
+            }
+
+            const original = new File(
+                [await source.convertToBlob({ type: 'image/jpeg', quality: 0.95 })],
+                'IMG_0042.jpg',
+                { type: 'image/jpeg' },
+            );
+
+            const shrunk = await window.Logralo.compressPhoto(original, {
+                maxPixels: {$budget},
+                quality: {$quality},
+            });
+
+            const decoded = await createImageBitmap(shrunk);
+
+            return JSON.stringify({
+                width: decoded.width,
+                height: decoded.height,
+                type: shrunk.type,
+                name: shrunk.name,
+                shrank: shrunk.size < original.size,
+            });
+        })()
+    JS;
+
+    $result = json_decode((string) Playwright::usingTimeout(60_000, fn (): mixed => $page->script($script)), true);
+
+    expect($result)->toBe([
+        'width' => (int) round(6000 * $scale),
+        'height' => (int) round(4000 * $scale),
+        'type' => 'image/jpeg',
+        'name' => 'IMG_0042.jpg',
+        'shrank' => true,
+    ]);
+
+    $page->assertNoJavaScriptErrors();
 });
 
 it('reacts to a card from the bar the plus button opens', function (): void {
