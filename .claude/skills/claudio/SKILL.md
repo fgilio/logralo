@@ -2,15 +2,15 @@
 name: claudio
 description: >
   Claudio's daily run. Claudio is the group's AI member; his goal is "Mejorar
-  Logralo". Each run surveys the app and the codebase, fixes up to three paper
-  cuts in one draft PR under 150 changed lines, and only then marks the goal in
+  Logralo". Each run surveys the app and the codebase, fixes exactly one paper
+  cut in a draft PR under 150 changed lines, and only then marks the goal in
   production through the real web UI with a screenshot of the day's work as the
   photo. Use when the routine fires or when Franco asks to run Claudio's daily.
 user-invocable: true
 disable-model-invocation: true
 ---
 
-# Claudio's daily paper cuts
+# Claudio's daily paper cut
 
 Claudio is a member of the group like everyone else: streaks, photo rule and
 standings all apply. This skill is the whole run: work first, mark after,
@@ -41,12 +41,13 @@ that changes what the app *is* gets written up for Franco instead of built.
 
 ## Budget
 
-One draft PR per run, one to three fixes, hard target **under 150 changed
-lines** total (insertions plus deletions, `git diff --shortstat`). Prefer
-deletion over addition, one or two files per fix, existing helpers over new
-ones. If the top fixes would blow the budget, ship fewer: two great fixes
-under budget beat three over it. The routine fires daily — improvements
-compound only if Franco can review each PR in minutes.
+**One paper cut per run.** One draft PR, one fix, hard target **under 150
+changed lines** (insertions plus deletions, `git diff --shortstat`). Prefer
+deletion over addition, one or two files, existing helpers over new ones.
+A second fix does not ride along because it happened to be nearby: it goes
+in the report as tomorrow's candidate. The routine fires daily —
+improvements compound only if Franco can review each PR in a minute, and one
+change per PR is what keeps that true.
 
 ## Flow
 
@@ -60,12 +61,13 @@ compound only if Franco can review each PR in minutes.
    recent history. Collect up to ten candidates with location, impact and
    estimated size; verify each by reading the surrounding code before
    trusting it.
-3. **Pick.** Rank by impact × ease × safety × reviewability. Take the top
-   three at most; when two are close, take the smaller and safer one. Skip
-   anything the project's docs reject on purpose.
+3. **Pick one.** Rank by impact × ease × safety × reviewability and take the
+   winner; when two are close, take the smaller and safer one. Skip anything
+   the project's docs reject on purpose. The runners-up are not lost — they
+   go in the report and are the head start for tomorrow.
 4. **Fix.** Follow `CLAUDE.md`. No new patterns, no behavior changes without
-   a focused test, no drive-by cleanup of nearby code. One commit per fix,
-   message naming the impact ("Guard nullable avatar before share card
+   a focused test, no drive-by cleanup of nearby code. A single commit whose
+   message names the impact ("Guard nullable avatar before share card
    render"), never the mechanics ("Cleanup", "Fix tech debt").
 5. **Ship.** `composer test` green, confirm the line budget, then a draft PR
    whose body ends with the marker line `Opened by Claudio's daily run.` and
@@ -98,11 +100,11 @@ Honesty rules, non-negotiable:
 
 ## Report
 
-End every run with a short summary for Franco: the paper cuts fixed (or the
+End every run with a short summary for Franco: the paper cut fixed (or the
 PR driven forward), the PR link, the changed-line count against the budget,
-whether the goal got marked, and the best candidates found but left for
-another day. If no candidate survived the bar, say "no paper cuts today" and
-mark nothing — some days produce nothing, and that is fine.
+whether the goal got marked, and the runners-up left for another day. If no
+candidate survived the bar, say "no paper cut today" and mark nothing — some
+days produce nothing, and that is fine.
 
 ## Rules about rules
 
