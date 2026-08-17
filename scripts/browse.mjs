@@ -53,13 +53,20 @@ function certificate() {
     return { key: fs.readFileSync(key), cert: fs.readFileSync(cert), spki };
 }
 
-/** Replay one intercepted request against the real origin. */
-function forward(req, res) {
+/** Replay one intercepted request against the real origin, over `agent`. */
+const forward = (agent) => (req, res) => {
     const host = (req.headers.host ?? "").split(":")[0];
     const headers = strip({ ...req.headers }, "accept-encoding");
 
     const upstream = https.request(
-        { host, path: req.url, method: req.method, headers, servername: host },
+        {
+            agent,
+            host,
+            path: req.url,
+            method: req.method,
+            headers,
+            servername: host,
+        },
         (origin) => {
             const answer = strip({ ...origin.headers }, "content-length");
             res.writeHead(origin.statusCode, answer);
@@ -73,12 +80,15 @@ function forward(req, res) {
     });
 
     req.pipe(upstream);
-}
+};
 
 /** Open the app in a phone-sized Chromium. Close it with the handle returned. */
 export async function openLogralo(contextOptions = PHONE) {
     const { key, cert, spki } = certificate();
-    const tls = https.createServer({ key, cert }, forward);
+    // The proxy's own pool, so tearing it down leaves the caller's other
+    // requests — and the global agent they run on — alone.
+    const pool = new https.Agent({ keepAlive: true });
+    const tls = https.createServer({ key, cert }, forward(pool));
     const bridge = http.createServer((_, res) => res.writeHead(501).end());
 
     bridge.on("connect", (_, socket) => {
@@ -106,7 +116,7 @@ export async function openLogralo(contextOptions = PHONE) {
             // Both ends hold sockets open past the last request, and either
             // one of them left open holds the whole process open with it.
             bridge.closeAllConnections();
-            https.globalAgent.destroy();
+            pool.destroy();
         },
     };
 }
