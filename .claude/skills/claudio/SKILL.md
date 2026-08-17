@@ -74,10 +74,27 @@ change per PR is what keeps that true.
    states the changed-line count. Subscribe to it and drive CI green. Franco
    merges — a green, reviewable draft PR is the day's work.
 
+## Driving the browser
+
+Chromium cannot reach the internet from this sandbox on its own: every TLS
+handshake it opens is reset before the server answers, direct and through
+`HTTPS_PROXY` alike. `scripts/browse.mjs` is the way in — it runs a loopback
+proxy that terminates TLS itself and replays each request through node, which
+the sandbox does let out. Start there rather than spending a run rediscovering
+it:
+
+```js
+import { openLogralo, signIn } from "./scripts/browse.mjs";
+
+const app = await openLogralo(); // phone viewport, logged out
+await signIn(app.page, "claudio@logralo.fgilio.com", process.env.LOGRALO_CLAUDIO_PASSWORD);
+await app.close();
+```
+
 ## Mark the goal — through the UI only
 
-Marking happens on production (`https://logralo.fgilio.com`) with Playwright
-(Chromium is at `/opt/pw-browsers/chromium`), exactly as a member would:
+Marking happens on production (`https://logralo.fgilio.com`) with Playwright,
+exactly as a member would:
 
 1. Log in at `/entrar` with Claudio's email and password.
 2. **First run only:** the empty state asks for a first goal — create
