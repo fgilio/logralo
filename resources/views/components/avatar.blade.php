@@ -17,7 +17,7 @@
     // than as a member, so the roster is what turns one back into a face.
     $member = $user ?? resolve(App\Queries\Members::class)->find($userId);
 
-    $picture = $member?->pictureUrl();
+    $picture = $member?->uploadedAvatarUrl();
 @endphp
 
 @if ($picture !== null)

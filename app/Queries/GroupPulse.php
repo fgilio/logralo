@@ -30,7 +30,7 @@ final readonly class GroupPulse
         }
 
         $goals = Goal::query()->active()->get(['id', 'user_id']);
-        $goalCounts = $goals->groupBy('user_id')->map(fn (Collection $userGoals): int => $userGoals->count());
+        $goalCounts = $goals->countBy('user_id');
 
         $localDates = $users->mapWithKeys(
             fn (User $user): array => [$user->id => $user->clock()->today()->toDateString()]
@@ -40,8 +40,7 @@ final readonly class GroupPulse
             ->whereIn('goal_id', $goals->pluck('id')->values()->all())
             ->whereIn('marked_on', $localDates->values()->unique()->values()->all())
             ->get(['user_id', 'marked_on'])
-            ->groupBy(fn (Mark $mark): string => $mark->user_id.'|'.$mark->marked_on->toDateString())
-            ->map(fn (Collection $marks): int => $marks->count());
+            ->countBy(fn (Mark $mark): string => $mark->user_id.'|'.$mark->marked_on->toDateString());
 
         return $users
             ->map(fn (User $user): PulseEntry => new PulseEntry(

@@ -115,6 +115,6 @@ final readonly class UserClock
 
     private static function configuredGraceCutoffHour(): int
     {
-        return (int) config('logralo.grace_cutoff_hour');
+        return config()->integer('logralo.grace_cutoff_hour');
     }
 }

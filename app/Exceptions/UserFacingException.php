@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Exceptions;
 
+use Illuminate\Support\Str;
 use RuntimeException;
 
 /**
@@ -13,4 +14,13 @@ use RuntimeException;
 abstract class UserFacingException extends RuntimeException
 {
     abstract public function userMessage(): string;
+
+    /**
+     * What this rejection logs as `logralo.reject_reason`: the class name in
+     * the snake_case dialect every other context value speaks.
+     */
+    final public function reason(): string
+    {
+        return Str::snake(Str::chopEnd(class_basename($this), 'Exception'));
+    }
 }

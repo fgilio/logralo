@@ -496,14 +496,7 @@ new #[Title('Perfil')] class extends Component
     </div>
 
     {{-- Create / rename --}}
-    <flux:modal
-        name="goal-form"
-        flyout
-        position="bottom"
-        class="max-h-[85dvh] overscroll-contain rounded-t-2xl p-5 pb-[max(1.25rem,env(safe-area-inset-bottom))]"
-    >
-        <div class="mx-auto mb-4 h-1 w-10 rounded-full bg-zinc-300 dark:bg-white/20"></div>
-
+    <x-sheet name="goal-form">
         <flux:heading size="lg">
             {{ $editingGoalId !== null ? 'Renombrar objetivo' : 'Nuevo objetivo' }}
         </flux:heading>
@@ -533,9 +526,12 @@ new #[Title('Perfil')] class extends Component
 
             <div class="flex flex-wrap gap-1.5">
                 @foreach ($this::EMOJI_SUGGESTIONS as $suggestion)
+                    {{-- Client-side: it fills a field the member is about to
+                         submit anyway, so a server round trip per tap buys
+                         nothing. --}}
                     <button
                         type="button"
-                        wire:click="$set('goalEmoji', '{{ $suggestion }}')"
+                        x-on:click="$wire.goalEmoji = '{{ $suggestion }}'"
                         class="tap-target grid size-10 place-items-center rounded-lg text-xl ring-1 ring-zinc-200 transition active:scale-95 dark:ring-white/10"
                     >
                         {{ $suggestion }}
@@ -550,5 +546,5 @@ new #[Title('Perfil')] class extends Component
                 Guardar
             </flux:button>
         </form>
-    </flux:modal>
+    </x-sheet>
 </div>

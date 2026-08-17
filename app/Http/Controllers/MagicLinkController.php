@@ -48,7 +48,7 @@ final class MagicLinkController
         return view('auth.magic-link', ['user' => $user, 'token' => $token]);
     }
 
-    public function store(Request $request, User $user, string $token): RedirectResponse
+    public function consume(Request $request, User $user, string $token): RedirectResponse
     {
         Context::add('logralo.user_id', $user->id);
 
@@ -81,9 +81,9 @@ final class MagicLinkController
 
             throw $throwable;
         } finally {
-            // In `finally` like every Action's: a token burned by a save that
-            // then threw used to leave no event at all, which is the one case
-            // anybody would go looking for.
+            // The save can burn the token and then throw, and that path must
+            // still emit the event — it is the one anybody would go looking
+            // for.
             Log::info('magic_link.consume.handled');
         }
     }

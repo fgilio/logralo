@@ -13,7 +13,7 @@ use Throwable;
  * Renaming a goal. Allowed at any time, archived or not: history keeps the
  * name it has now, which is what the member recognises.
  */
-final class RenameGoal
+final readonly class RenameGoal
 {
     public function handle(Goal $goal, string $emoji, string $name): Goal
     {

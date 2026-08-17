@@ -151,12 +151,12 @@ final readonly class ShareCardComposer
             $size = (int) ($radius * $distance);
 
             // Eased, so the bloom has a bright core rather than a flat disc.
-            $colour = $this->mix(self::GROUND, self::BLOOM_PEAK, (1 - $distance) ** 1.8);
+            $color = $this->mix(self::GROUND, self::BLOOM_PEAK, (1 - $distance) ** 1.8);
 
-            $canvas->drawEllipse(function (EllipseFactory $ellipse) use ($size, $colour, $centerX, $centerY): void {
+            $canvas->drawEllipse(function (EllipseFactory $ellipse) use ($size, $color, $centerX, $centerY): void {
                 $ellipse->at($centerX, $centerY);
                 $ellipse->size($size * 2, $size * 2);
-                $ellipse->background($colour);
+                $ellipse->background($color);
             });
         }
 

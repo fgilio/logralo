@@ -16,7 +16,7 @@ use Illuminate\Support\Collection;
  * goals and one mark per goal per day, so even years of this group are a few
  * thousand rows, and a window would quietly truncate a long streak.
  */
-final class GoalHistory
+final readonly class GoalHistory
 {
     public function for(Goal $goal): MarkHistory
     {

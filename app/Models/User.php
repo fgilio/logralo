@@ -71,6 +71,12 @@ final class User extends Authenticatable
         return $this->goals()->whereNull('archived_at');
     }
 
+    /** The position a goal entering the grid takes: after every existing one. */
+    public function nextGoalPosition(): int
+    {
+        return (int) $this->goals()->max('position') + 1;
+    }
+
     /** @return HasMany<Mark, $this> */
     public function marks(): HasMany
     {
@@ -104,7 +110,7 @@ final class User extends Authenticatable
      * answer: this one points at a file the app stored and can be shown on
      * sight, and that one is a guess the browser has to try.
      */
-    public function pictureUrl(): ?string
+    public function uploadedAvatarUrl(): ?string
     {
         return $this->avatar_key === null
             ? null

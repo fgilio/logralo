@@ -70,8 +70,8 @@ final readonly class PhotoProcessor
         // The key is a directory on the photo disk; the disk itself is what
         // decides where that lives.
         $key = (string) Str::ulid();
-        $webpQuality = (int) config('logralo.photos.webp_quality');
-        $jpegQuality = (int) config('logralo.photos.jpeg_quality');
+        $webpQuality = config()->integer('logralo.photos.webp_quality');
+        $jpegQuality = config()->integer('logralo.photos.jpeg_quality');
 
         // The dimensions recorded are the ones actually stored, so the feed's
         // width and height attributes describe the file the browser fetches.
@@ -135,7 +135,7 @@ final readonly class PhotoProcessor
         $this->guardPixelCount($file);
 
         $key = self::AVATAR_PREFIX.'/'.Str::ulid();
-        $size = (int) config('logralo.avatars.size');
+        $size = config()->integer('logralo.avatars.size');
 
         // `cover()` crops to the centre rather than letterboxing, which is the
         // right call for a circle: the corners it throws away are the ones the
@@ -146,7 +146,7 @@ final readonly class PhotoProcessor
         $this->disk()->put(
             "{$key}/avatar.webp",
             (string) $square->encode(new WebpEncoder(
-                quality: (int) config('logralo.avatars.webp_quality'),
+                quality: config()->integer('logralo.avatars.webp_quality'),
                 strip: true,
             )),
         );
@@ -207,8 +207,8 @@ final readonly class PhotoProcessor
     {
         $disk = $this->disk();
 
-        if (config('logralo.photos.signed_urls') === true && $disk instanceof FilesystemAdapter && $disk->providesTemporaryUrls()) {
-            $minutes = (int) config('logralo.photos.url_ttl_minutes');
+        if (config()->boolean('logralo.photos.signed_urls') && $disk instanceof FilesystemAdapter && $disk->providesTemporaryUrls()) {
+            $minutes = config()->integer('logralo.photos.url_ttl_minutes');
 
             // Signing on every render would hand the browser a new `src` each
             // time the feed polls, so every photo would download again. The
@@ -232,7 +232,7 @@ final readonly class PhotoProcessor
      */
     public function disk(): Filesystem
     {
-        return Storage::disk((string) config('logralo.photos.disk'));
+        return Storage::disk(config()->string('logralo.photos.disk'));
     }
 
     /**
@@ -262,7 +262,7 @@ final readonly class PhotoProcessor
             return;
         }
 
-        $ceiling = (int) config('logralo.photos.max_megapixels');
+        $ceiling = config()->integer('logralo.photos.max_megapixels');
         $megapixels = $dimensions[0] * $dimensions[1] / 1_000_000;
 
         throw_if($megapixels > $ceiling, PhotoTooLargeException::class, $file->getClientOriginalName(), $megapixels, $ceiling);

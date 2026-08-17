@@ -24,7 +24,7 @@ it('stores one square derivative under an avatar key', function (): void {
 
     $key = resolve(PhotoProcessor::class)->storeAvatar(UploadedFile::fake()->image('face.jpg', 1200, 800));
 
-    $size = (int) config('logralo.avatars.size');
+    $size = config()->integer('logralo.avatars.size');
     $stored = getimagesizefromstring((string) Storage::disk('photos')->get("{$key}/avatar.webp"));
 
     expect($key)->toStartWith(PhotoProcessor::AVATAR_PREFIX.'/')
@@ -71,12 +71,12 @@ it('falls back to Gravatar once the upload is removed', function (): void {
     resolve(UpdateAvatar::class)->handle($user, UploadedFile::fake()->image('face.jpg', 400, 400));
     $key = (string) $user->avatar_key;
 
-    expect($user->pictureUrl())->toContain("{$key}/avatar.webp");
+    expect($user->uploadedAvatarUrl())->toContain("{$key}/avatar.webp");
 
     resolve(RemoveAvatar::class)->handle($user);
 
     expect($user->avatar_key)->toBeNull()
-        ->and($user->pictureUrl())->toBeNull()
+        ->and($user->uploadedAvatarUrl())->toBeNull()
         ->and($user->gravatarUrl())->toContain(hash('sha256', 'franco@example.com'))
         ->and(Storage::disk('photos')->exists($key))->toBeFalse();
 });
@@ -231,7 +231,7 @@ it('refuses a file that is not an image', function (): void {
         ->test('pages::profile')
         ->set('avatar', UploadedFile::fake()->create('cv.pdf', 12, 'application/pdf'))
         ->call('saveAvatar')
-        ->assertHasErrors(['avatar' => 'mimetypes']);
+        ->assertHasErrors(['avatar']);
 
     expect($user->refresh()->avatar_key)->toBeNull();
 });

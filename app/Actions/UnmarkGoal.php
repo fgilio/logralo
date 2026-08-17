@@ -69,15 +69,15 @@ final readonly class UnmarkGoal
             Context::add('logralo.outcome', 'completed');
         } catch (UserFacingException $exception) {
             Context::add('logralo.outcome', 'rejected');
-            Context::add('logralo.reject_reason', class_basename($exception));
+            Context::add('logralo.reject_reason', $exception->reason());
 
             throw $exception;
-        } catch (Throwable $exception) {
+        } catch (Throwable $throwable) {
             Context::add('logralo.outcome', 'error');
-            Context::add('logralo.error', $exception->getMessage());
-            Context::add('logralo.error_class', $exception::class);
+            Context::add('logralo.error', $throwable->getMessage());
+            Context::add('logralo.error_class', $throwable::class);
 
-            throw $exception;
+            throw $throwable;
         } finally {
             Log::info('mark.remove.handled');
         }

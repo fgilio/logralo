@@ -6,6 +6,7 @@ namespace App\Actions;
 
 use App\Models\Mark;
 use App\Models\MonthlyRecap;
+use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Context;
 use Illuminate\Support\Facades\Log;
@@ -24,7 +25,7 @@ use Throwable;
  * preview, and counting that would report a view for every message sent
  * whether or not a single person opened it.
  */
-final class RecordShareVisit
+final readonly class RecordShareVisit
 {
     /**
      * Substrings of the User-Agent that mean a preview, not a person. Kept
@@ -72,7 +73,7 @@ final class RecordShareVisit
             // touching the timestamp would reorder the feed every time somebody
             // opened an old link.
             $shared::withoutTimestamps(
-                fn () => $shared->increment('share_views', 1, ['share_last_viewed_at' => now()])
+                fn () => $shared->increment('share_views', 1, ['share_last_viewed_at' => CarbonImmutable::now()])
             );
 
             Context::add('logralo.outcome', 'counted');

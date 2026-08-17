@@ -34,7 +34,7 @@ final readonly class RemoveAvatar
 
             $this->photos->delete($removed);
 
-            Context::add('logralo.outcome', $removed === null ? 'noop' : 'completed');
+            Context::add('logralo.outcome', $removed === null ? 'already_removed' : 'completed');
 
             return $user;
         } catch (Throwable $throwable) {

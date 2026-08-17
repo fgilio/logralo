@@ -16,7 +16,7 @@ final class GoalLimitReachedException extends UserFacingException
 
     public function userMessage(): string
     {
-        $limit = (int) config('logralo.goals.max_active');
+        $limit = config()->integer('logralo.goals.max_active');
 
         return "Ya tenés {$limit} objetivos activos. Archivá uno para crear otro.";
     }

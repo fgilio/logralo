@@ -22,10 +22,9 @@ use Livewire\Livewire;
  */
 
 /** 09:00 in Montevideo, the day everything in this file happens on. */
-function feedMorning(): void
-{
-    test()->travelTo(CarbonImmutable::parse('2026-08-11 09:00', 'America/Montevideo')->utc());
-}
+beforeEach(function (): void {
+    $this->travelTo(CarbonImmutable::parse('2026-08-11 09:00', 'America/Montevideo')->utc());
+});
 
 /** @return list<int> */
 function feedLadder(string $html): array
@@ -36,8 +35,6 @@ function feedLadder(string $html): array
 }
 
 it('renders the marks of every member', function (): void {
-    feedMorning();
-
     $ana = User::factory()->create(['name' => 'Ana']);
     $bruno = User::factory()->create(['name' => 'Bruno']);
 
@@ -53,30 +50,24 @@ it('renders the marks of every member', function (): void {
 });
 
 it('starts at the configured page size', function (): void {
-    feedMorning();
-
     Livewire::actingAs(User::factory()->create())
         ->test('feed')
-        ->assertSet('limit', (int) config('logralo.feed.page_size'));
+        ->assertSet('limit', config()->integer('logralo.feed.page_size'));
 });
 
 it('shows nothing but the empty state when no one has marked', function (): void {
-    feedMorning();
-
     $component = Livewire::actingAs(User::factory()->create())->test('feed');
 
     /** @var FeedResult $page */
     $page = $component->get('page');
 
-    expect($page->isEmpty())->toBeTrue()
+    expect($page->entries->isEmpty())->toBeTrue()
         ->and($page->hasMore)->toBeFalse();
 
     $component->assertSee('Todavía no hay nada');
 });
 
 it('sorts newest first, by day and then by the moment it was marked', function (): void {
-    feedMorning();
-
     $user = User::factory()->create();
     $goal = Goal::factory()->for($user)->create();
     $other = Goal::factory()->for($user)->create();
@@ -95,8 +86,6 @@ it('sorts newest first, by day and then by the moment it was marked', function (
 });
 
 it('groups the entries under one key per day', function (): void {
-    feedMorning();
-
     $user = User::factory()->create();
     $goal = Goal::factory()->for($user)->create();
 
@@ -112,9 +101,7 @@ it('groups the entries under one key per day', function (): void {
 });
 
 it('raises the limit when loadMore is called', function (): void {
-    feedMorning();
-
-    $pageSize = (int) config('logralo.feed.page_size');
+    $pageSize = config()->integer('logralo.feed.page_size');
     $user = User::factory()->create();
     $goal = Goal::factory()->for($user)->create();
 
@@ -137,20 +124,16 @@ it('raises the limit when loadMore is called', function (): void {
 });
 
 it('stops raising the limit once the history runs out', function (): void {
-    feedMorning();
-
     $user = User::factory()->create();
     Mark::factory()->for(Goal::factory()->for($user)->create())->on('2026-08-11')->create();
 
     Livewire::actingAs($user)
         ->test('feed')
         ->call('loadMore')
-        ->assertSet('limit', (int) config('logralo.feed.page_size'));
+        ->assertSet('limit', config()->integer('logralo.feed.page_size'));
 });
 
 it('mixes the month-end recaps in with the marks', function (): void {
-    feedMorning();
-
     $user = User::factory()->create(['name' => 'Ana']);
     $goal = Goal::factory()->for($user)->create();
 
@@ -191,8 +174,6 @@ it('mixes the month-end recaps in with the marks', function (): void {
 });
 
 it('carries the flame the mark had on its own day', function (): void {
-    feedMorning();
-
     $user = User::factory()->create();
     $goal = Goal::factory()->for($user)->create();
 
@@ -209,8 +190,6 @@ it('carries the flame the mark had on its own day', function (): void {
 
 it('hands a photo mark its links and a ghost mark none', function (): void {
     Storage::fake('photos');
-    feedMorning();
-
     $user = User::factory()->create();
     $goal = Goal::factory()->for($user)->create();
 
@@ -226,8 +205,6 @@ it('hands a photo mark its links and a ghost mark none', function (): void {
 });
 
 it('adds a reaction when one is tapped', function (): void {
-    feedMorning();
-
     $user = User::factory()->create();
     $mark = Mark::factory()->for(Goal::factory()->for($user)->create())->on('2026-08-11')->create();
 
@@ -241,8 +218,6 @@ it('adds a reaction when one is tapped', function (): void {
 });
 
 it('removes a reaction when the same one is tapped again', function (): void {
-    feedMorning();
-
     $user = User::factory()->create();
     $mark = Mark::factory()->for(Goal::factory()->for($user)->create())->on('2026-08-11')->create();
 
@@ -255,8 +230,6 @@ it('removes a reaction when the same one is tapped again', function (): void {
 });
 
 it('swaps a reaction when a different one is tapped', function (): void {
-    feedMorning();
-
     $user = User::factory()->create();
     $mark = Mark::factory()->for(Goal::factory()->for($user)->create())->on('2026-08-11')->create();
 
@@ -271,8 +244,6 @@ it('swaps a reaction when a different one is tapped', function (): void {
 });
 
 it('keeps one reaction per member on the same card', function (): void {
-    feedMorning();
-
     $ana = User::factory()->create(['name' => 'Ana']);
     $bruno = User::factory()->create(['name' => 'Bruno']);
     $mark = Mark::factory()->for(Goal::factory()->for($ana)->create())->on('2026-08-11')->create();
@@ -290,16 +261,12 @@ it('keeps one reaction per member on the same card', function (): void {
 });
 
 it('refuses to react to a mark that is not there', function (): void {
-    feedMorning();
-
     Livewire::actingAs(User::factory()->create())
         ->test('feed')
         ->call('react', '01HZZNOTAMARK', 'fire');
 })->throws(ModelNotFoundException::class);
 
 it('gives the newest mark of a day the cover, the next one half of it, and the rest rows', function (): void {
-    feedMorning();
-
     $user = User::factory()->create();
 
     // One goal per mark: a goal can only be marked once on a given day.
@@ -318,8 +285,6 @@ it('gives the newest mark of a day the cover, the next one half of it, and the r
 });
 
 it('lets a recap card sit in a day without taking a rung', function (): void {
-    feedMorning();
-
     $user = User::factory()->create(['name' => 'Ana']);
 
     Mark::factory()->for(Goal::factory()->for($user)->create())->on('2026-07-31')->create();
@@ -343,8 +308,6 @@ it('lets a recap card sit in a day without taking a rung', function (): void {
 });
 
 it('stands the goal emoji in for a mark that has no photo', function (): void {
-    feedMorning();
-
     $user = User::factory()->create();
     $goal = Goal::factory()->for($user)->create(['name' => 'Natacion', 'emoji' => '🏊']);
 
@@ -358,8 +321,6 @@ it('stands the goal emoji in for a mark that has no photo', function (): void {
 });
 
 it('drops the ghost caption on a collapsed row, and brings it back when the row opens', function (): void {
-    feedMorning();
-
     $user = User::factory()->create();
 
     foreach (range(1, 3) as $minute) {
@@ -378,8 +339,6 @@ it('drops the ghost caption on a collapsed row, and brings it back when the row 
 });
 
 it('keys every card, and gives it the id a shared link lands on', function (): void {
-    feedMorning();
-
     $user = User::factory()->create();
     $mark = Mark::factory()->for(Goal::factory()->for($user)->create())->on('2026-08-11')->create();
 
@@ -390,8 +349,6 @@ it('keys every card, and gives it the id a shared link lands on', function (): v
 });
 
 it('shows the view count to the owner on a cover, and to nobody on a split card', function (): void {
-    feedMorning();
-
     $ana = User::factory()->create(['name' => 'Ana']);
 
     foreach (range(1, 2) as $minute) {
@@ -410,8 +367,6 @@ it('shows the view count to the owner on a cover, and to nobody on a split card'
 });
 
 it('offers the cover the whole page, and the split card the box it really is', function (): void {
-    feedMorning();
-
     $user = User::factory()->create();
 
     foreach (range(1, 3) as $minute) {
@@ -428,8 +383,6 @@ it('offers the cover the whole page, and the split card the box it really is', f
 });
 
 it('carries the note at every height', function (): void {
-    feedMorning();
-
     $user = User::factory()->create();
 
     foreach (['la banda', 'la columna', 'la segunda linea'] as $index => $note) {
@@ -449,8 +402,6 @@ it('carries the note at every height', function (): void {
 });
 
 it('summarises the reactions a mark already has', function (): void {
-    feedMorning();
-
     $ana = User::factory()->create(['name' => 'Ana']);
     $mark = Mark::factory()->for(Goal::factory()->for($ana)->create())->on('2026-08-11')->create();
 
@@ -462,8 +413,6 @@ it('summarises the reactions a mark already has', function (): void {
 });
 
 it('reloads when a mark lands anywhere on the page', function (): void {
-    feedMorning();
-
     $user = User::factory()->create();
     $goal = Goal::factory()->for($user)->create();
 

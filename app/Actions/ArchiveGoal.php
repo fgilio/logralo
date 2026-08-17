@@ -14,7 +14,7 @@ use Throwable;
  * Archiving keeps everything — history, photos, past scores — and only stops
  * the goal from counting from today on. Nothing is ever deleted.
  */
-final class ArchiveGoal
+final readonly class ArchiveGoal
 {
     public function handle(Goal $goal): Goal
     {

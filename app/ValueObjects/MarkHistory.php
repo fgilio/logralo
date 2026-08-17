@@ -52,18 +52,17 @@ final readonly class MarkHistory
     }
 
     /**
-     * Whether each of the most recent marks before a day carried a photo,
-     * newest first.
+     * Whether each mark before a day carried a photo, newest first. How far
+     * back matters is `PhotoRule`'s call, not this one's.
      *
      * @return list<bool>
      */
-    public function recentFullnessBefore(string $date, int $limit): array
+    public function recentFullnessBefore(string $date): array
     {
         return array_values(
             collect($this->entries)
                 ->reject(fn (array $entry): bool => $entry['date'] >= $date)
                 ->reverse()
-                ->take($limit)
                 ->map(fn (array $entry): bool => $entry['full'])
                 ->all()
         );

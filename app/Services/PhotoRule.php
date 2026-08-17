@@ -11,14 +11,14 @@ namespace App\Services;
  * Consecutive counts marks, not days — skipping a day does not launder the
  * ghost run.
  */
-final class PhotoRule
+final readonly class PhotoRule
 {
     /**
      * @param  list<bool>  $recentMarksAreFull  most recent mark first
      */
     public function requiresPhoto(array $recentMarksAreFull): bool
     {
-        $limit = (int) config('logralo.goals.ghosts_before_camera');
+        $limit = config()->integer('logralo.goals.ghosts_before_camera');
         $ghosts = 0;
 
         foreach ($recentMarksAreFull as $isFull) {

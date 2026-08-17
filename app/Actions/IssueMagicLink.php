@@ -20,7 +20,7 @@ use Throwable;
  * the token: it is stored hashed, it is burned on first use, and issuing a new
  * one revokes whatever was sent before.
  */
-final class IssueMagicLink
+final readonly class IssueMagicLink
 {
     public function handle(User $user): string
     {
@@ -39,7 +39,7 @@ final class IssueMagicLink
 
             return URL::temporarySignedRoute(
                 'magic-link.show',
-                CarbonImmutable::now()->addDays((int) config('logralo.magic_link.ttl_days')),
+                CarbonImmutable::now()->addDays(config()->integer('logralo.magic_link.ttl_days')),
                 ['user' => $user->id, 'token' => $plain],
             );
         } catch (Throwable $throwable) {

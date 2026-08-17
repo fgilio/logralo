@@ -15,7 +15,7 @@ Route::middleware('guest')->group(function (): void {
     // member id nor the token can be swapped on the way through WhatsApp.
     Route::middleware(['signed', 'throttle:magic-link'])->group(function (): void {
         Route::get('acceso/{user}/{token}', [MagicLinkController::class, 'show'])->name('magic-link.show');
-        Route::post('acceso/{user}/{token}', [MagicLinkController::class, 'store'])->name('magic-link.consume');
+        Route::post('acceso/{user}/{token}', [MagicLinkController::class, 'consume'])->name('magic-link.consume');
     });
 });
 

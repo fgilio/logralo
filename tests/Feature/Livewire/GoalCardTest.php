@@ -16,14 +16,11 @@ use Livewire\Livewire;
  */
 
 /** 09:00 in Montevideo: today is open, and so is yesterday's grace window. */
-function morningOfTheEleventh(): void
-{
-    test()->travelTo(CarbonImmutable::parse('2026-08-11 09:00', 'America/Montevideo')->utc());
-}
+beforeEach(function (): void {
+    $this->travelTo(CarbonImmutable::parse('2026-08-11 09:00', 'America/Montevideo')->utc());
+});
 
 it('marks the day when pressed', function (): void {
-    morningOfTheEleventh();
-
     $user = User::factory()->create();
     $goal = Goal::factory()->for($user)->create();
 
@@ -43,8 +40,6 @@ it('marks the day when pressed', function (): void {
 });
 
 it('un-marks the day when pressed again', function (): void {
-    morningOfTheEleventh();
-
     $user = User::factory()->create();
     $goal = Goal::factory()->for($user)->create();
 
@@ -60,8 +55,6 @@ it('un-marks the day when pressed again', function (): void {
 });
 
 it('ignores the second half of a double tap', function (): void {
-    morningOfTheEleventh();
-
     $user = User::factory()->create();
     $goal = Goal::factory()->for($user)->create();
 
@@ -84,8 +77,6 @@ it('ignores the second half of a double tap', function (): void {
 it('deletes the photo of the mark it un-marks', function (): void {
     Storage::fake('local');
     Storage::fake('photos');
-    morningOfTheEleventh();
-
     $user = User::factory()->create();
     $goal = Goal::factory()->for($user)->create();
 
@@ -100,16 +91,12 @@ it('deletes the photo of the mark it un-marks', function (): void {
 });
 
 it("refuses to mount another member's goal", function (): void {
-    morningOfTheEleventh();
-
     Livewire::actingAs(User::factory()->create())
         ->test('goal-card', ['goal' => Goal::factory()->create()])
         ->assertForbidden();
 });
 
 it('does not mark when the photo rule wants proof', function (): void {
-    morningOfTheEleventh();
-
     $user = User::factory()->create();
     $goal = Goal::factory()->for($user)->create();
 
@@ -128,8 +115,6 @@ it('does not mark when the photo rule wants proof', function (): void {
 });
 
 it('refuses a save with no photo when the photo rule wants proof', function (): void {
-    morningOfTheEleventh();
-
     $user = User::factory()->create();
     $goal = Goal::factory()->for($user)->create();
 
@@ -148,8 +133,6 @@ it('refuses a save with no photo when the photo rule wants proof', function (): 
 it('lets a photo through once the photo rule is satisfied', function (): void {
     Storage::fake('local');
     Storage::fake('photos');
-    morningOfTheEleventh();
-
     $user = User::factory()->create();
     $goal = Goal::factory()->for($user)->create();
 
@@ -169,8 +152,6 @@ it('lets a photo through once the photo rule is satisfied', function (): void {
 it('saves a photo and a note through the sheet', function (): void {
     Storage::fake('local');
     Storage::fake('photos');
-    morningOfTheEleventh();
-
     $user = User::factory()->create();
     $goal = Goal::factory()->for($user)->create();
 
@@ -195,8 +176,6 @@ it('saves a photo and a note through the sheet', function (): void {
 });
 
 it('saves a bare note with no photo at all', function (): void {
-    morningOfTheEleventh();
-
     $user = User::factory()->create();
     $goal = Goal::factory()->for($user)->create();
 
@@ -213,14 +192,12 @@ it('saves a bare note with no photo at all', function (): void {
 });
 
 it('rejects a note longer than the limit', function (): void {
-    morningOfTheEleventh();
-
     $user = User::factory()->create();
     $goal = Goal::factory()->for($user)->create();
 
     Livewire::actingAs($user)
         ->test('goal-card', ['goal' => $goal])
-        ->set('note', str_repeat('a', (int) config('logralo.goals.note_max_length') + 1))
+        ->set('note', str_repeat('a', config()->integer('logralo.goals.note_max_length') + 1))
         ->call('save')
         ->assertHasErrors(['note' => 'max']);
 
@@ -228,8 +205,6 @@ it('rejects a note longer than the limit', function (): void {
 });
 
 it('marks yesterday while the grace window is open', function (): void {
-    morningOfTheEleventh();
-
     $user = User::factory()->create();
     $goal = Goal::factory()->for($user)->create();
 
@@ -259,8 +234,6 @@ it('refuses to mark yesterday once the grace window has closed', function (): vo
 });
 
 it('keeps a mark whose day has already closed', function (): void {
-    morningOfTheEleventh();
-
     $user = User::factory()->create();
     $goal = Goal::factory()->for($user)->create();
     Mark::factory()->for($goal)->on('2026-08-05')->create();
@@ -274,8 +247,6 @@ it('keeps a mark whose day has already closed', function (): void {
 });
 
 it('refuses to mark an archived goal', function (): void {
-    morningOfTheEleventh();
-
     $user = User::factory()->create();
     $goal = Goal::factory()->for($user)->archived()->create();
 
@@ -288,8 +259,6 @@ it('refuses to mark an archived goal', function (): void {
 });
 
 it('refuses a second mark on the same day', function (): void {
-    morningOfTheEleventh();
-
     $user = User::factory()->create();
     $goal = Goal::factory()->for($user)->create();
     Mark::factory()->for($goal)->on('2026-08-11')->create();
@@ -303,8 +272,6 @@ it('refuses a second mark on the same day', function (): void {
 });
 
 it('counts the streak the mark belongs to', function (): void {
-    morningOfTheEleventh();
-
     $user = User::factory()->create();
     $goal = Goal::factory()->for($user)->create();
 

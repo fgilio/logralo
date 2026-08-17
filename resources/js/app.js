@@ -594,6 +594,11 @@ document.addEventListener("alpine:init", () => {
             this.distance = this.threshold;
 
             try {
+                // `$refresh` re-renders the page component only: the feed is
+                // a nested component, and Livewire skips children on a parent
+                // render, so it gets its own nudge. The two requests pool
+                // into one round trip.
+                window.Livewire.dispatchTo("feed", "mark-updated");
                 await this.$wire.$refresh();
             } finally {
                 this.refreshing = false;

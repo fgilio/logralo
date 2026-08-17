@@ -8,7 +8,6 @@ use App\Models\Mark;
 use App\Models\MonthlyRecap;
 use App\ValueObjects\FeedEntry;
 use App\ValueObjects\MarkEntry;
-use App\ValueObjects\MarkHistory;
 use App\ValueObjects\RecapEntry;
 
 /**
@@ -45,10 +44,7 @@ final readonly class SharedEntry
             return null;
         }
 
-        return $this->entries->from(
-            $mark,
-            $this->history->forGoals([$mark->goal_id])->get($mark->goal_id, MarkHistory::empty()),
-        );
+        return $this->entries->from($mark, $this->history->for($mark->goal));
     }
 
     private function recap(string $token): ?RecapEntry

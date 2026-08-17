@@ -13,7 +13,7 @@ function magicLinkFor(User $user, string $plainToken, ?CarbonImmutable $expiresA
 {
     return URL::temporarySignedRoute(
         'magic-link.show',
-        $expiresAt ?? CarbonImmutable::now()->addDays((int) config('logralo.magic_link.ttl_days')),
+        $expiresAt ?? CarbonImmutable::now()->addDays(config()->integer('logralo.magic_link.ttl_days')),
         ['user' => $user->id, 'token' => $plainToken],
     );
 }
