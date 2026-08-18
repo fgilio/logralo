@@ -57,7 +57,7 @@
 
     <div id="mark-{{ $mark->id }}-detail" x-show="expanded" x-collapse x-cloak class="px-3 pb-3">
         @if ($entry->photo !== null)
-            <x-feed.viewer :links="$entry->photo" :alt="$mark->user->name . ': ' . $mark->goal->name" class="w-full rounded-xl">
+            <x-feed.viewer :entry="$entry" class="w-full rounded-xl">
                 <x-photo :links="$entry->photo" :alt="$mark->goal->name" />
             </x-feed.viewer>
         @else

@@ -9,8 +9,7 @@
     $showsViews = $label && $views > 0 && $mark->isManagedBy(auth()->user());
 @endphp
 
-{{-- Holding this opens its own menu, so the press must not reach the card. --}}
-<div x-on:pointerdown.stop {{ $attributes->class(['pointer-events-auto flex items-center gap-2']) }}>
+<div {{ $attributes->class(['pointer-events-auto flex items-center gap-2']) }}>
     {{-- Only the owner sees it, and only once somebody opened the link. --}}
     @if ($showsViews)
         <span

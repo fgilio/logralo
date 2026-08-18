@@ -239,6 +239,29 @@ it('reacts to a card from the bar the plus button opens', function (): void {
         ->and($reaction->mark_id)->toBe($mark->id);
 });
 
+it('opens a photo full screen without the reaction bar coming with it', function (): void {
+    $ana = User::factory()->create(['name' => 'Ana Pérez']);
+    $bruno = User::factory()->create(['name' => 'Bruno']);
+    $mark = Mark::factory()
+        ->for(Goal::factory()->for($bruno)->create(['name' => 'Guitarra']))
+        ->withPhoto()
+        ->create();
+
+    $this->actingAs($ana);
+
+    visit('/')->on()->iPhone15Pro()
+        ->assertMissing('@viewer-close-'.$mark->id)
+        ->click('@viewer-open-'.$mark->id)
+        ->wait(1)
+        ->assertVisible('@viewer-close-'.$mark->id)
+        // The tap that opens the photo is no longer also a press on the card.
+        ->assertMissing('@react-'.$mark->id.'-clap')
+        ->click('@viewer-close-'.$mark->id)
+        ->wait(1)
+        ->assertMissing('@viewer-close-'.$mark->id)
+        ->assertNoJavaScriptErrors();
+});
+
 it('opens the month table from the trophy button', function (): void {
     $user = User::factory()->create(['name' => 'Ana Pérez']);
     Goal::factory()->for($user)->create();

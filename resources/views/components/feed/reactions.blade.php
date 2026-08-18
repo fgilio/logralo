@@ -66,7 +66,6 @@
         {{-- The ring stays 24px so it fits a row. The finger gets 44. --}}
         <button
             type="button"
-            x-on:pointerdown.stop
             x-on:click="toggle()"
             class="tap-target relative grid size-6 place-items-center rounded-full border transition before:absolute before:-inset-2.5 before:content-[''] active:scale-90 {{ $add }}"
             aria-label="Reaccionar"

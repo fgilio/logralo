@@ -12,7 +12,7 @@
 
 <div class="mark-3u relative">
     @if ($onPhoto)
-        <x-feed.viewer :links="$entry->photo" :alt="$alt" class="size-full">
+        <x-feed.viewer :entry="$entry" class="size-full">
             <x-photo :links="$entry->photo" :alt="$alt" :eager="$eager" fill wide />
         </x-feed.viewer>
     @else
@@ -50,7 +50,6 @@
 @if ($mark->note !== null)
     <p
         x-data="{ full: false }"
-        x-on:pointerdown.stop
         x-on:click="full = ! full"
         class="flex min-h-(--rung-note) items-center px-3 py-1.5 text-note text-zinc-700 select-text dark:text-zinc-200"
     >

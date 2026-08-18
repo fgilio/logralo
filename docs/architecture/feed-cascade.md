@@ -73,18 +73,23 @@ Showing and adding are two different problems. A five-emoji bar under every card
 
 **Showing.** Once a mark has any reactions, a summary at every height: the emoji used, overlapped in a small stack, plus the total. About 20 px. The stack shows three at most, and the total beside it stays exact however many kinds are behind it. Your own reaction always holds one of those three slots, ringed in ember, so the ring is reachable even when three louder reactions would push it out.
 
-**Adding.** Two ways into the same floating bar:
+**Adding.** One way into the floating bar: **the `＋` button**, beside the summary, which is what makes the feature discoverable. At 1u it lives in the panel the row opens, so a row carries the summary and no button. The bar opens across the middle of the card, over the photo rather than over the row it was opened from — measured from the foot it would land on that row, and a 3u card's note band moves the foot without moving the button.
 
-1. **The `＋` button.** Beside the summary, which is what makes the feature discoverable. At 1u it lives in the panel the row opens, so a row carries the summary and no button.
-2. **Press and hold, then drag to the emoji and release.** Anywhere on the card except the `＋` and the share button, which own their own press.
+Opening one bar closes any other. It stays in the DOM hidden rather than being built on demand, because a bar created inside the click that opens it hears that same click as an outside click and shuts again.
 
-Opening one bar closes any other. It stays in the DOM hidden rather than being built on demand, because a bar created inside the click that opens it hears that same click as an outside click and shuts again. The hit test runs on coordinates rather than on hover, because a touch pointer captured by the card never fires `pointerenter` on the bar.
-
-The card takes `touch-action: pan-y` so a sideways drag along the bar belongs to the picker while the page keeps its scroll. That is also why **the hold opens the bar centred on the press** rather than at the foot of the card: every vertical move is the page's, and a bar the finger has to travel down to is one the browser scrolls away from, cancelling the pointer on the way. The `＋` button has no press point of its own, so it opens the bar at the foot, and either way the bar is held clear of both edges since the card clips its own overflow.
-
-A hold that never travels is still only a hold: it leaves the bar open for a tap. Sliding is what turns the same press into a choice, which is what keeps the emoji the bar happens to open under from being picked on release.
+**Holding the card opened the same bar under the finger, and no longer does.** A photo is also something you can open full screen, and both features answered the same press on the same pixels: which one you got depended on how long your finger happened to stay down, so tapping a photo was a coin toss between the picture and five emoji. The card's `touch-action: pan-y`, the bar anchored to the press point, and the slide-to-choose hit test went with it. The `＋` was always the discoverable half.
 
 `ReactionEmoji` is where "one reaction per member per mark, and choosing the current one takes it away" is written down. It also carries each emoji's Spanish name, because left to the glyph a screen reader reads the Unicode name in its own language and 🫵 has none worth hearing.
+
+## The photo, full screen
+
+Tapping a photo at any height opens it in a `flux:modal` with `variant="bare"`, one per card, named `foto-{mark}`. Flux owns the dialog — the top layer, the scroll lock, Escape, the fade — and the app owns everything drawn inside it: the member and the goal above the picture, the note below it, and a ✕.
+
+The viewer lives beside the photo it belongs to rather than at the foot of the page, which the share menu could not do: a card contains its own paint, so a menu drawn inside one is cut off at the card's edge. A dialog opened with `showModal()` is painted in the top layer instead and is not clipped by an ancestor. Layout is the part that does not survive the card, so the dialog's placeholder is taken out of flow — an element of no size still takes a gap of its own in the flex row a 2u card lays its photo out in.
+
+The image is `loading="lazy"` and a closed dialog is `display: none`, so a page of cards downloads its thumbnails and none of the full-size photos behind them. It asks for the same `sizes="100vw"` a cover does, so on a phone the picture the viewer wants is usually the one the feed already has.
+
+Three ways out, because a viewer that traps you reads as a bug: the ✕, Escape, and a drag in either direction, where the picture follows the finger and leaves once it has travelled far enough. A tap is a drag of nothing at all and dismisses too, which is what the overlay this replaced did with any click.
 
 ## A mark without a photo
 

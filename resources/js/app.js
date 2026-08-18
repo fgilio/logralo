@@ -400,93 +400,15 @@ document.addEventListener("alpine:init", () => {
     /**
      * Reacting to someone else's card.
      *
-     * Two ways into one bar: the ＋ button opens it, and holding the card opens
-     * it under the finger, which can then slide onto an emoji and let go.
+     * The bar has one way in, the ＋ beside the summary. Holding the card
+     * opened it too until a photo became something you could open full screen:
+     * the same press was then two features, and which one you got depended on
+     * how long your finger stayed down.
      */
     Alpine.data("reactionPicker", (options = {}) => ({
-        ...holdGesture({ delay: 380 }),
-
         markId: options.markId,
 
         showing: false,
-        active: null,
-        slid: false,
-
-        /** Where down the card the bar opens, in pixels from its top edge. */
-        anchor: 0,
-
-        start(event) {
-            if (event.button !== undefined && event.button !== 0) return;
-            if (this.pointerId !== null) return this.cancel();
-
-            this.arm(event);
-
-            // The bar has to arrive under the finger. `touch-action: pan-y`
-            // gives the page every vertical move, so a bar anywhere else is one
-            // the finger scrolls away from rather than reaches.
-            this.anchor =
-                event.clientY - this.$root.getBoundingClientRect().top;
-
-            this.timer = setTimeout(() => {
-                this.timer = null;
-                this.open();
-                // The click this press will emit belongs to the gesture, not to
-                // whatever is underneath it.
-                this.suppressClick = true;
-
-                if (navigator.vibrate) navigator.vibrate(12);
-            }, this.delay);
-        },
-
-        move(event) {
-            if (this.pointerId === null || event.pointerId !== this.pointerId)
-                return;
-
-            if (this.timer !== null) {
-                if (this.travelled(event)) this.cancel();
-
-                return;
-            }
-
-            if (event.cancelable) event.preventDefault();
-
-            // The bar opens under the finger, so a hold that never travels is
-            // still only a hold. Sliding is what turns it into a choice.
-            this.slid ||= this.travelled(event);
-            this.active = this.slid
-                ? this.emojiAt(event.clientX, event.clientY)
-                : null;
-        },
-
-        end(event) {
-            if (this.pointerId === null || event.pointerId !== this.pointerId)
-                return;
-
-            // Where the finger actually let go, rather than the last position
-            // a pointermove reported: a mouse dragged off the card stops
-            // sending them, and the stale one would react for you.
-            const chosen = this.slid
-                ? this.emojiAt(event.clientX, event.clientY)
-                : null;
-
-            this.cancel();
-
-            // Letting go anywhere else leaves the bar open, so the tap path
-            // still finishes what the hold started.
-            if (chosen !== null) this.choose(chosen);
-        },
-
-        cancel() {
-            this.disarm();
-            this.active = null;
-            this.slid = false;
-        },
-
-        emojiAt(x, y) {
-            const element = document.elementFromPoint(x, y);
-
-            return element?.closest("[data-emoji]")?.dataset.emoji ?? null;
-        },
 
         choose(emoji) {
             this.close();
@@ -496,12 +418,6 @@ document.addEventListener("alpine:init", () => {
             this.$wire.react(this.markId, emoji);
         },
 
-        /** One bar at a time: the others hear this and shut. */
-        open() {
-            this.showing = true;
-            this.$dispatch("reaction-bar-opened", this.markId);
-        },
-
         toggle() {
             if (this.showing) {
                 this.close();
@@ -509,16 +425,90 @@ document.addEventListener("alpine:init", () => {
                 return;
             }
 
-            // A button press has no place on the card to speak of, so the bar
-            // keeps its old one at the foot.
-            this.anchor = this.$root.offsetHeight;
-            this.active = null;
             this.open();
+        },
+
+        /** One bar at a time: the others hear this and shut. */
+        open() {
+            this.showing = true;
+            this.$dispatch("reaction-bar-opened", this.markId);
         },
 
         close() {
             this.showing = false;
-            this.active = null;
+        },
+    }));
+
+    /**
+     * The photo, full screen.
+     *
+     * Flux's modal owns the dialog itself — the top layer, the scroll lock,
+     * the focus placeholder and Escape. What is left is the gesture every
+     * phone photo viewer answers to: drag the picture and it follows, let go
+     * far enough from where it started and it goes away. A tap dismisses too,
+     * which is what the viewer this replaced did with any click at all.
+     *
+     * Flux closes on a click outside the dialog's own box, and this dialog is
+     * the whole screen, so `dismiss()` is the only way out besides Escape.
+     */
+    Alpine.data("photoViewer", (options = {}) => ({
+        name: options.name,
+        threshold: options.threshold ?? 96,
+        tapTolerance: options.tapTolerance ?? 10,
+
+        pointerId: null,
+        startY: 0,
+        offset: 0,
+        dragging: false,
+
+        /** How far gone the picture looks while it is being thrown away. */
+        get faded() {
+            return 1 - Math.min(Math.abs(this.offset) / 480, 0.75);
+        },
+
+        start(event) {
+            if (event.button !== undefined && event.button !== 0) return;
+
+            this.pointerId = event.pointerId;
+            this.startY = event.clientY;
+            this.dragging = true;
+
+            try {
+                event.currentTarget.setPointerCapture(event.pointerId);
+            } catch {
+                // Capture is a nicety; the pointerup still lands on the figure.
+            }
+        },
+
+        move(event) {
+            if (!this.dragging || event.pointerId !== this.pointerId) return;
+
+            this.offset = event.clientY - this.startY;
+        },
+
+        end(event) {
+            if (!this.dragging || event.pointerId !== this.pointerId) return;
+
+            const travelled = Math.abs(this.offset);
+
+            this.cancel();
+
+            // A tap and a throw both mean the same thing. Everything between
+            // the two was a drag that changed its mind, and springs back.
+            if (travelled <= this.tapTolerance || travelled > this.threshold) {
+                this.dismiss();
+            }
+        },
+
+        cancel() {
+            this.dragging = false;
+            this.pointerId = null;
+            this.offset = 0;
+        },
+
+        dismiss() {
+            this.cancel();
+            window.Flux?.modal(this.name).close();
         },
     }));
 
