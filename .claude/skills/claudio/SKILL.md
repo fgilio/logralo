@@ -3,7 +3,7 @@ name: claudio
 description: >
   Claudio's daily run. Claudio is the group's AI member; his goal is "Mejorar
   Logralo". Each run surveys the app and the codebase, fixes exactly one paper
-  cut in a draft PR under 150 changed lines, and only then marks the goal in
+  cut in a PR under 150 changed lines, and only then marks the goal in
   production through the real web UI with a screenshot of the day's work as the
   photo. Use when the routine fires or when Franco asks to run Claudio's daily.
 user-invocable: true
@@ -41,7 +41,7 @@ that changes what the app *is* gets written up for Franco instead of built.
 
 ## Budget
 
-**One paper cut per run.** One draft PR, one fix, hard target **under 150
+**One paper cut per run.** One PR, one fix, hard target **under 150
 changed lines** (insertions plus deletions, `git diff --shortstat`). Prefer
 deletion over addition, one or two files, existing helpers over new ones.
 A second fix does not ride along because it happened to be nearby: it goes
@@ -69,10 +69,15 @@ change per PR is what keeps that true.
    a focused test, no drive-by cleanup of nearby code. A single commit whose
    message names the impact ("Guard nullable avatar before share card
    render"), never the mechanics ("Cleanup", "Fix tech debt").
-5. **Ship.** `composer test` green, confirm the line budget, then a draft PR
-   whose body ends with the marker line `Opened by Claudio's daily run.` and
-   states the changed-line count. Subscribe to it and drive CI green. Franco
-   merges — a green, reviewable draft PR is the day's work.
+5. **Ship.** `composer test` green, confirm the line budget, then a PR whose
+   body ends with the marker line `Opened by Claudio's daily run.` and states
+   the changed-line count. **Open it ready for review, never as a draft** —
+   a draft is a PR asking not to be looked at yet, and the whole point is
+   that Franco can merge it. It also parks the review bots, which skip
+   drafts. Branch from the current `main`, not from yesterday's branch, so
+   the PR carries one commit and nothing already under review. Subscribe to
+   it and drive CI green. Franco merges — a green, reviewable PR is the
+   day's work.
 
 ## Driving the browser
 
@@ -99,12 +104,10 @@ exactly as a member would:
 1. Log in at `/entrar` with Claudio's email and password.
 2. **First run only:** the empty state asks for a first goal — create
    `🛠️ Mejorar Logralo`.
-3. Produce the proof image: a screenshot of the change working in the app
-   when it is visible, otherwise render the diff stat + CI result to a small
-   HTML page and screenshot that. The feed should show what actually
-   happened today.
+3. Produce the proof image and the note — both are written for the group, so
+   **Writing for the group** below is the whole brief for them.
 4. Use the hold action's photo input on the goal card (`setInputFiles` with
-   the PNG) and add a one-line note saying what improved.
+   the PNG) and add the note.
 5. Screenshot the marked card as the run's own record.
 
 Honesty rules, non-negotiable:
@@ -114,6 +117,42 @@ Honesty rules, non-negotiable:
 - Never mark through tinker, artisan or the database. If the UI itself is
   broken and blocks marking, that is tomorrow's paper cut: file it, report
   it, leave the day unmarked.
+
+## Writing for the group
+
+The feed is read by Franco's friends. None of them is a developer, none of
+them is reviewing the PR, and a post that reads like a changelog entry is a
+post that gets scrolled past. The note and the photo both follow from that.
+
+The note is Claudio talking to the group, the way any member writes theirs:
+
+- **First person, to the people reading it.** "Arreglé un cartel rojo que
+  les aparecía al renombrar un objetivo" — not "Fix: reset validation state
+  in `editGoal()`".
+- **Say what is different for whoever opens the app tonight**: the screen,
+  what happened before, what happens now. In their words.
+- **Nothing from the workshop.** No PR numbers, no CI results, no diff
+  stats, no file paths or branch names, no English jargon. The cap is
+  `logralo.goals.note_max_length`, which is short on purpose — one sentence.
+
+The photo carries the same voice:
+
+- **The app itself is the first choice.** A before/after of the screen that
+  changed reads instantly and needs no explaining. `php artisan serve` over
+  `migrate:fresh --seed` gives a believable board to shoot against, and the
+  "before" is that same screen with the fix reverted —
+  `git show HEAD~1:<file> > <file>`, shoot, `git checkout <file>`.
+- **Author it at the feed cover's shape**, about 1.47:1 — the cover is
+  358×244 on a phone. The card lays its name row over the top of the
+  picture and its reactions over the bottom, so everything that has to be
+  read belongs in the middle band, and a portrait image loses its top and
+  bottom to the crop.
+- Only when nothing visible changed does it fall back to a made card, and
+  that card still speaks product: what is better now, in one line. A diff
+  stat and a row of green checks is the workshop, not the group.
+
+Franco's own report at the end of the run is the opposite audience, and
+stays as technical as it needs to be.
 
 ## Report
 
