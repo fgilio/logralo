@@ -182,6 +182,26 @@ it('flips visibility both ways from the profile screen', function (): void {
     expect($goal->fresh()->visibility)->toBe(GoalVisibility::Private);
 });
 
+it('applies a visibility flip to marks that already exist', function (): void {
+    $owner = User::factory()->create();
+    $goal = Goal::factory()->for($owner)->private()->create();
+    $mark = Mark::factory()->for($goal)->on('2026-08-10')->create();
+
+    $friend = User::factory()->create();
+    $friendFeed = fn () => resolve(FeedPage::class)->load($friend, 10)
+        ->entries->map(fn ($entry): string => $entry->key())->all();
+
+    expect($friendFeed())->toBe([]);
+
+    $goal->update(['visibility' => GoalVisibility::Group]);
+
+    expect($friendFeed())->toBe(["mark-{$mark->id}"]);
+
+    $goal->update(['visibility' => GoalVisibility::Private]);
+
+    expect($friendFeed())->toBe([]);
+});
+
 it('defaults every goal to the group', function (): void {
     $user = User::factory()->create();
 

@@ -353,7 +353,7 @@ new class extends Component
                     @endif
 
                     @if ($goal->isPrivate())
-                        <span class="text-xs opacity-60" title="Privado">🔒</span>
+                        <span class="text-xs opacity-60" title="Privado" role="img" aria-label="Privado">🔒</span>
                     @endif
                 </div>
             </div>
@@ -400,7 +400,7 @@ new class extends Component
                         @endif
 
                         @if ($goal->isPrivate())
-                            <span class="text-xs opacity-60" title="Privado">🔒</span>
+                            <span class="text-xs opacity-60" title="Privado" role="img" aria-label="Privado">🔒</span>
                         @endif
                     </div>
                 </div>
