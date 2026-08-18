@@ -40,10 +40,7 @@ new #[Title('Hoy')] class extends Component
         return $this->member()->activeGoals()->get();
     }
 
-    /** Goals from yesterday, only while grace lasts.
-     *
-     * @return EloquentCollection<int, Goal>
-     */
+    /** @return EloquentCollection<int, Goal> */
     #[Computed]
     public function graceGoals(): EloquentCollection
     {
