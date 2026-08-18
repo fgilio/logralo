@@ -554,32 +554,32 @@ document.addEventListener("alpine:init", () => {
         startY: 0,
 
         /**
-         * Registered by hand rather than with x-on: a touchmove listener is
-         * passive unless it says otherwise, and passive is exactly what this
-         * one cannot be. Touch events stay with the element the gesture began
-         * on, so a pull that starts inside the page reaches this to the end.
+         * Registered by hand rather than with x-on, because `touchmove` has to
+         * be able to preventDefault and a listener is passive unless it says
+         * otherwise — which Alpine has no modifier for. The rest say so too,
+         * rather than leaving the browser to guess. Touch events stay with the
+         * element the gesture began on, so a pull that starts anywhere inside
+         * the page reaches this to the end.
          */
         init() {
-            this.onStart = (event) => this.start(event);
-            this.onMove = (event) => this.move(event);
-            this.onEnd = () => this.end();
-            this.onCancel = () => this.reset();
+            this.listeners = {
+                touchstart: (event) => this.start(event),
+                touchmove: (event) => this.move(event),
+                touchend: () => this.end(),
+                touchcancel: () => this.reset(),
+            };
 
-            this.$root.addEventListener("touchstart", this.onStart, {
-                passive: true,
-            });
-            this.$root.addEventListener("touchmove", this.onMove, {
-                passive: false,
-            });
-            this.$root.addEventListener("touchend", this.onEnd);
-            this.$root.addEventListener("touchcancel", this.onCancel);
+            for (const [type, handler] of Object.entries(this.listeners)) {
+                this.$root.addEventListener(type, handler, {
+                    passive: type !== "touchmove",
+                });
+            }
         },
 
         destroy() {
-            this.$root.removeEventListener("touchstart", this.onStart);
-            this.$root.removeEventListener("touchmove", this.onMove);
-            this.$root.removeEventListener("touchend", this.onEnd);
-            this.$root.removeEventListener("touchcancel", this.onCancel);
+            for (const [type, handler] of Object.entries(this.listeners)) {
+                this.$root.removeEventListener(type, handler);
+            }
         },
 
         get scroller() {
@@ -592,21 +592,28 @@ document.addEventListener("alpine:init", () => {
 
         /**
          * A second finger is a pinch, a scrolled page is somebody reading, and
-         * a drag inside a dialog belongs to the dialog: Flux paints its sheets
-         * in the top layer but leaves them descendants of this element, so
-         * their touches bubble down here and would refresh the page behind an
-         * open sheet.
+         * a drag inside an overlay belongs to the overlay: Flux paints its
+         * sheets in the top layer but leaves them descendants of this element,
+         * so their touches bubble down here and would refresh the page behind
+         * an open sheet.
+         *
+         * Both overlay shapes this app writes are named, because the two are
+         * not the same element: Flux renders a native `<dialog>`, while the
+         * photo viewer is a plain `aria-modal` div that escapes today only by
+         * teleporting itself out of this subtree.
          */
         start(event) {
+            const touch = event.touches[0];
+
             this.tracking =
                 !this.refreshing &&
                 event.touches.length === 1 &&
                 this.scroller.scrollTop <= 0 &&
-                event.target.closest("dialog") === null;
+                event.target.closest("dialog, [aria-modal='true']") === null;
 
             this.owning = false;
-            this.startX = event.touches[0]?.clientX ?? 0;
-            this.startY = event.touches[0]?.clientY ?? 0;
+            this.startX = touch.clientX;
+            this.startY = touch.clientY;
         },
 
         /**
@@ -624,27 +631,28 @@ document.addEventListener("alpine:init", () => {
          * otherwise be taken for a pull and blocked.
          */
         move(event) {
-            const touch = this.tracking ? event.touches[0] : null;
+            if (!this.tracking) return;
 
-            if (!touch) return;
-
+            const touch = event.touches[0];
             const delta = touch.clientY - this.startY;
 
-            if (!this.owning) {
-                // Upwards, sideways, or a page that moved under the finger:
-                // a scroll, and it stays one for the rest of the gesture.
-                if (
-                    delta <= 0 ||
+            // Upwards, sideways, or a page that moved under the finger: a
+            // scroll, and it stays one for the rest of the gesture. Only worth
+            // asking until the pull is owned, and the `scrollTop` read is why
+            // — once owned, the indicator has written to the DOM and reading
+            // the scroll offset back would force a layout every frame.
+            if (
+                !this.owning &&
+                (delta <= 0 ||
                     Math.abs(touch.clientX - this.startX) > delta ||
-                    this.scroller.scrollTop > 0
-                ) {
-                    this.tracking = false;
+                    this.scroller.scrollTop > 0)
+            ) {
+                this.tracking = false;
 
-                    return;
-                }
-
-                this.owning = delta >= this.slop;
+                return;
             }
+
+            this.owning ||= delta >= this.slop;
 
             // Resistance, so the indicator never tracks the finger one to one.
             // A finger that comes back up past where it started leaves the
@@ -657,13 +665,16 @@ document.addEventListener("alpine:init", () => {
         },
 
         async end() {
+            // `owning` is not redundant with the distance: a finger that lands
+            // and lifts while a refresh is already running finds `distance`
+            // parked at the threshold, and would start a second one.
             const shouldRefresh =
                 this.owning && this.distance >= this.threshold;
 
+            if (!shouldRefresh) return this.reset();
+
             this.tracking = false;
             this.owning = false;
-
-            if (!shouldRefresh) return this.reset();
 
             this.refreshing = true;
             this.distance = this.threshold;

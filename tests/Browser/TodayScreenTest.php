@@ -289,82 +289,174 @@ it('renders the login screen and refuses the wrong password', function (): void 
 });
 
 /**
+ * The synthetic touch driver the pull tests share.
+ *
+ * Playwright's own drag is a mouse and emits no touch events at all, so the
+ * gesture is built by hand. `fire()` answers whether the page took the move —
+ * `dispatchEvent` comes back false when something called `preventDefault()` —
+ * which is the only way to see ownership from outside the component, and the
+ * thing the whole gesture now turns on.
+ *
+ * Note what these tests do NOT do: call `visit()` and then reach for the
+ * result again later. Every call on what `on()` returns builds a fresh page
+ * (`Api\On::__call`), so a gesture driven on one and asserted on the next
+ * proves nothing. Binding the webpage from the first chained call is what
+ * keeps all of it on one page.
+ */
+function touchDriver(): string
+{
+    return <<<'DRIVER'
+        const root = document.querySelector('[data-test="pull-to-refresh"]');
+
+        const fire = (target, type, x, y) => {
+            const touch = new Touch({ identifier: 1, target, clientX: x, clientY: y });
+            const held = type === 'touchend' ? [] : [touch];
+
+            return ! target.dispatchEvent(new TouchEvent(type, {
+                bubbles: true,
+                cancelable: true,
+                touches: held,
+                targetTouches: held,
+                changedTouches: [touch],
+            }));
+        };
+
+        const drag = (target, from, to) => {
+            const taken = [];
+
+            for (let y = from; y <= to; y += 20) taken.push(fire(target, 'touchmove', 40, y));
+
+            return taken;
+        };
+
+        // Alpine flushes `x-show` in a microtask, so a script that returns the
+        // moment the gesture ends leaves the indicator's old `display` behind.
+        // Every assertion about what is on screen waits for this — including
+        // the ones asserting nothing appeared, which would otherwise pass on a
+        // DOM that had simply not caught up yet.
+        const settle = () => new Promise((resolve) =>
+            requestAnimationFrame(() => requestAnimationFrame(resolve)),
+        );
+
+        // The refresh is a round trip, and a fixed sleep is either flaky or
+        // slow. Three seconds is the ceiling because Playwright gives an
+        // `evaluate` five.
+        const until = async (predicate) => {
+            for (let tick = 0; tick < 30 && ! predicate(); tick++) {
+                await new Promise((resolve) => setTimeout(resolve, 100));
+            }
+
+            return predicate();
+        };
+        DRIVER;
+}
+
+/**
  * The pull that reloads the screen.
  *
- * Synthetic touches rather than Playwright's own drag, which is a mouse and
- * emits no touch events at all. What that costs is the browser's decision to
- * hand the drag to the scroller — the part `overscroll-behavior-y` and the
- * `preventDefault()` on the first move exist to survive — and what it buys is
- * the rest: that the gesture is read off `touches` at all, that it claims
- * itself past the slop, and that letting go past the threshold really does
- * bring the server's newer answer down onto the screen.
+ * Synthetic touches cost the browser's own decision to hand the drag to the
+ * scroller — the part `overscroll-behavior-y` and the `preventDefault()` on
+ * the first move exist to survive. What they buy is the rest, and it is
+ * asserted the way a member sees it: the same page comes back carrying
+ * somebody else's mark, which only the server could have told it about.
+ *
+ * The feed is what the pull is asked for, and it is also the only thing on
+ * this screen that a pull can bring down: `$refresh` re-renders the page
+ * component, Livewire skips children on a parent render, and the feed is the
+ * one child `end()` nudges by hand. A member's own goal cards are `goal-card`
+ * components and stay as they were.
  */
-it('reloads the screen when the page is pulled down from the top', function (): void {
+it("brings somebody else's newest mark down when the page is pulled", function (): void {
+    $ana = User::factory()->create(['name' => 'Ana Pérez']);
+    $bruno = User::factory()->create(['name' => 'Bruno']);
+
+    Goal::factory()->for($ana)->create(['name' => 'Gimnasio']);
+
+    $this->actingAs($ana);
+
+    $page = visit('/')->on()->iPhone15Pro()->assertSee('Gimnasio');
+
+    $page->assertDontSee('Guitarra')->assertMissing('@pull-indicator');
+
+    // Marked behind the screen's back: only a real re-render brings it down.
+    Mark::factory()->for(Goal::factory()->for($bruno)->create(['name' => 'Guitarra']))->create();
+
+    $driver = touchDriver();
+
+    $landed = $page->script(<<<PULL
+        (async () => {
+            {$driver}
+
+            fire(root, 'touchstart', 40, 100);
+            drag(root, 120, 300);
+            fire(root, 'touchend', 40, 300);
+
+            const arrived = await until(() => root.textContent.includes('Guitarra'));
+
+            await settle();
+
+            return arrived;
+        })()
+    PULL);
+
+    expect($landed)->toBeTrue();
+
+    $page->assertSee('Guitarra')
+        ->assertMissing('@pull-indicator')
+        ->assertNoJavaScriptErrors();
+});
+
+/**
+ * The slow pull.
+ *
+ * A finger that creeps off the top delivers its first `touchmove` before it
+ * has travelled the slop, and that move is the only one the page can still
+ * claim: measured in Chromium, everything after the first unclaimed move
+ * arrives uncancelable and the browser is already scrolling. So the claim is
+ * asserted on the small move, and the indicator separately — the two are what
+ * the slop was conflating.
+ */
+it('claims the pull on the first move, before the finger has travelled', function (): void {
     $user = User::factory()->create();
-    $goal = Goal::factory()->for($user)->create(['name' => 'Gimnasio', 'emoji' => '🏋️']);
+    Goal::factory()->for($user)->create(['name' => 'Gimnasio']);
 
     $this->actingAs($user);
 
-    $page = visit('/')->on()->iPhone15Pro();
+    $page = visit('/')->on()->iPhone15Pro()->assertSee('Gimnasio');
 
-    $page->assertSee('Gimnasio');
+    $driver = touchDriver();
 
-    // Renamed behind the screen's back: only a real re-render brings it down.
-    $goal->update(['name' => 'Natación']);
+    // 4px: under the 8px slop, and the whole gesture rides on this one move.
+    $claimedTheCreep = $page->script(<<<CREEP
+        (async () => {
+            {$driver}
 
-    $pull = <<<'PULL'
-        (() => {
-            const root = document.querySelector('[data-test="pull-to-refresh"]');
-            const state = () => Alpine.$data(root);
+            fire(root, 'touchstart', 40, 100);
 
-            const fire = (type, y) => {
-                const touch = new Touch({ identifier: 1, target: root, clientX: 40, clientY: y });
-                const held = type === 'touchend' ? [] : [touch];
+            const claimed = fire(root, 'touchmove', 40, 104);
 
-                root.dispatchEvent(new TouchEvent(type, {
-                    bubbles: true,
-                    cancelable: true,
-                    touches: held,
-                    targetTouches: held,
-                    changedTouches: [touch],
-                }));
-            };
+            await settle();
 
-            fire('touchstart', 100);
-
-            // Inside the slop: the gesture could still turn out to be a tap.
-            fire('touchmove', 104);
-            const claimedEarly = state().owning;
-
-            for (let y = 120; y <= 300; y += 20) fire('touchmove', y);
-
-            const claimed = state().owning;
-            const pulled = state().distance;
-
-            fire('touchend', 300);
-
-            return JSON.stringify({
-                claimedEarly,
-                claimed,
-                // 110, the cap: 200px of finger at half resistance would be 100.
-                pulled,
-                settled: state().distance,
-                refreshing: state().refreshing,
-            });
+            return claimed;
         })()
-    PULL;
+    CREEP);
 
-    expect(json_decode((string) $page->script($pull), true))->toBe([
-        'claimedEarly' => false,
-        'claimed' => true,
-        'pulled' => 100,
-        'settled' => 72,
-        'refreshing' => true,
-    ]);
+    expect($claimedTheCreep)->toBeTrue();
 
-    $page->wait(1)
-        ->assertSee('Natación')
-        ->assertDontSee('Gimnasio')
+    // Claimed, but a tap's jitter must not light the indicator up.
+    $page->assertMissing('@pull-indicator');
+
+    $page->script(<<<PULL
+        (async () => {
+            {$driver}
+
+            drag(root, 120, 260);
+
+            await settle();
+        })()
+    PULL);
+
+    $page->assertVisible('@pull-indicator')
         ->assertNoJavaScriptErrors();
 });
 
@@ -375,59 +467,44 @@ it('leaves the gesture alone when the page is not at the top', function (): void
 
     $this->actingAs($user);
 
-    $page = visit('/')->on()->iPhone15Pro();
+    $page = visit('/')->on()->iPhone15Pro()->assertSee('Gimnasio');
 
-    $scrolledPull = <<<'SCROLLED'
-        (() => {
-            const root = document.querySelector('[data-test="pull-to-refresh"]');
-            const scroller = document.scrollingElement;
+    $driver = touchDriver();
+
+    $scrolled = $page->script(<<<SCROLLED
+        (async () => {
+            {$driver}
 
             // Tall enough to scroll, whatever the feed happens to hold. The
             // height is read back before the scroll so the new one is laid out
-            // by the time it happens.
+            // by the time it happens, and the scroll is instant on purpose:
+            // <html> is `scroll-smooth`, and an animated one is still at
+            // nought on the next line.
             root.style.minHeight = '400vh';
             root.offsetHeight;
-            // Instant on purpose: <html> is `scroll-smooth`, and an animated
-            // scroll is still at nought on the next line.
             window.scrollTo({ top: 200, behavior: 'instant' });
 
-            const fire = (type, y) => {
-                const touch = new Touch({ identifier: 1, target: root, clientX: 40, clientY: y });
-                const held = type === 'touchend' ? [] : [touch];
+            fire(root, 'touchstart', 40, 100);
+            const taken = drag(root, 120, 300);
 
-                root.dispatchEvent(new TouchEvent(type, {
-                    bubbles: true,
-                    cancelable: true,
-                    touches: held,
-                    targetTouches: held,
-                    changedTouches: [touch],
-                }));
-            };
-
-            fire('touchstart', 100);
-            for (let y = 120; y <= 300; y += 20) fire('touchmove', y);
-
-            const state = Alpine.$data(root);
+            await settle();
 
             return JSON.stringify({
                 // Reported rather than assumed: a setup that failed to scroll
                 // would otherwise look like a gesture correctly ignored.
-                scrollTop: scroller.scrollTop,
-                tracking: state.tracking,
-                owning: state.owning,
-                distance: state.distance,
+                scrollTop: document.scrollingElement.scrollTop,
+                tookAny: taken.some(Boolean),
             });
         })()
-    SCROLLED;
+    SCROLLED);
 
-    expect(json_decode((string) $page->script($scrolledPull), true))->toBe([
+    expect(json_decode((string) $scrolled, true))->toBe([
         'scrollTop' => 200,
-        'tracking' => false,
-        'owning' => false,
-        'distance' => 0,
+        'tookAny' => false,
     ]);
 
-    $page->assertNoJavaScriptErrors();
+    $page->assertMissing('@pull-indicator')
+        ->assertNoJavaScriptErrors();
 });
 
 /**
@@ -444,117 +521,40 @@ it('leaves the gesture to an open sheet', function (): void {
 
     $this->actingAs($user);
 
-    $page = visit('/')->on()->iPhone15Pro();
+    $page = visit('/')->on()->iPhone15Pro()->click('@open-standings');
 
-    $page->click('@open-standings')->wait(1);
+    $page->wait(1);
 
-    $pullInsideSheet = <<<'SHEET'
-        (() => {
-            const root = document.querySelector('[data-test="pull-to-refresh"]');
+    $driver = touchDriver();
+
+    $inSheet = $page->script(<<<SHEET
+        (async () => {
+            {$driver}
+
             // Flux's own element, wrapping the <dialog> the guard looks for.
             const inside = document.querySelector('ui-modal dialog *');
 
-            const fire = (type, y) => {
-                const touch = new Touch({ identifier: 1, target: inside, clientX: 40, clientY: y });
-                const held = type === 'touchend' ? [] : [touch];
+            fire(inside, 'touchstart', 40, 100);
+            const taken = drag(inside, 120, 300);
 
-                inside.dispatchEvent(new TouchEvent(type, {
-                    bubbles: true,
-                    cancelable: true,
-                    touches: held,
-                    targetTouches: held,
-                    changedTouches: [touch],
-                }));
-            };
-
-            fire('touchstart', 100);
-            for (let y = 120; y <= 300; y += 20) fire('touchmove', y);
-
-            const state = Alpine.$data(root);
+            await settle();
 
             return JSON.stringify({
                 // Reported rather than assumed: a drag that never reached the
                 // page handler would pass this test for the wrong reason.
                 reachedThePage: root.contains(inside),
-                tracking: state.tracking,
-                owning: state.owning,
-                distance: state.distance,
+                tookAny: taken.some(Boolean),
             });
         })()
-    SHEET;
+    SHEET);
 
-    expect(json_decode((string) $page->script($pullInsideSheet), true))->toBe([
+    expect(json_decode((string) $inSheet, true))->toBe([
         'reachedThePage' => true,
-        'tracking' => false,
-        'owning' => false,
-        'distance' => 0,
+        'tookAny' => false,
     ]);
 
-    $page->assertNoJavaScriptErrors();
-});
-
-/**
- * The slow pull.
- *
- * A finger that creeps off the top delivers its first `touchmove` before it
- * has travelled the slop the indicator waits for, and that move is the only
- * one the page can still claim: measured in Chromium, everything after the
- * first unclaimed move arrives uncancelable and the browser is already
- * scrolling. So the claim is asserted on the small move, not the big one.
- */
-it('claims the pull on the first move, before the finger has travelled', function (): void {
-    $user = User::factory()->create();
-    Goal::factory()->for($user)->create(['name' => 'Gimnasio']);
-
-    $this->actingAs($user);
-
-    $page = visit('/')->on()->iPhone15Pro();
-
-    $creep = <<<'CREEP'
-        (() => {
-            const root = document.querySelector('[data-test="pull-to-refresh"]');
-            const state = () => Alpine.$data(root);
-
-            // dispatchEvent answers false when something called preventDefault.
-            const fire = (type, y) => {
-                const touch = new Touch({ identifier: 1, target: root, clientX: 40, clientY: y });
-                const held = type === 'touchend' ? [] : [touch];
-
-                return ! root.dispatchEvent(new TouchEvent(type, {
-                    bubbles: true,
-                    cancelable: true,
-                    touches: held,
-                    targetTouches: held,
-                    changedTouches: [touch],
-                }));
-            };
-
-            fire('touchstart', 100);
-
-            // 4px: under the 8px slop, and the whole gesture rides on it.
-            const claimedTheCreep = fire('touchmove', 104);
-            const showingYet = state().owning;
-
-            for (let y = 120; y <= 260; y += 20) fire('touchmove', y);
-
-            return JSON.stringify({
-                claimedTheCreep,
-                // The indicator still waits: a tap's jitter must not twitch it.
-                showingYet,
-                owning: state().owning,
-                distance: state().distance,
-            });
-        })()
-    CREEP;
-
-    expect(json_decode((string) $page->script($creep), true))->toBe([
-        'claimedTheCreep' => true,
-        'showingYet' => false,
-        'owning' => true,
-        'distance' => 80,
-    ]);
-
-    $page->assertNoJavaScriptErrors();
+    $page->assertMissing('@pull-indicator')
+        ->assertNoJavaScriptErrors();
 });
 
 /**
@@ -570,56 +570,39 @@ it('leaves a sideways swipe to the pulse strip', function (): void {
 
     $this->actingAs($user);
 
-    $page = visit('/')->on()->iPhone15Pro();
+    $page = visit('/')->on()->iPhone15Pro()->assertSee('Gimnasio');
 
-    $swipe = <<<'SWIPE'
-        (() => {
-            const root = document.querySelector('[data-test="pull-to-refresh"]');
+    $driver = touchDriver();
+
+    $swipe = $page->script(<<<SWIPE
+        (async () => {
+            {$driver}
+
             const avatar = document.querySelector('[data-test^="pulse-"]');
 
-            const fire = (type, x, y) => {
-                const touch = new Touch({ identifier: 1, target: avatar, clientX: x, clientY: y });
-                const held = type === 'touchend' ? [] : [touch];
-
-                return ! avatar.dispatchEvent(new TouchEvent(type, {
-                    bubbles: true,
-                    cancelable: true,
-                    touches: held,
-                    targetTouches: held,
-                    changedTouches: [touch],
-                }));
-            };
-
-            fire('touchstart', 300, 40);
+            fire(avatar, 'touchstart', 300, 40);
 
             // Sideways, with the drift a real thumb leaves down the screen.
-            const blocked = [];
+            const taken = [];
 
             for (let step = 1; step <= 8; step++) {
-                blocked.push(fire('touchmove', 300 - step * 25, 40 + step * 1.5));
+                taken.push(fire(avatar, 'touchmove', 300 - step * 25, 40 + step * 1.5));
             }
 
-            const state = Alpine.$data(root);
+            await settle();
 
             return JSON.stringify({
-                // Reported rather than assumed: a swipe that never reached the
-                // page handler would pass this test for the wrong reason.
                 reachedThePage: root.contains(avatar),
-                blockedAny: blocked.some(Boolean),
-                tracking: state.tracking,
-                owning: state.owning,
-                distance: state.distance,
+                tookAny: taken.some(Boolean),
             });
         })()
-    SWIPE;
+    SWIPE);
 
-    expect(json_decode((string) $page->script($swipe), true))->toBe([
+    expect(json_decode((string) $swipe, true))->toBe([
         'reachedThePage' => true,
-        'blockedAny' => false,
-        'tracking' => false,
-        'owning' => false,
-        'distance' => 0,
+        'tookAny' => false,
     ]);
 
-    $page->assertNoJavaScriptErrors();
+    $page->assertMissing('@pull-indicator')
+        ->assertNoJavaScriptErrors();
 });
