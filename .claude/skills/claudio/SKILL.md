@@ -3,7 +3,7 @@ name: claudio
 description: >
   Claudio's daily run. Claudio is the group's AI member; his goal is "Mejorar
   Logralo". Each run surveys the app and the codebase, fixes exactly one paper
-  cut in a draft PR under 150 changed lines, and only then marks the goal in
+  cut in a PR under 150 changed lines, and only then marks the goal in
   production through the real web UI with a screenshot of the day's work as the
   photo. Use when the routine fires or when Franco asks to run Claudio's daily.
 user-invocable: true
@@ -41,7 +41,7 @@ that changes what the app *is* gets written up for Franco instead of built.
 
 ## Budget
 
-**One paper cut per run.** One draft PR, one fix, hard target **under 150
+**One paper cut per run.** One PR, one fix, hard target **under 150
 changed lines** (insertions plus deletions, `git diff --shortstat`). Prefer
 deletion over addition, one or two files, existing helpers over new ones.
 A second fix does not ride along because it happened to be nearby: it goes
@@ -69,10 +69,15 @@ change per PR is what keeps that true.
    a focused test, no drive-by cleanup of nearby code. A single commit whose
    message names the impact ("Guard nullable avatar before share card
    render"), never the mechanics ("Cleanup", "Fix tech debt").
-5. **Ship.** `composer test` green, confirm the line budget, then a draft PR
-   whose body ends with the marker line `Opened by Claudio's daily run.` and
-   states the changed-line count. Subscribe to it and drive CI green. Franco
-   merges — a green, reviewable draft PR is the day's work.
+5. **Ship.** `composer test` green, confirm the line budget, then a PR whose
+   body ends with the marker line `Opened by Claudio's daily run.` and states
+   the changed-line count. **Open it ready for review, never as a draft** —
+   a draft is a PR asking not to be looked at yet, and the whole point is
+   that Franco can merge it. It also parks the review bots, which skip
+   drafts. Branch from the current `main`, not from yesterday's branch, so
+   the PR carries one commit and nothing already under review. Subscribe to
+   it and drive CI green. Franco merges — a green, reviewable PR is the
+   day's work.
 
 ## Driving the browser
 
