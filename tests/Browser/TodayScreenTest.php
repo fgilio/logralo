@@ -6,6 +6,7 @@ use App\Models\Goal;
 use App\Models\Mark;
 use App\Models\Reaction;
 use App\Models\User;
+use Carbon\CarbonImmutable;
 use Pest\Browser\Playwright\Playwright;
 
 /**
@@ -47,6 +48,34 @@ it('marks a goal when the card is tapped', function (): void {
 
     expect($mark->photo_key)->toBeNull()
         ->and($mark->marked_on->toDateString())->toBe($user->clock()->today()->toDateString());
+});
+
+it('marks and un-marks yesterday without removing the grace chip', function (): void {
+    $this->travelTo(CarbonImmutable::parse('2026-08-11 09:00', 'America/Montevideo')->utc());
+
+    $user = User::factory()->create();
+    $goal = Goal::factory()->for($user)->create(['name' => 'Correr']);
+
+    $this->actingAs($user);
+
+    $page = visit('/')->on()->iPhone15Pro()
+        ->assertAriaAttribute('@grace-goal-'.$goal->id, 'pressed', 'false')
+        ->click('@grace-goal-'.$goal->id)
+        ->wait(1)
+        ->assertVisible('@grace-goal-'.$goal->id)
+        ->assertAriaAttribute('@grace-goal-'.$goal->id, 'pressed', 'true');
+
+    $mark = Mark::query()->where('goal_id', $goal->id)->sole();
+
+    expect($mark->marked_on->toDateString())->toBe($user->clock()->yesterday()->toDateString());
+
+    $page->click('@grace-goal-'.$goal->id)
+        ->wait(1)
+        ->assertVisible('@grace-goal-'.$goal->id)
+        ->assertAriaAttribute('@grace-goal-'.$goal->id, 'pressed', 'false')
+        ->assertNoJavaScriptErrors();
+
+    expect(Mark::query()->where('goal_id', $goal->id)->count())->toBe(0);
 });
 
 it('marks a goal activated without a pointer or a key', function (): void {

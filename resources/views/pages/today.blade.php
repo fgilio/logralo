@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 use App\Concerns\InteractsWithMember;
 use App\Models\Goal;
-use App\Models\Mark;
 use App\Queries\GroupPulse;
 use App\Queries\MonthlyStandings;
 use App\ValueObjects\PulseEntry;
@@ -20,9 +19,9 @@ use Livewire\Component;
 /**
  * "Hoy" — the only screen.
  *
- * The group's pulse, whatever is still open from yesterday, today's goals, and
- * everyone's proof underneath. No tabs, no menus: goal management, timezone and
- * logout live behind the avatar.
+ * The group's pulse, yesterday's grace window, today's goals, and everyone's
+ * proof underneath. No tabs, no menus: goal management, timezone and logout
+ * live behind the avatar.
  */
 new #[Title('Hoy')] class extends Component
 {
@@ -41,10 +40,7 @@ new #[Title('Hoy')] class extends Component
         return $this->member()->activeGoals()->get();
     }
 
-    /** Goals still open from yesterday, only while grace lasts.
-     *
-     * @return EloquentCollection<int, Goal>
-     */
+    /** @return EloquentCollection<int, Goal> */
     #[Computed]
     public function graceGoals(): EloquentCollection
     {
@@ -52,12 +48,7 @@ new #[Title('Hoy')] class extends Component
             return new EloquentCollection;
         }
 
-        $marked = Mark::query()
-            ->whereIn('goal_id', $this->goals->pluck('id')->values()->all())
-            ->where('marked_on', $this->clock->yesterday()->toDateString())
-            ->pluck('goal_id');
-
-        return $this->goals->reject(fn (Goal $goal): bool => $marked->contains($goal->id))->values();
+        return $this->goals;
     }
 
     /** @return Collection<int, PulseEntry> */
