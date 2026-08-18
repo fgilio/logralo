@@ -16,8 +16,8 @@ use Illuminate\Support\Collection;
 /**
  * The monthly table behind the pulse strip.
  *
- * Only marks on goals that were active through the window count. That is what
- * "archiving stops the goal counting from that day" means in the score:
+ * Only marks on goals that were active on the window's last day count. That is
+ * what "archiving stops the goal counting from that day" means in the score:
  * archiving removes a goal from both sides of the ratio, so it can neither
  * inflate a member's percentage nor be used to game the last day of the month.
  *
@@ -92,7 +92,7 @@ final readonly class MonthlyStandings
             $lastDayOfWindow = $lastDay($user);
 
             return [$user->id => $goals->filter(fn (Goal $goal): bool => $this->existedBy($goal, $clock, $lastDayOfWindow)
-                && $this->remainedActiveThrough($goal, $clock, $lastDayOfWindow)
+                && $goal->wasActiveOn($lastDayOfWindow, $clock)
             )];
         });
 
@@ -155,19 +155,5 @@ final readonly class MonthlyStandings
     {
         return $goal->created_at === null
             || $clock->dayOf($goal->created_at)->toDateString() <= $lastDay;
-    }
-
-    /** Whether archiving had already removed the goal by $lastDay. */
-    private function remainedActiveThrough(Goal $goal, UserClock $clock, string $lastDay): bool
-    {
-        if ($goal->archived_at !== null
-            && $clock->dayOf($goal->archived_at)->toDateString() <= $lastDay) {
-            return false;
-        }
-
-        return collect($goal->streakPauses())->doesntContain(
-            fn (array $pause): bool => $pause['archived_on'] <= $lastDay
-                && ($pause['through'] === null || $pause['through'] >= $lastDay),
-        );
     }
 }

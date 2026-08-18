@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Models;
 
 use App\Enums\GoalVisibility;
+use App\ValueObjects\UserClock;
 use Carbon\CarbonImmutable;
 use Database\Factories\GoalFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
@@ -95,6 +96,26 @@ final class Goal extends Model
             'paused_from' => $clock->oldestOpenDayAt($archivedAt)->toDateString(),
             'paused_through' => null,
         ];
+    }
+
+    public function wasActiveOn(string $date, UserClock $clock): bool
+    {
+        $pauses = collect($this->streakPauses());
+
+        if ($pauses->contains(fn (array $pause): bool => $pause['archived_on'] <= $date
+            && ($pause['through'] === null || $pause['through'] >= $date))) {
+            return false;
+        }
+
+        if ($this->archived_at === null) {
+            return true;
+        }
+
+        if ($pauses->contains(fn (array $pause): bool => $pause['through'] === null)) {
+            return true;
+        }
+
+        return $clock->dayOf($this->archived_at)->toDateString() > $date;
     }
 
     /** @param  Builder<$this>  $query */
