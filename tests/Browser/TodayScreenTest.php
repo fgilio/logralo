@@ -239,32 +239,9 @@ it('reacts to a card from the bar the plus button opens', function (): void {
         ->and($reaction->mark_id)->toBe($mark->id);
 });
 
-it('opens a photo full screen without the reaction bar coming with it', function (): void {
-    $ana = User::factory()->create(['name' => 'Ana Pérez']);
-    $bruno = User::factory()->create(['name' => 'Bruno']);
-    $mark = Mark::factory()
-        ->for(Goal::factory()->for($bruno)->create(['name' => 'Guitarra']))
-        ->withPhoto()
-        ->create();
-
-    $this->actingAs($ana);
-
-    visit('/')->on()->iPhone15Pro()
-        ->assertMissing('@viewer-close-'.$mark->id)
-        ->click('@viewer-open-'.$mark->id)
-        ->wait(1)
-        ->assertVisible('@viewer-close-'.$mark->id)
-        // The tap that opens the photo is no longer also a press on the card.
-        ->assertMissing('@react-'.$mark->id.'-clap')
-        ->click('@viewer-close-'.$mark->id)
-        ->wait(1)
-        ->assertMissing('@viewer-close-'.$mark->id)
-        ->assertNoJavaScriptErrors();
-});
-
-it('dismisses the photo with a drag, and leaves the note alone', function (): void {
-    $ana = User::factory()->create(['name' => 'Ana Pérez']);
-    $bruno = User::factory()->create(['name' => 'Bruno']);
+it('opens a photo full screen, and lets you back out of it', function (): void {
+    $ana = User::factory()->create();
+    $bruno = User::factory()->create();
     $mark = Mark::factory()
         ->for(Goal::factory()->for($bruno)->create(['name' => 'Guitarra']))
         ->withPhoto()
@@ -273,20 +250,29 @@ it('dismisses the photo with a drag, and leaves the note alone', function (): vo
     $this->actingAs($ana);
 
     $page = visit('/')->on()->iPhone15Pro()
+        ->assertMissing('@viewer-close')
         ->click('@viewer-open-'.$mark->id)
         ->wait(1)
-        ->assertVisible('@viewer-close-'.$mark->id);
+        ->assertVisible('@viewer-close')
+        // The tap that opens the photo is no longer also a press on the card.
+        ->assertMissing('@react-'.$mark->id.'-clap');
 
     // The note is not part of the gesture: it carries its own scroll and its
     // own selection, and a touch on it used to close the whole viewer.
-    $page->click('@viewer-note-'.$mark->id)
+    $page->click('@viewer-note')
         ->wait(1)
-        ->assertVisible('@viewer-close-'.$mark->id);
+        ->assertVisible('@viewer-close');
 
-    // The picture itself, carried far enough to count as a throw.
-    $page->drag('@viewer-photo-'.$mark->id, '@viewer-note-'.$mark->id)
+    $page->click('@viewer-close')
         ->wait(1)
-        ->assertMissing('@viewer-close-'.$mark->id)
+        ->assertMissing('@viewer-close');
+
+    // And the picture itself, carried far enough to count as a throw.
+    $page->click('@viewer-open-'.$mark->id)
+        ->wait(1)
+        ->drag('@viewer-photo', '@viewer-note')
+        ->wait(1)
+        ->assertMissing('@viewer-close')
         ->assertNoJavaScriptErrors();
 });
 

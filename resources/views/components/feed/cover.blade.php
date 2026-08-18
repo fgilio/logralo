@@ -7,14 +7,14 @@
     // the card's own colours.
     $onPhoto = $entry->photo !== null;
     $tone = $onPhoto ? 'inverse' : 'default';
-    $alt = $mark->user->name . ': ' . $mark->goal->name;
+    $alt = $entry->photoAlt();
 @endphp
 
 <div class="mark-3u relative">
     @if ($onPhoto)
-        <x-feed.viewer :entry="$entry" class="size-full">
+        <x-feed.photo-button :entry="$entry" class="size-full">
             <x-photo :links="$entry->photo" :alt="$alt" :eager="$eager" fill wide />
-        </x-feed.viewer>
+        </x-feed.photo-button>
     @else
         <x-feed.ghost :entry="$entry" size="lg" class="size-full" />
     @endif

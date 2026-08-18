@@ -17,13 +17,16 @@ window.Logralo = { ...window.Logralo, compressPhoto };
 
 document.addEventListener("alpine:init", () => {
     /**
-     * The half of a press and hold that every gesture here shares: arm a timer
-     * on pointerdown, drop it when the finger travels, and swallow the click
-     * the press emits afterwards so a card never fires both.
+     * Tap and hold on the same element. Announces itself with `long-press`
+     * and `short-press`, and leaves the deciding to whoever spread it in.
      *
-     * Whoever spreads this in owes it a `cancel()`.
+     * Arm a timer on pointerdown, drop it when the finger travels, and
+     * swallow the click the press emits afterwards so an element never fires
+     * both. This was two factories while the feed card had a hold of its own;
+     * the card's went with the photo viewer, and the remaining half had one
+     * caller.
      */
-    const holdGesture = (options = {}) => ({
+    const pressGesture = (options = {}) => ({
         delay: options.delay ?? 420,
         moveTolerance: options.moveTolerance ?? 10,
 
@@ -33,6 +36,8 @@ document.addEventListener("alpine:init", () => {
         startY: 0,
         suppressClick: false,
         onScroll: null,
+        fired: false,
+        pressing: false,
 
         destroy() {
             this.cancel();
@@ -40,71 +45,26 @@ document.addEventListener("alpine:init", () => {
 
         /**
          * A scroll begun elsewhere steals the gesture on iOS without ever
-         * firing pointercancel. The listener lives only as long as the press
-         * does, so a page of cards does not run one per card per frame.
+         * firing pointercancel, so the press listens for one. The listener
+         * lives only as long as the press does, so a page of cards does not
+         * run one per card per frame.
          */
-        arm(event) {
+        start(event) {
+            if (event.button !== undefined && event.button !== 0) return;
+            if (this.pointerId !== null) return this.cancel();
+
             this.pointerId = event.pointerId;
             this.startX = event.clientX;
             this.startY = event.clientY;
             this.suppressClick = false;
+            this.fired = false;
+            this.pressing = true;
 
             this.onScroll ??= () => this.cancel();
             window.addEventListener("scroll", this.onScroll, {
                 capture: true,
                 passive: true,
             });
-        },
-
-        disarm() {
-            if (this.timer !== null) {
-                clearTimeout(this.timer);
-                this.timer = null;
-            }
-
-            if (this.onScroll !== null) {
-                window.removeEventListener("scroll", this.onScroll, {
-                    capture: true,
-                });
-            }
-
-            this.pointerId = null;
-        },
-
-        /** A finger that travels this far was scrolling, not holding. */
-        travelled(event) {
-            return (
-                Math.abs(event.clientX - this.startX) > this.moveTolerance ||
-                Math.abs(event.clientY - this.startY) > this.moveTolerance
-            );
-        },
-
-        onClick(event) {
-            if (!this.suppressClick) return;
-
-            this.suppressClick = false;
-            event.preventDefault();
-            event.stopPropagation();
-        },
-    });
-
-    /**
-     * Tap and hold on the same element. Announces itself with `long-press` and
-     * `short-press`, and leaves the deciding to the card.
-     */
-    const pressGesture = (options = {}) => ({
-        ...holdGesture(options),
-
-        fired: false,
-        pressing: false,
-
-        start(event) {
-            if (event.button !== undefined && event.button !== 0) return;
-            if (this.pointerId !== null) return this.cancel();
-
-            this.arm(event);
-            this.fired = false;
-            this.pressing = true;
 
             try {
                 event.currentTarget.setPointerCapture(event.pointerId);
@@ -139,8 +99,35 @@ document.addEventListener("alpine:init", () => {
         },
 
         cancel() {
-            this.disarm();
+            if (this.timer !== null) {
+                clearTimeout(this.timer);
+                this.timer = null;
+            }
+
+            if (this.onScroll !== null) {
+                window.removeEventListener("scroll", this.onScroll, {
+                    capture: true,
+                });
+            }
+
+            this.pointerId = null;
             this.pressing = false;
+        },
+
+        /** A finger that travels this far was scrolling, not holding. */
+        travelled(event) {
+            return (
+                Math.abs(event.clientX - this.startX) > this.moveTolerance ||
+                Math.abs(event.clientY - this.startY) > this.moveTolerance
+            );
+        },
+
+        onClick(event) {
+            if (!this.suppressClick) return;
+
+            this.suppressClick = false;
+            event.preventDefault();
+            event.stopPropagation();
         },
     });
 
@@ -419,19 +406,12 @@ document.addEventListener("alpine:init", () => {
         },
 
         toggle() {
+            this.showing = !this.showing;
+
+            // One bar at a time: the others hear this and shut.
             if (this.showing) {
-                this.close();
-
-                return;
+                this.$dispatch("reaction-bar-opened", this.markId);
             }
-
-            this.open();
-        },
-
-        /** One bar at a time: the others hear this and shut. */
-        open() {
-            this.showing = true;
-            this.$dispatch("reaction-bar-opened", this.markId);
         },
 
         close() {
@@ -441,6 +421,10 @@ document.addEventListener("alpine:init", () => {
 
     /**
      * The photo, full screen.
+     *
+     * One viewer for the feed, filled by whichever card was tapped — the
+     * `photo` payload is everything `x-feed.photo-button` knows and this has
+     * no other way of learning without a round trip.
      *
      * Flux's modal owns the dialog itself — the top layer, the scroll lock,
      * the focus placeholder and Escape. What is left is the gesture every
@@ -456,26 +440,40 @@ document.addEventListener("alpine:init", () => {
      * Flux closes on a click outside the dialog's own box, and this dialog is
      * the whole screen, so `dismiss()` is the only way out besides Escape.
      */
-    Alpine.data("photoViewer", (options = {}) => ({
-        name: options.name,
-        threshold: options.threshold ?? 96,
-        tapTolerance: options.tapTolerance ?? 10,
+    Alpine.data("photoViewer", () => ({
+        threshold: 96,
+        tapTolerance: 10,
 
+        photo: {},
         pointerId: null,
         startX: 0,
         startY: 0,
         x: 0,
         y: 0,
-        dragging: false,
 
-        /** How far the picture has been carried from where it started. */
-        get travelled() {
-            return Math.hypot(this.x, this.y);
+        /** A pointer is down on the picture, so the drag owns the transform. */
+        get dragging() {
+            return this.pointerId !== null;
         },
 
-        /** How far gone it looks while it is being thrown away. */
-        get faded() {
-            return 1 - Math.min(this.travelled / 480, 0.75);
+        /**
+         * Where the picture sits, and how far gone it looks on the way out.
+         * One binding rather than two, so a pointermove costs one style write
+         * and the distance is measured once.
+         */
+        get carried() {
+            if (this.x === 0 && this.y === 0) return "";
+
+            const faded = 1 - Math.min(Math.hypot(this.x, this.y) / 480, 0.75);
+
+            return `transform: translate(${this.x}px, ${this.y}px); opacity: ${faded}; will-change: transform, opacity`;
+        },
+
+        show(photo) {
+            this.cancel();
+            this.photo = photo;
+
+            window.Flux?.modal("foto").show();
         },
 
         start(event) {
@@ -484,7 +482,6 @@ document.addEventListener("alpine:init", () => {
             this.pointerId = event.pointerId;
             this.startX = event.clientX;
             this.startY = event.clientY;
-            this.dragging = true;
 
             try {
                 event.currentTarget.setPointerCapture(event.pointerId);
@@ -494,16 +491,16 @@ document.addEventListener("alpine:init", () => {
         },
 
         move(event) {
-            if (!this.dragging || event.pointerId !== this.pointerId) return;
+            if (event.pointerId !== this.pointerId) return;
 
             this.x = event.clientX - this.startX;
             this.y = event.clientY - this.startY;
         },
 
         end(event) {
-            if (!this.dragging || event.pointerId !== this.pointerId) return;
+            if (event.pointerId !== this.pointerId) return;
 
-            const travelled = this.travelled;
+            const travelled = Math.hypot(this.x, this.y);
 
             this.cancel();
 
@@ -515,15 +512,13 @@ document.addEventListener("alpine:init", () => {
         },
 
         cancel() {
-            this.dragging = false;
             this.pointerId = null;
             this.x = 0;
             this.y = 0;
         },
 
         dismiss() {
-            this.cancel();
-            window.Flux?.modal(this.name).close();
+            window.Flux?.modal("foto").close();
         },
     }));
 

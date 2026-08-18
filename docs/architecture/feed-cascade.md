@@ -83,11 +83,15 @@ Opening one bar closes any other. It stays in the DOM hidden rather than being b
 
 ## The photo, full screen
 
-Tapping a photo at any height opens it in a `flux:modal` with `variant="bare"`, one per card, named `foto-{mark}`. Flux owns the dialog — the top layer, the scroll lock, Escape, the fade — and the app owns everything drawn inside it: the member and the goal above the picture, the note below it, and a ✕.
+Tapping a photo at any height opens it in a `flux:modal` with `variant="bare"`, named `foto`. Flux owns the dialog — the top layer, the scroll lock, Escape, the fade — and the app owns what is drawn inside it: the member and the goal above the picture, the note below it, and a ✕.
 
-The viewer lives beside the photo it belongs to rather than at the foot of the page, which the share menu could not do: a card contains its own paint, so a menu drawn inside one is cut off at the card's edge. A dialog opened with `showModal()` is painted in the top layer instead and is not clipped by an ancestor. Layout is the part that does not survive the card, so the dialog's placeholder is taken out of flow — an element of no size still takes a gap of its own in the flex row a 2u card lays its photo out in.
+**One viewer for the feed, not one per card**, which is the rule the milestone sheet already wrote down a page away. Twenty cards carrying twenty dialogs is twenty custom elements, forty document listeners and some sixty kilobytes of markup — and because the feed re-renders whole, every reaction tap re-serialises and morphs all of it. So the dialog is rendered once at the foot of the feed and each photo is a button that hands it what it needs: the srcset, the alt, the member, the goal line and the note, as strings, on the click. Nothing about the tapped card reaches it any other way, and nothing it draws costs a round trip.
 
-The image is `loading="lazy"` and a closed dialog is `display: none`, so a page of cards downloads its thumbnails and none of the full-size photos behind them. It asks for the same `sizes="100vw"` a cover does, so on a phone the picture the viewer wants is usually the one the feed already has.
+That is also what decides what the viewer shows. The avatar and the flame stay on the card: an avatar is a server-side chain of upload, then Gravatar, then initials, and a shared dialog cannot carry one without asking the server which mark it is looking at. Neither is why anybody opened the photo.
+
+The card could have hosted its own dialog — `showModal()` paints in the top layer, so neither the card's `overflow-hidden` nor its `content-visibility: auto` clips it, which is the trap the share menu has to be teleported out of. It is placement that argues against it, not painting.
+
+The picture has no `src` until a card hands one over, so a feed downloads its thumbnails and no full-size photo behind a viewer nobody opened. It asks for the same `sizes="100vw"` a cover does, so on a phone the picture the viewer wants is usually the one the feed already has.
 
 Three ways out, because a viewer that traps you reads as a bug: the ✕, Escape, and a drag in any direction, where the picture follows the finger and leaves once it has travelled far enough from where it started. Distance is measured in both axes rather than down the screen: there is nothing to swipe sideways to, so a sideways throw means the same thing as a downward one, and the vertical alone would have read it as a tap. A tap is a drag of nothing at all, and dismisses too, which is what the overlay this replaced did with any click.
 
