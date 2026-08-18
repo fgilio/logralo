@@ -312,15 +312,15 @@ it('reloads the screen when the page is pulled down from the top', function (): 
     // Renamed behind the screen's back: only a real re-render brings it down.
     $goal->update(['name' => 'Natación']);
 
-    $pull = <<<'JS_WRAP'
+    $pull = <<<'PULL'
         (() => {
             const root = document.querySelector('[data-test="pull-to-refresh"]');
             const state = () => Alpine.$data(root);
-    
+
             const fire = (type, y) => {
                 const touch = new Touch({ identifier: 1, target: root, clientX: 40, clientY: y });
                 const held = type === 'touchend' ? [] : [touch];
-    
+
                 root.dispatchEvent(new TouchEvent(type, {
                     bubbles: true,
                     cancelable: true,
@@ -329,20 +329,20 @@ it('reloads the screen when the page is pulled down from the top', function (): 
                     changedTouches: [touch],
                 }));
             };
-    
+
             fire('touchstart', 100);
-    
+
             // Inside the slop: the gesture could still turn out to be a tap.
             fire('touchmove', 104);
             const claimedEarly = state().owning;
-    
+
             for (let y = 120; y <= 300; y += 20) fire('touchmove', y);
-    
+
             const claimed = state().owning;
             const pulled = state().distance;
-    
+
             fire('touchend', 300);
-    
+
             return JSON.stringify({
                 claimedEarly,
                 claimed,
@@ -352,7 +352,7 @@ it('reloads the screen when the page is pulled down from the top', function (): 
                 refreshing: state().refreshing,
             });
         })()
-    JS_WRAP;
+    PULL;
 
     expect(json_decode((string) $page->script($pull), true))->toBe([
         'claimedEarly' => false,
@@ -377,11 +377,11 @@ it('leaves the gesture alone when the page is not at the top', function (): void
 
     $page = visit('/')->on()->iPhone15Pro();
 
-    $scrolledPull = <<<'JS_WRAP'
+    $scrolledPull = <<<'SCROLLED'
         (() => {
             const root = document.querySelector('[data-test="pull-to-refresh"]');
             const scroller = document.scrollingElement;
-    
+
             // Tall enough to scroll, whatever the feed happens to hold. The
             // height is read back before the scroll so the new one is laid out
             // by the time it happens.
@@ -390,11 +390,11 @@ it('leaves the gesture alone when the page is not at the top', function (): void
             // Instant on purpose: <html> is `scroll-smooth`, and an animated
             // scroll is still at nought on the next line.
             window.scrollTo({ top: 200, behavior: 'instant' });
-    
+
             const fire = (type, y) => {
                 const touch = new Touch({ identifier: 1, target: root, clientX: 40, clientY: y });
                 const held = type === 'touchend' ? [] : [touch];
-    
+
                 root.dispatchEvent(new TouchEvent(type, {
                     bubbles: true,
                     cancelable: true,
@@ -403,12 +403,12 @@ it('leaves the gesture alone when the page is not at the top', function (): void
                     changedTouches: [touch],
                 }));
             };
-    
+
             fire('touchstart', 100);
             for (let y = 120; y <= 300; y += 20) fire('touchmove', y);
-    
+
             const state = Alpine.$data(root);
-    
+
             return JSON.stringify({
                 // Reported rather than assumed: a setup that failed to scroll
                 // would otherwise look like a gesture correctly ignored.
@@ -418,10 +418,73 @@ it('leaves the gesture alone when the page is not at the top', function (): void
                 distance: state.distance,
             });
         })()
-    JS_WRAP;
+    SCROLLED;
 
     expect(json_decode((string) $page->script($scrolledPull), true))->toBe([
         'scrollTop' => 200,
+        'tracking' => false,
+        'owning' => false,
+        'distance' => 0,
+    ]);
+
+    $page->assertNoJavaScriptErrors();
+});
+
+/**
+ * A sheet is its own surface.
+ *
+ * Flux paints a modal in the top layer, but the `<dialog>` stays a descendant
+ * of the screen, so every touch inside it bubbles down to the page's own
+ * handler. Without the guard the standings sheet cannot be dragged without
+ * reloading the page behind it.
+ */
+it('leaves the gesture to an open sheet', function (): void {
+    $user = User::factory()->create(['name' => 'Ana Pérez']);
+    Goal::factory()->for($user)->create(['name' => 'Gimnasio']);
+
+    $this->actingAs($user);
+
+    $page = visit('/')->on()->iPhone15Pro();
+
+    $page->click('@open-standings')->wait(1);
+
+    $pullInsideSheet = <<<'SHEET'
+        (() => {
+            const root = document.querySelector('[data-test="pull-to-refresh"]');
+            // Flux's own element, wrapping the <dialog> the guard looks for.
+            const inside = document.querySelector('ui-modal dialog *');
+
+            const fire = (type, y) => {
+                const touch = new Touch({ identifier: 1, target: inside, clientX: 40, clientY: y });
+                const held = type === 'touchend' ? [] : [touch];
+
+                inside.dispatchEvent(new TouchEvent(type, {
+                    bubbles: true,
+                    cancelable: true,
+                    touches: held,
+                    targetTouches: held,
+                    changedTouches: [touch],
+                }));
+            };
+
+            fire('touchstart', 100);
+            for (let y = 120; y <= 300; y += 20) fire('touchmove', y);
+
+            const state = Alpine.$data(root);
+
+            return JSON.stringify({
+                // Reported rather than assumed: a drag that never reached the
+                // page handler would pass this test for the wrong reason.
+                reachedThePage: root.contains(inside),
+                tracking: state.tracking,
+                owning: state.owning,
+                distance: state.distance,
+            });
+        })()
+    SHEET;
+
+    expect(json_decode((string) $page->script($pullInsideSheet), true))->toBe([
+        'reachedThePage' => true,
         'tracking' => false,
         'owning' => false,
         'distance' => 0,

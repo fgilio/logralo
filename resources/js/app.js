@@ -589,12 +589,19 @@ document.addEventListener("alpine:init", () => {
             return Math.min(this.distance / this.threshold, 1);
         },
 
-        /** A second finger is a pinch, and a scrolled page is somebody reading. */
+        /**
+         * A second finger is a pinch, a scrolled page is somebody reading, and
+         * a drag inside a dialog belongs to the dialog: Flux paints its sheets
+         * in the top layer but leaves them descendants of this element, so
+         * their touches bubble down here and would refresh the page behind an
+         * open sheet.
+         */
         start(event) {
             this.tracking =
                 !this.refreshing &&
                 event.touches.length === 1 &&
-                this.scroller.scrollTop <= 0;
+                this.scroller.scrollTop <= 0 &&
+                event.target.closest("dialog") === null;
 
             this.owning = false;
             this.startY = event.touches[0]?.clientY ?? 0;
