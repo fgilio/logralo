@@ -521,10 +521,9 @@ new class extends Component
 
                 <flux:text size="sm" class="text-center">
                     @if ($isFull)
-                        La foto se va con ella. Podés quitarla mientras el día siga abierto.
-                    @else
-                        Podés quitarla mientras el día siga abierto.
+                        La foto se va con ella.
                     @endif
+                    Podés quitarla mientras el día siga abierto.
                 </flux:text>
             </div>
         @endif

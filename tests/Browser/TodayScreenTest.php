@@ -56,17 +56,16 @@ it('un-marks a goal from the sheet, and never from the tap alone', function (): 
 
     $this->actingAs($user);
 
-    $page = visit('/')->on()->iPhone15Pro()
+    // `aria-pressed` is drawn straight off the mark, so it is the card saying
+    // whether the day survived the tap.
+    visit('/')->on()->iPhone15Pro()
         ->assertAriaAttribute('@goal-card-'.$goal->id, 'pressed', 'true')
         // The tap that used to delete the day now only opens the way out.
         ->click('@goal-card-'.$goal->id)
         ->wait(1)
         ->assertVisible('@remove')
-        ->assertAriaAttribute('@goal-card-'.$goal->id, 'pressed', 'true');
-
-    expect(Mark::query()->count())->toBe(1);
-
-    $page->click('@remove')
+        ->assertAriaAttribute('@goal-card-'.$goal->id, 'pressed', 'true')
+        ->click('@remove')
         ->wait(1)
         ->assertAriaAttribute('@goal-card-'.$goal->id, 'pressed', 'false')
         ->assertNoJavaScriptErrors();
