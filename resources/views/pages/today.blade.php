@@ -100,10 +100,8 @@ new #[Title('Hoy')] class extends Component
 
 <div
     x-data="pullToRefresh()"
-    @pointerdown="start($event)"
-    @pointerup.window="end()"
-    @pointercancel.window="reset()"
     class="mx-auto min-h-dvh w-full max-w-lg px-4 pb-safe-b"
+    data-test="pull-to-refresh"
 >
     {{-- Pull-to-refresh indicator, riding above the header. --}}
     <div

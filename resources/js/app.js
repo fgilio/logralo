@@ -525,32 +525,60 @@ document.addEventListener("alpine:init", () => {
     /**
      * Pull to refresh over the feed.
      *
-     * Chrome on Android hands the gesture back once `overscroll-behavior-y` is
-     * `none`; iOS Safari has no native pull to refresh at all, so this rides on
-     * top of the rubber band and arms only at the very top of the page.
+     * Touch events, not pointer ones. A vertical drag belongs to the scroller
+     * within a frame or two of starting, and the browser says so by firing
+     * `pointercancel` — so a gesture built on pointers is taken away halfway
+     * through every time, and the `preventDefault()` that was supposed to hold
+     * on to it does nothing: by the time a `pointermove` runs the scroll is
+     * already the compositor's. The first `touchmove` is the one moment the
+     * page can still claim the gesture, and claiming it is all this does.
+     *
+     * Chrome on Android needs `overscroll-behavior-y: none` on top of that to
+     * keep its own pull to refresh out of the way; iOS Safari has none of its
+     * own, so there this replaces the rubber band.
      */
     Alpine.data("pullToRefresh", (options = {}) => ({
         threshold: options.threshold ?? 72,
         max: options.max ?? 110,
+        /** How far the finger travels before the pull is a pull and not a tap. */
+        slop: options.slop ?? 8,
 
         distance: 0,
-        armed: false,
         refreshing: false,
-        startY: 0,
-        pointerId: null,
 
+        /** The gesture could still become a pull. */
+        tracking: false,
+        /** It did, and the browser has been told to keep its hands off. */
+        owning: false,
+        startY: 0,
+
+        /**
+         * Registered by hand rather than with x-on: a touchmove listener is
+         * passive unless it says otherwise, and passive is exactly what this
+         * one cannot be. Touch events stay with the element the gesture began
+         * on, so a pull that starts inside the page reaches this to the end.
+         */
         init() {
-            // Registered by hand rather than with x-on, because Alpine's
-            // .passive is required for touch performance yet forbids the
-            // preventDefault this needs.
+            this.onStart = (event) => this.start(event);
             this.onMove = (event) => this.move(event);
-            window.addEventListener("pointermove", this.onMove, {
+            this.onEnd = () => this.end();
+            this.onCancel = () => this.reset();
+
+            this.$root.addEventListener("touchstart", this.onStart, {
+                passive: true,
+            });
+            this.$root.addEventListener("touchmove", this.onMove, {
                 passive: false,
             });
+            this.$root.addEventListener("touchend", this.onEnd);
+            this.$root.addEventListener("touchcancel", this.onCancel);
         },
 
         destroy() {
-            window.removeEventListener("pointermove", this.onMove);
+            this.$root.removeEventListener("touchstart", this.onStart);
+            this.$root.removeEventListener("touchmove", this.onMove);
+            this.$root.removeEventListener("touchend", this.onEnd);
+            this.$root.removeEventListener("touchcancel", this.onCancel);
         },
 
         get scroller() {
@@ -561,20 +589,43 @@ document.addEventListener("alpine:init", () => {
             return Math.min(this.distance / this.threshold, 1);
         },
 
+        /** A second finger is a pinch, and a scrolled page is somebody reading. */
         start(event) {
-            if (this.refreshing || this.scroller.scrollTop > 0) return;
+            this.tracking =
+                !this.refreshing &&
+                event.touches.length === 1 &&
+                this.scroller.scrollTop <= 0;
 
-            this.pointerId = event.pointerId;
-            this.startY = event.clientY;
-            this.armed = true;
+            this.owning = false;
+            this.startY = event.touches[0]?.clientY ?? 0;
         },
 
+        /**
+         * The frame that decides. Until `owning`, the browser still holds the
+         * gesture and the `preventDefault()` below is what takes it; let one
+         * move go by unclaimed and the rest arrive uncancelable, with the page
+         * scrolling whatever this does.
+         */
         move(event) {
-            if (!this.armed || event.pointerId !== this.pointerId) return;
+            const touch = this.tracking ? event.touches[0] : null;
 
-            const delta = event.clientY - this.startY;
+            if (!touch) return;
 
-            if (delta <= 0 || this.scroller.scrollTop > 0) return this.reset();
+            const delta = touch.clientY - this.startY;
+
+            if (!this.owning) {
+                // Upwards, or a page that moved under the finger: a scroll, and
+                // it stays one for the rest of the gesture.
+                if (delta <= 0 || this.scroller.scrollTop > 0) {
+                    this.tracking = false;
+
+                    return;
+                }
+
+                if (delta < this.slop) return;
+
+                this.owning = true;
+            }
 
             // Resistance, so the indicator never tracks the finger one to one.
             this.distance = Math.min(this.max, delta * 0.5);
@@ -583,10 +634,11 @@ document.addEventListener("alpine:init", () => {
         },
 
         async end() {
-            if (!this.armed) return;
+            const shouldRefresh =
+                this.owning && this.distance >= this.threshold;
 
-            const shouldRefresh = this.distance >= this.threshold;
-            this.armed = false;
+            this.tracking = false;
+            this.owning = false;
 
             if (!shouldRefresh) return this.reset();
 
@@ -608,8 +660,8 @@ document.addEventListener("alpine:init", () => {
 
         reset() {
             this.distance = 0;
-            this.armed = false;
-            this.pointerId = null;
+            this.tracking = false;
+            this.owning = false;
         },
     }));
 });

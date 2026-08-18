@@ -287,3 +287,145 @@ it('renders the login screen and refuses the wrong password', function (): void 
         ->assertSee(__('auth.failed'))
         ->assertNoJavaScriptErrors();
 });
+
+/**
+ * The pull that reloads the screen.
+ *
+ * Synthetic touches rather than Playwright's own drag, which is a mouse and
+ * emits no touch events at all. What that costs is the browser's decision to
+ * hand the drag to the scroller — the part `overscroll-behavior-y` and the
+ * `preventDefault()` on the first move exist to survive — and what it buys is
+ * the rest: that the gesture is read off `touches` at all, that it claims
+ * itself past the slop, and that letting go past the threshold really does
+ * bring the server's newer answer down onto the screen.
+ */
+it('reloads the screen when the page is pulled down from the top', function (): void {
+    $user = User::factory()->create();
+    $goal = Goal::factory()->for($user)->create(['name' => 'Gimnasio', 'emoji' => '🏋️']);
+
+    $this->actingAs($user);
+
+    $page = visit('/')->on()->iPhone15Pro();
+
+    $page->assertSee('Gimnasio');
+
+    // Renamed behind the screen's back: only a real re-render brings it down.
+    $goal->update(['name' => 'Natación']);
+
+    $pull = <<<'JS_WRAP'
+        (() => {
+            const root = document.querySelector('[data-test="pull-to-refresh"]');
+            const state = () => Alpine.$data(root);
+    
+            const fire = (type, y) => {
+                const touch = new Touch({ identifier: 1, target: root, clientX: 40, clientY: y });
+                const held = type === 'touchend' ? [] : [touch];
+    
+                root.dispatchEvent(new TouchEvent(type, {
+                    bubbles: true,
+                    cancelable: true,
+                    touches: held,
+                    targetTouches: held,
+                    changedTouches: [touch],
+                }));
+            };
+    
+            fire('touchstart', 100);
+    
+            // Inside the slop: the gesture could still turn out to be a tap.
+            fire('touchmove', 104);
+            const claimedEarly = state().owning;
+    
+            for (let y = 120; y <= 300; y += 20) fire('touchmove', y);
+    
+            const claimed = state().owning;
+            const pulled = state().distance;
+    
+            fire('touchend', 300);
+    
+            return JSON.stringify({
+                claimedEarly,
+                claimed,
+                // 110, the cap: 200px of finger at half resistance would be 100.
+                pulled,
+                settled: state().distance,
+                refreshing: state().refreshing,
+            });
+        })()
+    JS_WRAP;
+
+    expect(json_decode((string) $page->script($pull), true))->toBe([
+        'claimedEarly' => false,
+        'claimed' => true,
+        'pulled' => 100,
+        'settled' => 72,
+        'refreshing' => true,
+    ]);
+
+    $page->wait(1)
+        ->assertSee('Natación')
+        ->assertDontSee('Gimnasio')
+        ->assertNoJavaScriptErrors();
+});
+
+/** A drag that begins below the top of the page is somebody scrolling. */
+it('leaves the gesture alone when the page is not at the top', function (): void {
+    $user = User::factory()->create();
+    Goal::factory()->for($user)->create(['name' => 'Gimnasio']);
+
+    $this->actingAs($user);
+
+    $page = visit('/')->on()->iPhone15Pro();
+
+    $scrolledPull = <<<'JS_WRAP'
+        (() => {
+            const root = document.querySelector('[data-test="pull-to-refresh"]');
+            const scroller = document.scrollingElement;
+    
+            // Tall enough to scroll, whatever the feed happens to hold. The
+            // height is read back before the scroll so the new one is laid out
+            // by the time it happens.
+            root.style.minHeight = '400vh';
+            root.offsetHeight;
+            // Instant on purpose: <html> is `scroll-smooth`, and an animated
+            // scroll is still at nought on the next line.
+            window.scrollTo({ top: 200, behavior: 'instant' });
+    
+            const fire = (type, y) => {
+                const touch = new Touch({ identifier: 1, target: root, clientX: 40, clientY: y });
+                const held = type === 'touchend' ? [] : [touch];
+    
+                root.dispatchEvent(new TouchEvent(type, {
+                    bubbles: true,
+                    cancelable: true,
+                    touches: held,
+                    targetTouches: held,
+                    changedTouches: [touch],
+                }));
+            };
+    
+            fire('touchstart', 100);
+            for (let y = 120; y <= 300; y += 20) fire('touchmove', y);
+    
+            const state = Alpine.$data(root);
+    
+            return JSON.stringify({
+                // Reported rather than assumed: a setup that failed to scroll
+                // would otherwise look like a gesture correctly ignored.
+                scrollTop: scroller.scrollTop,
+                tracking: state.tracking,
+                owning: state.owning,
+                distance: state.distance,
+            });
+        })()
+    JS_WRAP;
+
+    expect(json_decode((string) $page->script($scrolledPull), true))->toBe([
+        'scrollTop' => 200,
+        'tracking' => false,
+        'owning' => false,
+        'distance' => 0,
+    ]);
+
+    $page->assertNoJavaScriptErrors();
+});
