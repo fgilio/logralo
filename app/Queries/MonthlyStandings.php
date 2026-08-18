@@ -167,7 +167,7 @@ final readonly class MonthlyStandings
 
         return collect($goal->streakPauses())->doesntContain(
             fn (array $pause): bool => $pause['archived_on'] <= $lastDay
-                && $pause['through'] >= $lastDay,
+                && ($pause['through'] === null || $pause['through'] >= $lastDay),
         );
     }
 }

@@ -229,6 +229,21 @@ it('omits a goal archived at month end after it is restored and archived again',
     expect(closeJulyRecap()->standingEntries())->toBeEmpty();
 });
 
+it('uses the archive calendar after the member changes timezone before close', function (): void {
+    $this->travelTo(CarbonImmutable::parse('2026-07-31 23:30', 'America/Adak')->utc());
+
+    $user = User::factory()->inTimezone('America/Adak')->create(['name' => 'Ana']);
+    $goal = julyGoal($user);
+
+    resolve(ArchiveGoal::class)->handle($goal);
+
+    $user->update(['timezone' => 'Pacific/Kiritimati']);
+
+    $this->travelTo(CarbonImmutable::parse('2026-08-01 15:00', 'UTC'));
+
+    expect(closeJulyRecap()->standingEntries())->toBeEmpty();
+});
+
 it('stays shut to a member whose clock moves west after the close', function (): void {
     // Closing asks every member's clock; marking asks one. That is the whole
     // gap: any change to a member's clock after the close can reopen a day
