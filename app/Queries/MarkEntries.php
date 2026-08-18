@@ -25,7 +25,7 @@ final readonly class MarkEntries
     {
         return new MarkEntry(
             mark: $mark,
-            streak: $this->streaks->endingOn($history->dates(), $mark->marked_on),
+            streak: $this->streaks->endingOn($history->dates(), $mark->marked_on, $history->pauses),
             ghostRun: $mark->isGhost()
                 ? $history->ghostRunEndingOn($mark->marked_on->toDateString())
                 : 0,

@@ -5,15 +5,15 @@ declare(strict_types=1);
 namespace App\ValueObjects;
 
 /**
- * One goal's marks, reduced to what the streak and the photo rule need: which
- * days were marked, and which of those carried a photo.
+ * One goal's marks and pauses, reduced to what the streak and photo rules need.
  */
 final readonly class MarkHistory
 {
     /**
      * @param  list<array{date: string, full: bool}>  $entries  ascending by date
+     * @param  list<array{from: string, through: string|null}>  $pauses
      */
-    public function __construct(public array $entries) {}
+    public function __construct(public array $entries, public array $pauses = []) {}
 
     public static function empty(): self
     {

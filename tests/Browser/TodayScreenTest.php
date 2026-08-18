@@ -6,6 +6,7 @@ use App\Models\Goal;
 use App\Models\Mark;
 use App\Models\Reaction;
 use App\Models\User;
+use Carbon\CarbonImmutable;
 use Pest\Browser\Playwright\Playwright;
 
 /**
@@ -71,6 +72,40 @@ it('un-marks a goal from the sheet, and never from the tap alone', function (): 
         ->assertNoJavaScriptErrors();
 
     expect(Mark::query()->count())->toBe(0);
+});
+
+it('marks and un-marks yesterday without removing the grace chip', function (): void {
+    $this->travelTo(CarbonImmutable::parse('2026-08-11 09:00', 'America/Montevideo')->utc());
+
+    $user = User::factory()->create();
+    $goal = Goal::factory()->for($user)->create(['name' => 'Correr']);
+
+    $this->actingAs($user);
+
+    $page = visit('/')->on()->iPhone15Pro()
+        ->assertAriaAttribute('@grace-goal-'.$goal->id, 'pressed', 'false')
+        ->click('@grace-goal-'.$goal->id)
+        ->wait(1)
+        ->assertVisible('@grace-goal-'.$goal->id)
+        ->assertAriaAttribute('@grace-goal-'.$goal->id, 'pressed', 'true');
+
+    $mark = Mark::query()->where('goal_id', $goal->id)->sole();
+
+    expect($mark->marked_on->toDateString())->toBe($user->clock()->yesterday()->toDateString());
+
+    // The chip stays in the banner precisely so yesterday can still be taken
+    // back, and taking it back goes through the chip's own sheet — the tap
+    // itself no longer un-marks anything. Today's card for this goal is
+    // unmarked, so its sheet offers the camera rather than a second `@remove`.
+    $page->click('@grace-goal-'.$goal->id)
+        ->wait(1)
+        ->click('@remove')
+        ->wait(1)
+        ->assertVisible('@grace-goal-'.$goal->id)
+        ->assertAriaAttribute('@grace-goal-'.$goal->id, 'pressed', 'false')
+        ->assertNoJavaScriptErrors();
+
+    expect(Mark::query()->where('goal_id', $goal->id)->count())->toBe(0);
 });
 
 it('marks a goal activated without a pointer or a key', function (): void {

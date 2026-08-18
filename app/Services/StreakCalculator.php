@@ -20,8 +20,9 @@ final readonly class StreakCalculator
      * The streak a member sees on the goal card right now.
      *
      * @param  list<string>  $markedDates  Y-m-d, any order
+     * @param  list<array{from: string, through: string|null}>  $pauses
      */
-    public function current(array $markedDates, UserClock $clock): int
+    public function current(array $markedDates, UserClock $clock, array $pauses = []): int
     {
         $marked = array_flip($markedDates);
         $day = $clock->today();
@@ -30,6 +31,8 @@ final readonly class StreakCalculator
         while (true) {
             if (isset($marked[$day->toDateString()])) {
                 $streak++;
+            } elseif ($this->wasPaused($day, $pauses)) {
+                // Paused days preserve the run without adding flame days.
             } elseif (! $clock->isOpen($day)) {
                 return $streak;
             }
@@ -43,15 +46,19 @@ final readonly class StreakCalculator
      * card's own day.
      *
      * @param  list<string>  $markedDates  Y-m-d, any order
+     * @param  list<array{from: string, through: string|null}>  $pauses
      */
-    public function endingOn(array $markedDates, CarbonImmutable $day): int
+    public function endingOn(array $markedDates, CarbonImmutable $day, array $pauses = []): int
     {
         $marked = array_flip($markedDates);
         $cursor = $day->startOfDay();
         $streak = 0;
 
-        while (isset($marked[$cursor->toDateString()])) {
-            $streak++;
+        while (isset($marked[$cursor->toDateString()]) || $this->wasPaused($cursor, $pauses)) {
+            if (isset($marked[$cursor->toDateString()])) {
+                $streak++;
+            }
+
             $cursor = $cursor->subDay();
         }
 
@@ -64,8 +71,9 @@ final readonly class StreakCalculator
      * count, because the flame the member saw included them.
      *
      * @param  list<string>  $markedDates  Y-m-d, any order
+     * @param  list<array{from: string, through: string|null}>  $pauses
      */
-    public function bestWithin(array $markedDates, CarbonImmutable $from, CarbonImmutable $to): int
+    public function bestWithin(array $markedDates, CarbonImmutable $from, CarbonImmutable $to, array $pauses = []): int
     {
         $marked = array_flip($markedDates);
         $best = 0;
@@ -75,17 +83,36 @@ final readonly class StreakCalculator
         // Walk in from the start of the run that is live on the first day, so
         // a streak crossing into the window keeps its real length.
         $lead = $cursor->subDay();
-        while (isset($marked[$lead->toDateString()])) {
-            $running++;
+        while (isset($marked[$lead->toDateString()]) || $this->wasPaused($lead, $pauses)) {
+            if (isset($marked[$lead->toDateString()])) {
+                $running++;
+            }
+
             $lead = $lead->subDay();
         }
 
         while ($cursor->lessThanOrEqualTo($to)) {
-            $running = isset($marked[$cursor->toDateString()]) ? $running + 1 : 0;
-            $best = max($best, $running);
+            if (isset($marked[$cursor->toDateString()])) {
+                $running++;
+                $best = max($best, $running);
+            } elseif (! $this->wasPaused($cursor, $pauses)) {
+                $running = 0;
+            }
+
             $cursor = $cursor->addDay();
         }
 
         return $best;
+    }
+
+    /** @param  list<array{from: string, through: string|null}>  $pauses */
+    private function wasPaused(CarbonImmutable $day, array $pauses): bool
+    {
+        $date = $day->toDateString();
+
+        return collect($pauses)->contains(
+            fn (array $pause): bool => $pause['from'] <= $date
+                && ($pause['through'] === null || $pause['through'] >= $date)
+        );
     }
 }

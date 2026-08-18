@@ -95,6 +95,7 @@ new class extends Component
         return resolve(StreakCalculator::class)->current(
             $this->history->dates(),
             $this->goal->user->clock(),
+            $this->history->pauses,
         );
     }
 
@@ -213,9 +214,12 @@ new class extends Component
      */
     private function celebrate(Mark $mark): void
     {
+        $history = resolve(GoalHistory::class)->for($this->goal);
+
         $streak = resolve(StreakCalculator::class)->endingOn(
-            resolve(GoalHistory::class)->for($this->goal)->dates(),
+            $history->dates(),
             $mark->marked_on,
+            $history->pauses,
         );
 
         if (! resolve(StreakMilestone::class)->isMilestone($streak)) {
