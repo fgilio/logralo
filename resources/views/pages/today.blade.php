@@ -100,10 +100,8 @@ new #[Title('Hoy')] class extends Component
 
 <div
     x-data="pullToRefresh()"
-    @pointerdown="start($event)"
-    @pointerup.window="end()"
-    @pointercancel.window="reset()"
     class="mx-auto min-h-dvh w-full max-w-lg px-4 pb-safe-b"
+    data-test="pull-to-refresh"
 >
     {{-- Pull-to-refresh indicator, riding above the header. --}}
     <div
@@ -111,6 +109,7 @@ new #[Title('Hoy')] class extends Component
         :style="`transform: translateY(${distance}px); opacity: ${progress}`"
         x-show="distance > 0 || refreshing"
         x-cloak
+        data-test="pull-indicator"
     >
         <div class="mt-2 rounded-full bg-white/90 p-2 shadow-lg dark:bg-zinc-800/90">
             <flux:icon name="arrow-path" class="size-5" ::class="refreshing && 'animate-spin'" />

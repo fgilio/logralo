@@ -324,3 +324,322 @@ it('renders the login screen and refuses the wrong password', function (): void 
         ->assertSee(__('auth.failed'))
         ->assertNoJavaScriptErrors();
 });
+
+/**
+ * The synthetic touch driver the pull tests share.
+ *
+ * Playwright's own drag is a mouse and emits no touch events at all, so the
+ * gesture is built by hand. `fire()` answers whether the page took the move —
+ * `dispatchEvent` comes back false when something called `preventDefault()` —
+ * which is the only way to see ownership from outside the component, and the
+ * thing the whole gesture now turns on.
+ *
+ * Note what these tests do NOT do: call `visit()` and then reach for the
+ * result again later. Every call on what `on()` returns builds a fresh page
+ * (`Api\On::__call`), so a gesture driven on one and asserted on the next
+ * proves nothing. Binding the webpage from the first chained call is what
+ * keeps all of it on one page.
+ */
+function touchDriver(): string
+{
+    return <<<'DRIVER'
+        const root = document.querySelector('[data-test="pull-to-refresh"]');
+
+        const fire = (target, type, x, y) => {
+            const touch = new Touch({ identifier: 1, target, clientX: x, clientY: y });
+            const held = type === 'touchend' ? [] : [touch];
+
+            return ! target.dispatchEvent(new TouchEvent(type, {
+                bubbles: true,
+                cancelable: true,
+                touches: held,
+                targetTouches: held,
+                changedTouches: [touch],
+            }));
+        };
+
+        const drag = (target, from, to) => {
+            const taken = [];
+
+            for (let y = from; y <= to; y += 20) taken.push(fire(target, 'touchmove', 40, y));
+
+            return taken;
+        };
+
+        // Alpine flushes `x-show` in a microtask, so a script that returns the
+        // moment the gesture ends leaves the indicator's old `display` behind.
+        // Every assertion about what is on screen waits for this — including
+        // the ones asserting nothing appeared, which would otherwise pass on a
+        // DOM that had simply not caught up yet.
+        const settle = () => new Promise((resolve) =>
+            requestAnimationFrame(() => requestAnimationFrame(resolve)),
+        );
+
+        // The refresh is a round trip, and a fixed sleep is either flaky or
+        // slow. Three seconds is the ceiling because Playwright gives an
+        // `evaluate` five.
+        const until = async (predicate) => {
+            for (let tick = 0; tick < 30 && ! predicate(); tick++) {
+                await new Promise((resolve) => setTimeout(resolve, 100));
+            }
+
+            return predicate();
+        };
+        DRIVER;
+}
+
+/**
+ * The pull that reloads the screen.
+ *
+ * Synthetic touches cost the browser's own decision to hand the drag to the
+ * scroller — the part `overscroll-behavior-y` and the `preventDefault()` on
+ * the first move exist to survive. What they buy is the rest, and it is
+ * asserted the way a member sees it: the same page comes back carrying
+ * somebody else's mark, which only the server could have told it about.
+ *
+ * The feed is what the pull is asked for, and it is also the only thing on
+ * this screen that a pull can bring down: `$refresh` re-renders the page
+ * component, Livewire skips children on a parent render, and the feed is the
+ * one child `end()` nudges by hand. A member's own goal cards are `goal-card`
+ * components and stay as they were.
+ */
+it("brings somebody else's newest mark down when the page is pulled", function (): void {
+    $ana = User::factory()->create(['name' => 'Ana Pérez']);
+    $bruno = User::factory()->create(['name' => 'Bruno']);
+
+    Goal::factory()->for($ana)->create(['name' => 'Gimnasio']);
+
+    $this->actingAs($ana);
+
+    $page = visit('/')->on()->iPhone15Pro()->assertSee('Gimnasio');
+
+    $page->assertDontSee('Guitarra')->assertMissing('@pull-indicator');
+
+    // Marked behind the screen's back: only a real re-render brings it down.
+    Mark::factory()->for(Goal::factory()->for($bruno)->create(['name' => 'Guitarra']))->create();
+
+    $driver = touchDriver();
+
+    $landed = $page->script(<<<PULL
+        (async () => {
+            {$driver}
+
+            fire(root, 'touchstart', 40, 100);
+            drag(root, 120, 300);
+            fire(root, 'touchend', 40, 300);
+
+            const arrived = await until(() => root.textContent.includes('Guitarra'));
+
+            await settle();
+
+            return arrived;
+        })()
+    PULL);
+
+    expect($landed)->toBeTrue();
+
+    $page->assertSee('Guitarra')
+        ->assertMissing('@pull-indicator')
+        ->assertNoJavaScriptErrors();
+});
+
+/**
+ * The slow pull.
+ *
+ * A finger that creeps off the top delivers its first `touchmove` before it
+ * has travelled the slop, and that move is the only one the page can still
+ * claim: measured in Chromium, everything after the first unclaimed move
+ * arrives uncancelable and the browser is already scrolling. So the claim is
+ * asserted on the small move, and the indicator separately — the two are what
+ * the slop was conflating.
+ */
+it('claims the pull on the first move, before the finger has travelled', function (): void {
+    $user = User::factory()->create();
+    Goal::factory()->for($user)->create(['name' => 'Gimnasio']);
+
+    $this->actingAs($user);
+
+    $page = visit('/')->on()->iPhone15Pro()->assertSee('Gimnasio');
+
+    $driver = touchDriver();
+
+    // 4px: under the 8px slop, and the whole gesture rides on this one move.
+    $claimedTheCreep = $page->script(<<<CREEP
+        (async () => {
+            {$driver}
+
+            fire(root, 'touchstart', 40, 100);
+
+            const claimed = fire(root, 'touchmove', 40, 104);
+
+            await settle();
+
+            return claimed;
+        })()
+    CREEP);
+
+    expect($claimedTheCreep)->toBeTrue();
+
+    // Claimed, but a tap's jitter must not light the indicator up.
+    $page->assertMissing('@pull-indicator');
+
+    $page->script(<<<PULL
+        (async () => {
+            {$driver}
+
+            drag(root, 120, 260);
+
+            await settle();
+        })()
+    PULL);
+
+    $page->assertVisible('@pull-indicator')
+        ->assertNoJavaScriptErrors();
+});
+
+/** A drag that begins below the top of the page is somebody scrolling. */
+it('leaves the gesture alone when the page is not at the top', function (): void {
+    $user = User::factory()->create();
+    Goal::factory()->for($user)->create(['name' => 'Gimnasio']);
+
+    $this->actingAs($user);
+
+    $page = visit('/')->on()->iPhone15Pro()->assertSee('Gimnasio');
+
+    $driver = touchDriver();
+
+    $scrolled = $page->script(<<<SCROLLED
+        (async () => {
+            {$driver}
+
+            // Tall enough to scroll, whatever the feed happens to hold. The
+            // height is read back before the scroll so the new one is laid out
+            // by the time it happens, and the scroll is instant on purpose:
+            // <html> is `scroll-smooth`, and an animated one is still at
+            // nought on the next line.
+            root.style.minHeight = '400vh';
+            root.offsetHeight;
+            window.scrollTo({ top: 200, behavior: 'instant' });
+
+            fire(root, 'touchstart', 40, 100);
+            const taken = drag(root, 120, 300);
+
+            await settle();
+
+            return JSON.stringify({
+                // Reported rather than assumed: a setup that failed to scroll
+                // would otherwise look like a gesture correctly ignored.
+                scrollTop: document.scrollingElement.scrollTop,
+                tookAny: taken.some(Boolean),
+            });
+        })()
+    SCROLLED);
+
+    expect(json_decode((string) $scrolled, true))->toBe([
+        'scrollTop' => 200,
+        'tookAny' => false,
+    ]);
+
+    $page->assertMissing('@pull-indicator')
+        ->assertNoJavaScriptErrors();
+});
+
+/**
+ * A sheet is its own surface.
+ *
+ * Flux paints a modal in the top layer, but the `<dialog>` stays a descendant
+ * of the screen, so every touch inside it bubbles down to the page's own
+ * handler. Without the guard the standings sheet cannot be dragged without
+ * reloading the page behind it.
+ */
+it('leaves the gesture to an open sheet', function (): void {
+    $user = User::factory()->create(['name' => 'Ana Pérez']);
+    Goal::factory()->for($user)->create(['name' => 'Gimnasio']);
+
+    $this->actingAs($user);
+
+    $page = visit('/')->on()->iPhone15Pro()->click('@open-standings');
+
+    $page->wait(1);
+
+    $driver = touchDriver();
+
+    $inSheet = $page->script(<<<SHEET
+        (async () => {
+            {$driver}
+
+            // Flux's own element, wrapping the <dialog> the guard looks for.
+            const inside = document.querySelector('ui-modal dialog *');
+
+            fire(inside, 'touchstart', 40, 100);
+            const taken = drag(inside, 120, 300);
+
+            await settle();
+
+            return JSON.stringify({
+                // Reported rather than assumed: a drag that never reached the
+                // page handler would pass this test for the wrong reason.
+                reachedThePage: root.contains(inside),
+                tookAny: taken.some(Boolean),
+            });
+        })()
+    SHEET);
+
+    expect(json_decode((string) $inSheet, true))->toBe([
+        'reachedThePage' => true,
+        'tookAny' => false,
+    ]);
+
+    $page->assertMissing('@pull-indicator')
+        ->assertNoJavaScriptErrors();
+});
+
+/**
+ * The pulse strip is the one thing on this screen that scrolls sideways, and
+ * it sits at the very top, where every pull begins. Claiming the first move
+ * means claiming before the direction is obvious, so the direction has to be
+ * decided in that same move or a swipe along the strip is blocked by a pull
+ * that was never intended.
+ */
+it('leaves a sideways swipe to the pulse strip', function (): void {
+    $user = User::factory()->create(['name' => 'Ana Pérez']);
+    Goal::factory()->for($user)->create(['name' => 'Gimnasio']);
+
+    $this->actingAs($user);
+
+    $page = visit('/')->on()->iPhone15Pro()->assertSee('Gimnasio');
+
+    $driver = touchDriver();
+
+    $swipe = $page->script(<<<SWIPE
+        (async () => {
+            {$driver}
+
+            const avatar = document.querySelector('[data-test^="pulse-"]');
+
+            fire(avatar, 'touchstart', 300, 40);
+
+            // Sideways, with the drift a real thumb leaves down the screen.
+            const taken = [];
+
+            for (let step = 1; step <= 8; step++) {
+                taken.push(fire(avatar, 'touchmove', 300 - step * 25, 40 + step * 1.5));
+            }
+
+            await settle();
+
+            return JSON.stringify({
+                reachedThePage: root.contains(avatar),
+                tookAny: taken.some(Boolean),
+            });
+        })()
+    SWIPE);
+
+    expect(json_decode((string) $swipe, true))->toBe([
+        'reachedThePage' => true,
+        'tookAny' => false,
+    ]);
+
+    $page->assertMissing('@pull-indicator')
+        ->assertNoJavaScriptErrors();
+});
