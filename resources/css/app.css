@@ -89,6 +89,29 @@
         display: none !important;
     }
 
+    /* Photos, avatars, and whatever comes next — gifs, video, galleries — are
+       never handed over. Three gestures end in a saved file and none of them
+       is a click: iOS opens its own sheet on a long press, every desktop
+       browser drags a picture out to the filesystem, and the menu offers it
+       outright. The first two are engine behaviour that no event reaches, so
+       they are turned off here; the menu is cancelled in `protect-media.js`.
+
+       Matched on the elements rather than on a class, so the ones drawn from a
+       payload — the viewer's picture — and the ones nobody has written yet are
+       covered without either being asked to remember.
+
+       None of it makes a photo secret: the URL is in the DOM and a screenshot
+       is two buttons. What it takes away is the one-gesture save, which is how
+       a photo actually leaves the group. */
+    img,
+    picture,
+    video {
+        -webkit-touch-callout: none;
+        -webkit-user-drag: none;
+        -webkit-user-select: none;
+        user-select: none;
+    }
+
     /* Big display numerals: streak counts, standings positions, "HOY". */
     .font-display {
         font-family: var(--font-display);

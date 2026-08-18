@@ -728,3 +728,51 @@ it('leaves a sideways swipe to the pulse strip', function (): void {
     $page->assertMissing('@pull-indicator')
         ->assertNoJavaScriptErrors();
 });
+
+/**
+ * The photo does not hand itself over.
+ *
+ * Only a real browser can answer this: what is under test is a cancelled
+ * event and a computed style, and neither exists in a rendered string. The
+ * long press that opens iOS's own save sheet has no event behind it at all —
+ * `-webkit-touch-callout` is what turns it off, and Chromium does not
+ * implement the property, so this proves the half that is provable here.
+ */
+it('refuses the gestures that would save a photo', function (): void {
+    $user = User::factory()->create();
+    $goal = Goal::factory()->for($user)->create(['name' => 'Correr']);
+
+    Mark::factory()->for($goal)->for($user)->withPhoto()->create();
+
+    $this->actingAs($user);
+
+    $page = visit('/')->on()->iPhone15Pro();
+
+    $refused = $page->script(<<<'JS_WRAP'
+        (() => {
+            const photo = document.querySelector('picture img');
+    
+            if (photo === null) return JSON.stringify({ reachedThePage: false });
+    
+            // `dispatchEvent` answers false once something has cancelled it.
+            const refuses = (type) =>
+                ! photo.dispatchEvent(new Event(type, { bubbles: true, cancelable: true }));
+    
+            return JSON.stringify({
+                reachedThePage: true,
+                menu: refuses('contextmenu'),
+                drag: refuses('dragstart'),
+                select: getComputedStyle(photo).userSelect,
+            });
+        })()
+    JS_WRAP);
+
+    expect(json_decode((string) $refused, true))->toBe([
+        'reachedThePage' => true,
+        'menu' => true,
+        'drag' => true,
+        'select' => 'none',
+    ]);
+
+    $page->assertNoJavaScriptErrors();
+});
