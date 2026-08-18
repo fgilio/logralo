@@ -46,6 +46,7 @@ return [
     ],
 
     'attributes' => [
+        'body' => 'mensaje',
         'current_password' => 'contraseña actual',
         'email' => 'email',
         'goalEmoji' => 'emoji',

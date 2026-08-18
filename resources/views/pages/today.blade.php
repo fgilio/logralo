@@ -98,9 +98,12 @@ new #[Title('Hoy')] class extends Component
     $layout = $this->goals->count() > 2 ? 'tile' : 'row';
 @endphp
 
+{{-- The bottom padding is the floating feedback button's clearance: the feed
+     ends in a full-width "Ver más", and without it the button would sit on that
+     button's corner. --}}
 <div
     x-data="pullToRefresh()"
-    class="mx-auto min-h-dvh w-full max-w-lg px-4 pb-safe-b"
+    class="mx-auto min-h-dvh w-full max-w-lg px-4 pb-[calc(5rem+env(safe-area-inset-bottom,0px))]"
     data-test="pull-to-refresh"
 >
     {{-- Pull-to-refresh indicator, riding above the header. --}}

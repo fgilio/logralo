@@ -35,7 +35,8 @@ The layering is the thing to keep. It is enforced by `tests/Arch/`.
 
 ### `app/Actions/` — the write side, one unit of work each
 
-- `MarkGoal`, `UnmarkGoal`, `ToggleReaction`, `CreateGoal`, `RenameGoal`, `ArchiveGoal`, `RestoreGoal`, `CloseMonth`, `IssueMagicLink`, `RecordShareVisit`, `RevokeSharing`, `ResumeSharing`, `UpdateAvatar`, `RemoveAvatar`
+- `MarkGoal`, `UnmarkGoal`, `ToggleReaction`, `CreateGoal`, `RenameGoal`, `ArchiveGoal`, `RestoreGoal`, `CloseMonth`, `IssueMagicLink`, `RecordShareVisit`, `RevokeSharing`, `ResumeSharing`, `UpdateAvatar`, `RemoveAvatar`, `SendFeedback`
+- `SendFeedback` is the only one that mails: the row in `feedback` is the deliverable and `App\Mail\FeedbackReceived` is a best-effort nudge to `LOGRALO_FEEDBACK_EMAIL`, wrapped in `rescue` so a mail provider cannot swallow what a member typed
 
 ### `app/ValueObjects/` — final readonly
 
@@ -79,6 +80,7 @@ See `.env.example`. The ones that are not self-explanatory:
 - `LOGRALO_PHOTO_DISK` — `photos` locally; in production it is `private`, the name the R2 bucket is mounted under on Laravel Cloud. That bucket is private, so production also sets `LOGRALO_PHOTO_SIGNED_URLS=true`.
 - `LIVEWIRE_TEMPORARY_FILE_UPLOAD_DISK=local` — uploads are decoded from the local filesystem before being stored, so the temp disk must stay local.
 - `IMAGE_DRIVER` — GD by default; only the Imagick driver can read HEIC, and only where ImageMagick has libheif.
+- `LOGRALO_FEEDBACK_EMAIL` — where "¿Qué pasó?" is mailed as it lands. Empty is a valid setting: every message is stored in the `feedback` table either way, and this only decides whether an inbox is told.
 - `LOGRALO_GRAVATAR` — whether an avatar with no upload behind it tries the member's Gravatar before falling back to initials. The URL is built from a hash of the email and fetched by the browser, so this never puts the server on the network — `docs/architecture/photos-and-onboarding.md`.
 
 ## Laravel-First Conventions
@@ -96,7 +98,7 @@ One canonical `Log::info()` per unit of work, emitted in `finally`, with no manu
 
 A unit of work is an **Action** — plus the two entry points that own one without an Action behind them, `CloseMonthsCommand` and `MagicLinkController`. Queries and Services do not log: a read runs on every render and every anonymous crawler fetch, and logging those buries the events that carry an outcome. Review bots read the rule above and ask for a log in `SharedEntry` or `ShareCardRenderer` — that is the rule applied a layer too wide.
 
-Key context keys: `logralo.user_id`, `logralo.goal_id`, `logralo.mark_id`, `logralo.marked_on`, `logralo.outcome`, `logralo.reject_reason`.
+Key context keys: `logralo.user_id`, `logralo.goal_id`, `logralo.mark_id`, `logralo.marked_on`, `logralo.feedback_id`, `logralo.outcome`, `logralo.reject_reason`.
 
 ## Pull Request Review Comments
 

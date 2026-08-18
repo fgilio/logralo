@@ -291,6 +291,30 @@ it('opens the month table from the trophy button', function (): void {
         ->assertNoJavaScriptErrors();
 });
 
+it('sends feedback from the floating button', function (): void {
+    $user = User::factory()->create();
+    Goal::factory()->for($user)->create();
+
+    $this->actingAs($user);
+
+    visit('/')->on()->iPhone15Pro()
+        ->assertMissing('@feedback-body')
+        ->click('@open-feedback')
+        ->wait(1)
+        ->type('@feedback-body', 'La cámara no abre')
+        ->click('@send-feedback')
+        ->wait(1)
+        ->assertSee('Gracias')
+        ->assertNoJavaScriptErrors();
+
+    $feedback = $user->feedback()->sole();
+
+    expect($feedback->body)->toBe('La cámara no abre')
+        // The layout hands the component the screen it is drawing, and "Hoy"
+        // is the root path.
+        ->and($feedback->page)->toBe('/');
+});
+
 it('leaves the goal name the wide half of the new-goal sheet', function (): void {
     $user = User::factory()->create();
 

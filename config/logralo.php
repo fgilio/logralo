@@ -119,6 +119,22 @@ return [
 
     /*
     |---------------------------------------------------------------------------
+    | Feedback
+    |---------------------------------------------------------------------------
+    |
+    | The floating button on every screen behind the gate. Everything sent is
+    | kept in the `feedback` table; the address below only decides whether an
+    | inbox also hears about it as it lands. Empty means nobody is mailed.
+    |
+    */
+
+    'feedback' => [
+        'email' => (string) env('LOGRALO_FEEDBACK_EMAIL', ''),
+        'max_length' => 1000,
+    ],
+
+    /*
+    |---------------------------------------------------------------------------
     | Magic links
     |---------------------------------------------------------------------------
     |
