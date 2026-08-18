@@ -86,7 +86,9 @@ What a member proves in here is meant to stay in here, so nothing on the page ha
 | Right click on the desktop | the same listener                                             |
 | Dragging the picture out   | `-webkit-user-drag: none`, plus the `dragstart` listener      |
 
-Both halves match on `img, picture, video` rather than on a class, and the listeners sit on the document in the capture phase. That is the point of doing it this way: the feed re-renders whole on every reaction, the viewer fills itself from a payload rather than from Blade, and neither has to remember to opt in. Gifs are `<img>` and a gallery is more of them, so those arrive covered too.
+Both halves match on `img, picture, video` rather than on a class, and the listeners sit on the document. That is the point of doing it this way: the feed re-renders whole on every reaction, the viewer fills itself from a payload rather than from Blade, and neither has to remember to opt in. Gifs are `<img>` and a gallery is more of them, so those arrive covered too. `picture` is in the selector for the viewer alone, where the letterbox around the photo is part of the same surface and is what a thumb lands on.
+
+The share page is in scope on purpose, and gets there by loading the same bundle. It is the one screen a photo is shown on to somebody outside the group, which makes it the likeliest place for a save, not a reason to allow one — a shop window is still not a shop.
 
 Two things it deliberately does not claim:
 

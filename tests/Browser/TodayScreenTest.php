@@ -741,34 +741,31 @@ it('leaves a sideways swipe to the pulse strip', function (): void {
 it('refuses the gestures that would save a photo', function (): void {
     $user = User::factory()->create();
     $goal = Goal::factory()->for($user)->create(['name' => 'Correr']);
-
-    Mark::factory()->for($goal)->for($user)->withPhoto()->create();
+    $mark = Mark::factory()->for($goal)->for($user)->withPhoto()->create();
 
     $this->actingAs($user);
 
-    $page = visit('/')->on()->iPhone15Pro();
+    // The photo is on the page before the script asks for it, the way every
+    // other test here waits: an assertion, rather than a branch inside the JS.
+    $page = visit('/')->on()->iPhone15Pro()->assertVisible('@viewer-open-'.$mark->id);
 
-    $refused = $page->script(<<<'JS_WRAP'
+    $refused = $page->script(<<<'REFUSED'
         (() => {
             const photo = document.querySelector('picture img');
-    
-            if (photo === null) return JSON.stringify({ reachedThePage: false });
-    
+
             // `dispatchEvent` answers false once something has cancelled it.
             const refuses = (type) =>
                 ! photo.dispatchEvent(new Event(type, { bubbles: true, cancelable: true }));
-    
+
             return JSON.stringify({
-                reachedThePage: true,
                 menu: refuses('contextmenu'),
                 drag: refuses('dragstart'),
                 select: getComputedStyle(photo).userSelect,
             });
         })()
-    JS_WRAP);
+    REFUSED);
 
     expect(json_decode((string) $refused, true))->toBe([
-        'reachedThePage' => true,
         'menu' => true,
         'drag' => true,
         'select' => 'none',
