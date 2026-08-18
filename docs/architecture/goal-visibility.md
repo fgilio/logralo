@@ -19,4 +19,10 @@ The visible consequence, worth knowing before it is reported as a bug: a member 
 
 Flipping a goal between group and private rewrites nothing: marks carry no visibility of their own, so the change applies to the whole history in both directions, and flipping back restores the old view. This is also why there is no per-mark exception and no "was public at the time" logic anywhere.
 
+## Recaps
+
+A month closing reads through the same two answers. The frozen standings come from `MonthlyStandings`, so they already count group goals only, and `CloseMonth::bestStreak()` scans `sharedWithGroup()` — the recap posts into the group feed and credits a member by name, so a private goal's streak winning it would disclose the activity to everyone.
+
+Recaps that are already frozen are the one surface the read filter does not reach, on purpose. A recap stores aggregate standings (names, counts, ranks — nothing per goal), of a competition the group watched live, and it is immutable by the same rule that closes marks with the day. Flipping a goal private later does not rewrite that record, just as unmarking a closed day is not offered either.
+
 Share links are the one deliberate hole, unchanged from `sharing.md`: a mark's share token grants access to that mark to anyone holding the link, whatever the goal's visibility. Sharing is an act of the owner, and revoking it is on the share page as before.

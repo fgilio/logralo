@@ -104,14 +104,16 @@ final readonly class CloseMonth
     }
 
     /**
-     * The highest flame anyone reached during the month, across every goal —
-     * archived ones included, because the streak really happened.
+     * The highest flame anyone reached during the month, across every group
+     * goal — archived ones included, because the streak really happened.
+     * Private goals stay out: the recap posts into the group feed and
+     * names the goal, which would disclose it to every member.
      *
      * @return array{user_id: string|null, goal_id: string|null, days: int}
      */
     private function bestStreak(CarbonImmutable $month): array
     {
-        $goals = Goal::query()->get(['id', 'user_id']);
+        $goals = Goal::query()->sharedWithGroup()->get(['id', 'user_id']);
         $histories = $this->history->forGoals(array_values($goals->pluck('id')->all()));
 
         $from = $month->startOfMonth();

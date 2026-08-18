@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use App\Actions\CloseMonth;
 use App\Enums\GoalVisibility;
 use App\Models\Goal;
 use App\Models\Mark;
@@ -111,6 +112,23 @@ it('leaves private goals out of both sides of the monthly score', function (): v
     expect($standing->possibleMarks)->toBe(11)
         ->and($standing->ghostMarks)->toBe(1)
         ->and($standing->fullMarks)->toBe(0);
+});
+
+it('never lets a private goal win the recap best streak', function (): void {
+    $owner = User::factory()->create();
+    $shared = Goal::factory()->for($owner)->create(['created_at' => '2026-07-01']);
+    $secret = Goal::factory()->for($owner)->private()->create(['created_at' => '2026-07-01']);
+
+    Mark::factory()->for($shared)->on('2026-07-10')->create();
+
+    foreach (range(10, 15) as $day) {
+        Mark::factory()->for($secret)->on("2026-07-{$day}")->create();
+    }
+
+    $recap = resolve(CloseMonth::class)->handle(CarbonImmutable::parse('2026-07-01'));
+
+    expect($recap->best_streak_goal_id)->toBe($shared->id)
+        ->and($recap->best_streak_days)->toBe(1);
 });
 
 it('drops a member whose goals are all private from the table', function (): void {
