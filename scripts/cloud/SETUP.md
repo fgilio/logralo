@@ -53,6 +53,16 @@ The restore installs to `/usr/local/bin/php`. If something earlier in `PATH` sha
 
 The repo is public, so `auth.json` is never committed. Hosted sessions and CI provide `FLUX_USERNAME` and `FLUX_LICENSE_KEY` as environment variables (repository secrets of the same name in CI), and `php.sh` writes the gitignored `auth.json` from them. A restored snapshot already contains `livewire/flux-pro`, so a session with the variables unset still gets a working vendor — it just cannot install it live.
 
+## The browser suite, piped, looks hung
+
+`composer test:browser` takes about half a minute. `vendor/bin/pest --testsuite=Browser | tail` never comes back at all — and it is not the suite. Chromium inherits the pipe's write end and keeps it open after pest has exited, so `tail` waits for an EOF nobody will send, and a run that passed reads as a hang for as long as anyone is willing to wait for it. `timeout` does not rescue it either: killing pest leaves the browser holding the pipe.
+
+Redirect instead of piping, and read the file:
+
+```bash
+composer test:browser > /tmp/browser.log 2>&1; tail -20 /tmp/browser.log
+```
+
 ## Module layout
 
 `setup.sh` is the only entrypoint; every other module does one job and is safe to run on its own while debugging.
