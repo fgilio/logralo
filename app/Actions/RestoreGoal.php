@@ -7,6 +7,7 @@ namespace App\Actions;
 use App\Exceptions\GoalLimitReachedException;
 use App\Exceptions\UserFacingException;
 use App\Models\Goal;
+use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\Context;
 use Illuminate\Support\Facades\Log;
 use Throwable;
@@ -52,35 +53,53 @@ final readonly class RestoreGoal
         }
     }
 
-    /** @return list<array{from: string, archived_on: string, through: string}> */
+    /** @return list<array{from: string, archived_on: string, through: string|null}> */
     private function streakPausesAfterRestore(Goal $goal): array
     {
-        if ($goal->archived_at === null) {
+        $archivedAt = $goal->archived_at;
+
+        if ($archivedAt === null) {
             return $goal->streakPauses();
         }
 
         $clock = $goal->user->clock();
-        $archivedAt = $goal->archived_at->setTimezone($clock->timezone);
-        $archivedDay = $clock->dayOf($goal->archived_at);
+        $pauses = $goal->streakPauses();
+        $pauseIndex = array_key_last($pauses);
+
+        if ($pauseIndex === null || $pauses[$pauseIndex]['through'] !== null) {
+            $pauses[] = $this->legacyOpenStreakPause($goal, $archivedAt);
+            $pauseIndex = array_key_last($pauses);
+        }
+
+        $through = $clock->today()->subDay();
+
+        if ($through->toDateString() < $pauses[$pauseIndex]['from']) {
+            array_pop($pauses);
+
+            return $pauses;
+        }
+
+        $pauses[$pauseIndex]['through'] = $through->toDateString();
+
+        return $pauses;
+    }
+
+    /** @return array{from: string, archived_on: string, through: null} */
+    private function legacyOpenStreakPause(Goal $goal, CarbonImmutable $archivedAt): array
+    {
+        $clock = $goal->user->clock();
+        $archivedAt = $archivedAt->setTimezone($clock->timezone);
+        $archivedDay = $archivedAt->startOfDay();
         $from = $archivedDay;
 
         if ($archivedAt->hour < $clock->graceCutoffHour) {
             $from = $from->subDay();
         }
 
-        $through = $clock->today()->subDay();
-
-        if ($through->lessThan($from)) {
-            return $goal->streakPauses();
-        }
-
         return [
-            ...$goal->streakPauses(),
-            [
-                'from' => $from->toDateString(),
-                'archived_on' => $archivedDay->toDateString(),
-                'through' => $through->toDateString(),
-            ],
+            'from' => $from->toDateString(),
+            'archived_on' => $archivedDay->toDateString(),
+            'through' => null,
         ];
     }
 }

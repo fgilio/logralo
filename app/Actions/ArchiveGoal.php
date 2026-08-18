@@ -23,7 +23,15 @@ final readonly class ArchiveGoal
 
         try {
             if (! $goal->isArchived()) {
-                $goal->update(['archived_at' => CarbonImmutable::now()]);
+                $archivedAt = CarbonImmutable::now();
+
+                $goal->update([
+                    'archived_at' => $archivedAt,
+                    'streak_pauses' => [
+                        ...$goal->streakPauses(),
+                        $this->openStreakPause($goal, $archivedAt),
+                    ],
+                ]);
             }
 
             Context::add('logralo.outcome', 'completed');
@@ -38,5 +46,24 @@ final readonly class ArchiveGoal
         } finally {
             Log::info('goal.archive.handled');
         }
+    }
+
+    /** @return array{from: string, archived_on: string, through: null} */
+    private function openStreakPause(Goal $goal, CarbonImmutable $archivedAt): array
+    {
+        $clock = $goal->user->clock();
+        $archivedAt = $archivedAt->setTimezone($clock->timezone);
+        $archivedDay = $archivedAt->startOfDay();
+        $from = $archivedDay;
+
+        if ($archivedAt->hour < $clock->graceCutoffHour) {
+            $from = $from->subDay();
+        }
+
+        return [
+            'from' => $from->toDateString(),
+            'archived_on' => $archivedDay->toDateString(),
+            'through' => null,
+        ];
     }
 }

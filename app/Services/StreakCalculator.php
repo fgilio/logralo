@@ -20,7 +20,7 @@ final readonly class StreakCalculator
      * The streak a member sees on the goal card right now.
      *
      * @param  list<string>  $markedDates  Y-m-d, any order
-     * @param  list<array{from: string, through: string}>  $pauses
+     * @param  list<array{from: string, through: string|null}>  $pauses
      */
     public function current(array $markedDates, UserClock $clock, array $pauses = []): int
     {
@@ -46,7 +46,7 @@ final readonly class StreakCalculator
      * card's own day.
      *
      * @param  list<string>  $markedDates  Y-m-d, any order
-     * @param  list<array{from: string, through: string}>  $pauses
+     * @param  list<array{from: string, through: string|null}>  $pauses
      */
     public function endingOn(array $markedDates, CarbonImmutable $day, array $pauses = []): int
     {
@@ -71,7 +71,7 @@ final readonly class StreakCalculator
      * count, because the flame the member saw included them.
      *
      * @param  list<string>  $markedDates  Y-m-d, any order
-     * @param  list<array{from: string, through: string}>  $pauses
+     * @param  list<array{from: string, through: string|null}>  $pauses
      */
     public function bestWithin(array $markedDates, CarbonImmutable $from, CarbonImmutable $to, array $pauses = []): int
     {
@@ -105,13 +105,14 @@ final readonly class StreakCalculator
         return $best;
     }
 
-    /** @param  list<array{from: string, through: string}>  $pauses */
+    /** @param  list<array{from: string, through: string|null}>  $pauses */
     private function wasPaused(CarbonImmutable $day, array $pauses): bool
     {
         $date = $day->toDateString();
 
         return collect($pauses)->contains(
-            fn (array $pause): bool => $pause['from'] <= $date && $pause['through'] >= $date
+            fn (array $pause): bool => $pause['from'] <= $date
+                && ($pause['through'] === null || $pause['through'] >= $date)
         );
     }
 }

@@ -101,6 +101,18 @@ it('keeps the current streak across paused days without adding them', function (
     expect($streak)->toBe(3);
 });
 
+it('keeps the current streak while its pause is still open', function (): void {
+    $clock = montevideoClockAt('2026-08-18 15:00');
+
+    $streak = new StreakCalculator()->current(
+        ['2026-08-08', '2026-08-09', '2026-08-10'],
+        $clock,
+        [['from' => '2026-08-11', 'through' => null]],
+    );
+
+    expect($streak)->toBe(3);
+});
+
 it('breaks a resumed streak when a later active day closes unmarked', function (): void {
     $clock = montevideoClockAt('2026-08-19 15:00');
 

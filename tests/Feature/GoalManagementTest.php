@@ -142,6 +142,9 @@ it('stamps archived_at and drops the goal out of the grid', function (): void {
 
     expect($goal->fresh()->archived_at?->toDateTimeString())->toBe(CarbonImmutable::now()->toDateTimeString())
         ->and($goal->fresh()->isArchived())->toBeTrue()
+        ->and($goal->fresh()->streakPauses())->toBe([
+            ['from' => '2026-08-10', 'archived_on' => '2026-08-11', 'through' => null],
+        ])
         ->and($user->activeGoals()->pluck('id')->all())->toBe([$kept->id])
         ->and($user->goals()->count())->toBe(2);
 });
@@ -163,11 +166,13 @@ it('leaves an already archived goal on its first archive date', function (): voi
     $goal = Goal::factory()->create();
     resolve(ArchiveGoal::class)->handle($goal);
     $archivedAt = $goal->fresh()->archived_at;
+    $streakPauses = $goal->fresh()->streakPauses();
 
     $this->travelTo(CarbonImmutable::parse('2026-08-11 09:00', 'America/Montevideo')->utc());
     resolve(ArchiveGoal::class)->handle($goal->fresh());
 
-    expect($goal->fresh()->archived_at?->toDateTimeString())->toBe($archivedAt?->toDateTimeString());
+    expect($goal->fresh()->archived_at?->toDateTimeString())->toBe($archivedAt?->toDateTimeString())
+        ->and($goal->fresh()->streakPauses())->toBe($streakPauses);
 });
 
 /*
@@ -249,6 +254,25 @@ it('resumes the streak a goal had when it was archived', function (): void {
         ->and($goal->fresh()->streakPauses())->toBe([
             ['from' => '2026-08-10', 'archived_on' => '2026-08-11', 'through' => '2026-08-17'],
         ]);
+});
+
+it('keeps the original pause boundary after a timezone change', function (): void {
+    $this->travelTo(CarbonImmutable::parse('2026-08-11 09:00', 'America/Montevideo')->utc());
+
+    $user = User::factory()->create();
+    $goal = Goal::factory()->for($user)->create();
+
+    resolve(ArchiveGoal::class)->handle($goal);
+
+    $user->update(['timezone' => 'Pacific/Kiritimati']);
+
+    $this->travelTo(CarbonImmutable::parse('2026-08-13 15:00', 'Pacific/Kiritimati')->utc());
+
+    resolve(RestoreGoal::class)->handle($goal->fresh());
+
+    expect($goal->fresh()->streakPauses())->toBe([
+        ['from' => '2026-08-10', 'archived_on' => '2026-08-11', 'through' => '2026-08-12'],
+    ]);
 });
 
 it('preserves the streak through repeated archive cycles', function (): void {

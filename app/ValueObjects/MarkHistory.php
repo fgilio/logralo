@@ -12,7 +12,7 @@ final readonly class MarkHistory
 {
     /**
      * @param  list<array{date: string, full: bool}>  $entries  ascending by date
-     * @param  list<array{from: string, through: string}>  $pauses
+     * @param  list<array{from: string, through: string|null}>  $pauses
      */
     public function __construct(public array $entries, public array $pauses = []) {}
 
