@@ -65,7 +65,9 @@ it('marks and un-marks yesterday without removing the grace chip', function (): 
         ->assertVisible('@grace-goal-'.$goal->id)
         ->assertAriaAttribute('@grace-goal-'.$goal->id, 'pressed', 'true');
 
-    expect(Mark::query()->where('goal_id', $goal->id)->count())->toBe(1);
+    $mark = Mark::query()->where('goal_id', $goal->id)->sole();
+
+    expect($mark->marked_on->toDateString())->toBe($user->clock()->yesterday()->toDateString());
 
     $page->click('@grace-goal-'.$goal->id)
         ->wait(1)

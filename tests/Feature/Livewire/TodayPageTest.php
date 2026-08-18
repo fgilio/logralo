@@ -110,11 +110,12 @@ it('keeps every goal in the grace banner after one is marked', function (): void
 
     expect($component->get('graceGoals')->pluck('id')->all())->toBe([$done->id, $pending->id]);
 
-    $component
-        ->assertSeeHtml('data-test="grace-goal-'.$done->id.'"')
-        ->assertSeeHtml('aria-pressed="true"')
-        ->assertSeeHtml('data-test="grace-goal-'.$pending->id.'"')
-        ->assertSeeHtml('aria-pressed="false"');
+    $component->assertSeeHtmlInOrder([
+        'aria-pressed="true"',
+        'data-test="grace-goal-'.$done->id.'"',
+        'aria-pressed="false"',
+        'data-test="grace-goal-'.$pending->id.'"',
+    ]);
 });
 
 it('keeps the grace banner after every goal is caught up', function (): void {
