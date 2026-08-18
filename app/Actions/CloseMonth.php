@@ -113,7 +113,7 @@ final readonly class CloseMonth
      */
     private function bestStreak(CarbonImmutable $month): array
     {
-        $goals = Goal::query()->sharedWithGroup()->get(['id', 'user_id', 'streak_pauses']);
+        $goals = Goal::query()->sharedWithGroup()->get(['id', 'user_id', 'archive_periods']);
         $histories = $this->history->forGoals($goals);
 
         $from = $month->startOfMonth();

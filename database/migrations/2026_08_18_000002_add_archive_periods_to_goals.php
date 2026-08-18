@@ -11,14 +11,14 @@ return new class extends Migration
     public function up(): void
     {
         Schema::table('goals', function (Blueprint $table): void {
-            $table->json('streak_pauses')->nullable()->after('archived_at');
+            $table->json('archive_periods')->nullable()->after('archived_at');
         });
     }
 
     public function down(): void
     {
         Schema::table('goals', function (Blueprint $table): void {
-            $table->dropColumn('streak_pauses');
+            $table->dropColumn('archive_periods');
         });
     }
 };

@@ -241,8 +241,13 @@ it('records a best streak that crosses an archive pause', function (): void {
 
     $user = User::factory()->create(['name' => 'Ana']);
     $goal = julyGoal($user, [
-        'streak_pauses' => [
-            ['from' => '2026-07-03', 'archived_on' => '2026-07-03', 'through' => '2026-07-05'],
+        'archive_periods' => [
+            [
+                'archived_on' => '2026-07-03',
+                'restored_on' => '2026-07-06',
+                'paused_from' => '2026-07-03',
+                'paused_through' => '2026-07-05',
+            ],
         ],
     ]);
 

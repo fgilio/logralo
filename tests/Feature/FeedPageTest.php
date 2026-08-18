@@ -133,8 +133,13 @@ it('keeps the feed flame connected across an archive pause', function (): void {
     feedAt('2026-08-11 09:00');
 
     $goal = Goal::factory()->create([
-        'streak_pauses' => [
-            ['from' => '2026-08-09', 'archived_on' => '2026-08-09', 'through' => '2026-08-10'],
+        'archive_periods' => [
+            [
+                'archived_on' => '2026-08-09',
+                'restored_on' => '2026-08-11',
+                'paused_from' => '2026-08-09',
+                'paused_through' => '2026-08-10',
+            ],
         ],
     ]);
 

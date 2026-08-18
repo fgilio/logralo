@@ -30,7 +30,7 @@ final readonly class RestoreGoal
             $goal->update([
                 'archived_at' => null,
                 'position' => $goal->user->nextGoalPosition(),
-                'streak_pauses' => $this->streakPausesAfterRestore($goal),
+                'archive_periods' => $this->archivePeriodsAfterRestore($goal),
             ]);
 
             Context::add('logralo.outcome', 'completed');
@@ -52,34 +52,27 @@ final readonly class RestoreGoal
         }
     }
 
-    /** @return list<array{from: string, archived_on: string, through: string|null}> */
-    private function streakPausesAfterRestore(Goal $goal): array
+    /** @return list<array{archived_on: string, restored_on: string|null, paused_from: string, paused_through: string|null}> */
+    private function archivePeriodsAfterRestore(Goal $goal): array
     {
         $archivedAt = $goal->archived_at;
 
         if ($archivedAt === null) {
-            return $goal->streakPauses();
+            return $goal->archivePeriods();
         }
 
         $clock = $goal->user->clock();
-        $pauses = $goal->streakPauses();
-        $pauseIndex = array_key_last($pauses);
+        $periods = $goal->archivePeriods();
+        $periodIndex = array_key_last($periods);
 
-        if ($pauseIndex === null || $pauses[$pauseIndex]['through'] !== null) {
-            $pauses[] = $goal->streakPauseStartingAt($archivedAt);
-            $pauseIndex = array_key_last($pauses);
+        if ($periodIndex === null || $periods[$periodIndex]['restored_on'] !== null) {
+            $periods[] = $goal->archivePeriodStartingAt($archivedAt);
+            $periodIndex = array_key_last($periods);
         }
 
-        $through = $clock->latestClosedDay();
+        $periods[$periodIndex]['restored_on'] = $clock->today()->toDateString();
+        $periods[$periodIndex]['paused_through'] = $clock->latestClosedDay()->toDateString();
 
-        if ($through->toDateString() < $pauses[$pauseIndex]['from']) {
-            array_pop($pauses);
-
-            return $pauses;
-        }
-
-        $pauses[$pauseIndex]['through'] = $through->toDateString();
-
-        return $pauses;
+        return $periods;
     }
 }

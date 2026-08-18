@@ -27,9 +27,9 @@ final readonly class ArchiveGoal
 
                 $goal->update([
                     'archived_at' => $archivedAt,
-                    'streak_pauses' => [
-                        ...$goal->streakPauses(),
-                        $goal->streakPauseStartingAt($archivedAt),
+                    'archive_periods' => [
+                        ...$goal->archivePeriods(),
+                        $goal->archivePeriodStartingAt($archivedAt),
                     ],
                 ]);
             }

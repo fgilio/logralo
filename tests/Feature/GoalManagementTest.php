@@ -142,8 +142,13 @@ it('stamps archived_at and drops the goal out of the grid', function (): void {
 
     expect($goal->fresh()->archived_at?->toDateTimeString())->toBe(CarbonImmutable::now()->toDateTimeString())
         ->and($goal->fresh()->isArchived())->toBeTrue()
-        ->and($goal->fresh()->streakPauses())->toBe([
-            ['from' => '2026-08-10', 'archived_on' => '2026-08-11', 'through' => null],
+        ->and($goal->fresh()->archivePeriods())->toBe([
+            [
+                'archived_on' => '2026-08-11',
+                'restored_on' => null,
+                'paused_from' => '2026-08-10',
+                'paused_through' => null,
+            ],
         ])
         ->and($user->activeGoals()->pluck('id')->all())->toBe([$kept->id])
         ->and($user->goals()->count())->toBe(2);
@@ -166,13 +171,13 @@ it('leaves an already archived goal on its first archive date', function (): voi
     $goal = Goal::factory()->create();
     resolve(ArchiveGoal::class)->handle($goal);
     $archivedAt = $goal->fresh()->archived_at;
-    $streakPauses = $goal->fresh()->streakPauses();
+    $archivePeriods = $goal->fresh()->archivePeriods();
 
     $this->travelTo(CarbonImmutable::parse('2026-08-11 09:00', 'America/Montevideo')->utc());
     resolve(ArchiveGoal::class)->handle($goal->fresh());
 
     expect($goal->fresh()->archived_at?->toDateTimeString())->toBe($archivedAt?->toDateTimeString())
-        ->and($goal->fresh()->streakPauses())->toBe($streakPauses);
+        ->and($goal->fresh()->archivePeriods())->toBe($archivePeriods);
 });
 
 /*
@@ -251,8 +256,13 @@ it('resumes the streak a goal had when it was archived', function (): void {
     $component->call('press', false);
 
     expect($component->get('streak'))->toBe(4)
-        ->and($goal->fresh()->streakPauses())->toBe([
-            ['from' => '2026-08-10', 'archived_on' => '2026-08-11', 'through' => '2026-08-16'],
+        ->and($goal->fresh()->archivePeriods())->toBe([
+            [
+                'archived_on' => '2026-08-11',
+                'restored_on' => '2026-08-18',
+                'paused_from' => '2026-08-10',
+                'paused_through' => '2026-08-16',
+            ],
         ]);
 });
 
@@ -278,6 +288,26 @@ it('lets an open day break a restored streak after it closes', function (): void
     expect($component->get('streak'))->toBe(0);
 });
 
+it('records an archive period when no closed day pauses the streak', function (): void {
+    $this->travelTo(CarbonImmutable::parse('2026-07-31 15:00', 'America/Montevideo')->utc());
+
+    $goal = Goal::factory()->create();
+
+    resolve(ArchiveGoal::class)->handle($goal);
+
+    $this->travelTo(CarbonImmutable::parse('2026-08-01 09:00', 'America/Montevideo')->utc());
+    resolve(RestoreGoal::class)->handle($goal);
+
+    expect($goal->fresh()->archivePeriods())->toBe([
+        [
+            'archived_on' => '2026-07-31',
+            'restored_on' => '2026-08-01',
+            'paused_from' => '2026-07-31',
+            'paused_through' => '2026-07-30',
+        ],
+    ]);
+});
+
 it('keeps the original pause boundary after a timezone change', function (): void {
     $this->travelTo(CarbonImmutable::parse('2026-08-11 09:00', 'America/Montevideo')->utc());
 
@@ -292,8 +322,13 @@ it('keeps the original pause boundary after a timezone change', function (): voi
 
     resolve(RestoreGoal::class)->handle($goal->fresh());
 
-    expect($goal->fresh()->streakPauses())->toBe([
-        ['from' => '2026-08-10', 'archived_on' => '2026-08-11', 'through' => '2026-08-12'],
+    expect($goal->fresh()->archivePeriods())->toBe([
+        [
+            'archived_on' => '2026-08-11',
+            'restored_on' => '2026-08-13',
+            'paused_from' => '2026-08-10',
+            'paused_through' => '2026-08-12',
+        ],
     ]);
 });
 
@@ -322,9 +357,19 @@ it('preserves the streak through repeated archive cycles', function (): void {
     $component = Livewire::actingAs($user)->test('goal-card', ['goal' => $goal->fresh()]);
 
     expect($component->get('streak'))->toBe(4)
-        ->and($goal->fresh()->streakPauses())->toBe([
-            ['from' => '2026-08-11', 'archived_on' => '2026-08-11', 'through' => '2026-08-14'],
-            ['from' => '2026-08-16', 'archived_on' => '2026-08-16', 'through' => '2026-08-17'],
+        ->and($goal->fresh()->archivePeriods())->toBe([
+            [
+                'archived_on' => '2026-08-11',
+                'restored_on' => '2026-08-15',
+                'paused_from' => '2026-08-11',
+                'paused_through' => '2026-08-14',
+            ],
+            [
+                'archived_on' => '2026-08-16',
+                'restored_on' => '2026-08-18',
+                'paused_from' => '2026-08-16',
+                'paused_through' => '2026-08-17',
+            ],
         ]);
 });
 

@@ -295,8 +295,13 @@ it('celebrates a milestone reached across an archive pause', function (): void {
 
     $user = User::factory()->create();
     $goal = Goal::factory()->for($user)->create([
-        'streak_pauses' => [
-            ['from' => '2026-08-04', 'archived_on' => '2026-08-04', 'through' => '2026-08-06'],
+        'archive_periods' => [
+            [
+                'archived_on' => '2026-08-04',
+                'restored_on' => '2026-08-07',
+                'paused_from' => '2026-08-04',
+                'paused_through' => '2026-08-06',
+            ],
         ],
     ]);
 
