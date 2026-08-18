@@ -33,6 +33,14 @@ function feedAt(string $moment): void
     test()->travelTo(CarbonImmutable::parse($moment, 'America/Montevideo')->utc());
 }
 
+/** The feed as any member sees it: group goals read the same to all of them. */
+function feedFor(int $limit): FeedResult
+{
+    $viewer = User::query()->first() ?? User::factory()->create();
+
+    return resolve(FeedPage::class)->load($viewer, $limit);
+}
+
 /*
 |--------------------------------------------------------------------------
 | Ordering
@@ -54,7 +62,7 @@ it('puts the newest day first and the newest mark first inside a day', function 
     feedAt('2026-08-11 19:00');
     $late = Mark::factory()->for($read)->on('2026-08-11')->create();
 
-    $page = resolve(FeedPage::class)->load(10);
+    $page = feedFor(10);
 
     expect(feedKeys($page))->toBe(["mark-{$late->id}", "mark-{$early->id}", "mark-{$yesterday->id}"]);
 });
@@ -72,7 +80,7 @@ it('sorts by the marked day, not by when the mark was written', function (): voi
     feedAt('2026-08-11 11:00');
     $duringGrace = Mark::factory()->for($run)->on('2026-08-10')->create();
 
-    expect(feedKeys(resolve(FeedPage::class)->load(10)))
+    expect(feedKeys(feedFor(10)))
         ->toBe(["mark-{$today->id}", "mark-{$duringGrace->id}"]);
 });
 
@@ -82,7 +90,7 @@ it('shows the whole group, not just one member', function (): void {
     $mine = Mark::factory()->create();
     $theirs = Mark::factory()->create();
 
-    expect(feedKeys(resolve(FeedPage::class)->load(10)))
+    expect(feedKeys(feedFor(10)))
         ->toHaveCount(2)
         ->toContain("mark-{$mine->id}", "mark-{$theirs->id}");
 });
@@ -101,7 +109,7 @@ it('gives every entry the streak its own day had, not today one', function (): v
     $second = Mark::factory()->for($goal)->on('2026-08-10')->create();
     $third = Mark::factory()->for($goal)->on('2026-08-11')->create();
 
-    $page = resolve(FeedPage::class)->load(10);
+    $page = feedFor(10);
 
     expect(feedEntryFor($page, $third)->streak)->toBe(3)
         ->and(feedEntryFor($page, $second)->streak)->toBe(2)
@@ -115,7 +123,7 @@ it('restarts the flame after a gap in the goal history', function (): void {
     $before = Mark::factory()->for($goal)->on('2026-08-08')->create();
     $after = Mark::factory()->for($goal)->on('2026-08-10')->create();
 
-    $page = resolve(FeedPage::class)->load(10);
+    $page = feedFor(10);
 
     expect(feedEntryFor($page, $before)->streak)->toBe(1)
         ->and(feedEntryFor($page, $after)->streak)->toBe(1);
@@ -132,7 +140,7 @@ it('counts only the goal own days towards its flame', function (): void {
     Mark::factory()->for($run)->on('2026-08-10')->create();
     $lonely = Mark::factory()->for($gym)->on('2026-08-10')->create();
 
-    expect(feedEntryFor(resolve(FeedPage::class)->load(10), $lonely)->streak)->toBe(1);
+    expect(feedEntryFor(feedFor(10), $lonely)->streak)->toBe(1);
 });
 
 /*
@@ -150,7 +158,7 @@ it('carries the ghost run on a ghost entry', function (): void {
     $firstGhost = Mark::factory()->for($goal)->on('2026-08-10')->create();
     $secondGhost = Mark::factory()->for($goal)->on('2026-08-11')->create();
 
-    $page = resolve(FeedPage::class)->load(10);
+    $page = feedFor(10);
 
     expect(feedEntryFor($page, $firstGhost)->ghostRun)->toBe(1)
         ->and(feedEntryFor($page, $secondGhost)->ghostRun)->toBe(2)
@@ -165,7 +173,7 @@ it('leaves the ghost run at zero on a mark with a photo', function (): void {
     Mark::factory()->for($goal)->on('2026-08-10')->create();
     $proof = Mark::factory()->for($goal)->on('2026-08-11')->withPhoto()->create();
 
-    expect(feedEntryFor(resolve(FeedPage::class)->load(10), $proof)->ghostRun)->toBe(0);
+    expect(feedEntryFor(feedFor(10), $proof)->ghostRun)->toBe(0);
 });
 
 /*
@@ -182,7 +190,7 @@ it('reports no more when the marks fill the page exactly', function (): void {
         Mark::factory()->for($goal)->on($date)->create();
     }
 
-    $page = resolve(FeedPage::class)->load(3);
+    $page = feedFor(3);
 
     expect($page->hasMore)->toBeFalse()
         ->and($page->entries)->toHaveCount(3);
@@ -196,7 +204,7 @@ it('reports more as soon as one mark falls past the page', function (): void {
         Mark::factory()->for($goal)->on($date)->create();
     }
 
-    $page = resolve(FeedPage::class)->load(3);
+    $page = feedFor(3);
 
     expect($page->hasMore)->toBeTrue()
         ->and($page->entries)->toHaveCount(3)
@@ -204,7 +212,7 @@ it('reports more as soon as one mark falls past the page', function (): void {
 });
 
 it('reports an empty feed as empty', function (): void {
-    $page = resolve(FeedPage::class)->load(10);
+    $page = feedFor(10);
 
     expect($page->entries->isEmpty())->toBeTrue()
         ->and($page->hasMore)->toBeFalse();
@@ -254,7 +262,7 @@ it('drops a recap into the feed at the day it was posted on', function (): void 
     feedAt('2026-08-01 20:00');
     $after = Mark::factory()->for($goal)->on('2026-08-01')->create();
 
-    $page = resolve(FeedPage::class)->load(10);
+    $page = feedFor(10);
 
     expect(feedKeys($page))->toBe([
         "mark-{$after->id}",
@@ -279,7 +287,7 @@ it('posts the recap above the marks of the day it closes', function (): void {
     feedAt('2026-08-01 12:30');
     $recap = MonthlyRecap::factory()->create(['month' => '2026-07-01', 'posted_on' => '2026-07-31']);
 
-    expect(feedKeys(resolve(FeedPage::class)->load(10)))
+    expect(feedKeys(feedFor(10)))
         ->toBe(["recap-{$recap->id}", "mark-{$lastDay->id}"]);
 });
 
@@ -297,8 +305,8 @@ it('holds a recap back until the feed has scrolled that far', function (): void 
     feedAt('2026-08-11 20:00');
     Mark::factory()->for($goal)->on('2026-08-11')->create();
 
-    $firstPage = resolve(FeedPage::class)->load(2);
-    $wholeFeed = resolve(FeedPage::class)->load(10);
+    $firstPage = feedFor(2);
+    $wholeFeed = feedFor(10);
 
     expect($firstPage->hasMore)->toBeTrue()
         ->and($firstPage->entries)->toHaveCount(2)
@@ -310,7 +318,7 @@ it('shows a recap even when there are no marks at all', function (): void {
     feedAt('2026-08-01 12:30');
     $recap = MonthlyRecap::factory()->create(['month' => '2026-07-01', 'posted_on' => '2026-07-31']);
 
-    expect(feedKeys(resolve(FeedPage::class)->load(10)))->toBe(["recap-{$recap->id}"]);
+    expect(feedKeys(feedFor(10)))->toBe(["recap-{$recap->id}"]);
 });
 
 /*
@@ -327,7 +335,7 @@ it('builds photo links only for the marks that carry a photo', function (): void
     $ghost = Mark::factory()->for($goal)->on('2026-08-10')->create();
     $proof = Mark::factory()->for($goal)->on('2026-08-11')->withPhoto()->create();
 
-    $page = resolve(FeedPage::class)->load(10);
+    $page = feedFor(10);
 
     expect(feedEntryFor($page, $ghost)->photo)->toBeNull()
         ->and(feedEntryFor($page, $proof)->photo)->toBeInstanceOf(PhotoLinks::class);
@@ -339,7 +347,7 @@ it('hands the template a srcset, a fallback, a thumbnail and the real size', fun
 
     $mark = Mark::factory()->on('2026-08-11')->withPhoto()->create();
 
-    $photo = feedEntryFor(resolve(FeedPage::class)->load(10), $mark)->photo;
+    $photo = feedEntryFor(feedFor(10), $mark)->photo;
 
     expect($photo)->not->toBeNull()
         ->and($photo?->srcset)->toContain("{$mark->photo_key}/feed-720.webp 720w")
@@ -360,5 +368,5 @@ it('falls back to a 4 by 3 box when a photo has no stored size', function (): vo
         'photo_height' => null,
     ]);
 
-    expect(feedEntryFor(resolve(FeedPage::class)->load(10), $mark)->photo?->aspectRatio())->toBe('4 / 3');
+    expect(feedEntryFor(feedFor(10), $mark)->photo?->aspectRatio())->toBe('4 / 3');
 });

@@ -11,6 +11,7 @@ use App\Actions\UpdateAvatar;
 use App\Concerns\InteractsWithMember;
 use App\Concerns\PasswordValidationRules;
 use App\Concerns\PhotoValidationRules;
+use App\Enums\GoalVisibility;
 use App\Exceptions\UserFacingException;
 use App\Models\Goal;
 use Carbon\CarbonImmutable;
@@ -49,6 +50,8 @@ new #[Title('Perfil')] class extends Component
     public string $goalEmoji = '🎯';
 
     public string $goalName = '';
+
+    public bool $goalPrivate = false;
 
     public ?string $editingGoalId = null;
 
@@ -145,13 +148,14 @@ new #[Title('Perfil')] class extends Component
         $this->editingGoalId = $goal->id;
         $this->goalEmoji = $goal->emoji;
         $this->goalName = $goal->name;
+        $this->goalPrivate = $goal->isPrivate();
 
         $this->modal('goal-form')->show();
     }
 
     public function newGoal(): void
     {
-        $this->reset('editingGoalId', 'goalEmoji', 'goalName');
+        $this->reset('editingGoalId', 'goalEmoji', 'goalName', 'goalPrivate');
         $this->resetValidation();
 
         $this->modal('goal-form')->show();
@@ -164,18 +168,22 @@ new #[Title('Perfil')] class extends Component
             'goalName' => ['required', 'string', 'max:'.config('logralo.goals.name_max_length')],
         ]);
 
+        $visibility = $this->goalPrivate ? GoalVisibility::Private : GoalVisibility::Group;
+
         try {
             if ($this->editingGoalId !== null) {
                 resolve(RenameGoal::class)->handle(
                     $this->ownedGoal($this->editingGoalId),
                     $validated['goalEmoji'],
                     $validated['goalName'],
+                    $visibility,
                 );
             } else {
                 resolve(CreateGoal::class)->handle(
                     $this->member(),
                     $validated['goalEmoji'],
                     $validated['goalName'],
+                    $visibility,
                 );
             }
         } catch (UserFacingException $userFacingException) {
@@ -184,7 +192,7 @@ new #[Title('Perfil')] class extends Component
             return;
         }
 
-        $this->reset('editingGoalId', 'goalEmoji', 'goalName');
+        $this->reset('editingGoalId', 'goalEmoji', 'goalName', 'goalPrivate');
         unset($this->activeGoals, $this->archivedGoals);
 
         $this->modal('goal-form')->close();
@@ -283,6 +291,16 @@ new #[Title('Perfil')] class extends Component
                     >
                         <span class="text-2xl leading-none">{{ $goal->emoji }}</span>
                         <span class="min-w-0 flex-1 truncate font-medium">{{ $goal->name }}</span>
+
+                        @if ($goal->isPrivate())
+                            <flux:icon
+                                name="lock-closed"
+                                variant="micro"
+                                class="shrink-0 text-zinc-400 dark:text-zinc-500"
+                                aria-label="Privado"
+                                data-test="private-goal-{{ $goal->id }}"
+                            />
+                        @endif
 
                         <flux:button
                             wire:click="editGoal('{{ $goal->id }}')"
@@ -498,7 +516,7 @@ new #[Title('Perfil')] class extends Component
     {{-- Create / rename --}}
     <x-sheet name="goal-form">
         <flux:heading size="lg">
-            {{ $editingGoalId !== null ? 'Renombrar objetivo' : 'Nuevo objetivo' }}
+            {{ $editingGoalId !== null ? 'Editar objetivo' : 'Nuevo objetivo' }}
         </flux:heading>
 
         <form wire:submit="saveGoal" class="mt-5 flex flex-col gap-4">
@@ -538,6 +556,13 @@ new #[Title('Perfil')] class extends Component
                     </button>
                 @endforeach
             </div>
+
+            <flux:switch
+                wire:model="goalPrivate"
+                label="Privado"
+                description="Solo lo ves vos. No aparece en el feed del grupo ni cuenta para el anillo o la tabla del mes."
+                data-test="goal-private"
+            />
 
             <flux:error name="goalName" />
             <flux:error name="goalEmoji" />

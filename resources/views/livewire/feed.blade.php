@@ -44,7 +44,7 @@ new class extends Component
     #[Computed]
     public function page(): FeedResult
     {
-        return resolve(FeedPage::class)->load($this->limit);
+        return resolve(FeedPage::class)->load($this->member(), $this->limit);
     }
 
     /** @return Collection<string, Collection<int, FeedEntry>> */
@@ -95,7 +95,11 @@ new class extends Component
 
     public function react(string $markId, string $emoji): void
     {
-        $mark = Mark::query()->findOrFail($markId);
+        // Scoped to what this member's feed can show, so a mark id lifted
+        // from elsewhere cannot reach a private goal's mark.
+        $mark = Mark::query()
+            ->visibleTo($this->member())
+            ->findOrFail($markId);
 
         resolve(ToggleReaction::class)->handle($mark, $this->member(), ReactionEmoji::from($emoji));
 

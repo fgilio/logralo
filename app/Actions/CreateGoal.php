@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Actions;
 
+use App\Enums\GoalVisibility;
 use App\Exceptions\GoalLimitReachedException;
 use App\Exceptions\UserFacingException;
 use App\Models\Goal;
@@ -18,7 +19,7 @@ use Throwable;
  */
 final readonly class CreateGoal
 {
-    public function handle(User $user, string $emoji, string $name): Goal
+    public function handle(User $user, string $emoji, string $name, GoalVisibility $visibility = GoalVisibility::Group): Goal
     {
         Context::add('logralo.user_id', $user->id);
 
@@ -31,6 +32,7 @@ final readonly class CreateGoal
                 'emoji' => $emoji,
                 'name' => $name,
                 'position' => $user->nextGoalPosition(),
+                'visibility' => $visibility,
             ]);
 
             Context::add('logralo.goal_id', $goal->id);

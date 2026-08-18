@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Database\Factories;
 
+use App\Enums\GoalVisibility;
 use App\Models\Goal;
 use App\Models\User;
 use Illuminate\Database\Eloquent\Factories\Factory;
@@ -29,5 +30,10 @@ final class GoalFactory extends Factory
     public function archived(): self
     {
         return $this->state(fn (array $attributes): array => ['archived_at' => now()]);
+    }
+
+    public function private(): self
+    {
+        return $this->state(fn (array $attributes): array => ['visibility' => GoalVisibility::Private]);
     }
 }

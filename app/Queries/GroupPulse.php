@@ -14,6 +14,9 @@ use Illuminate\Support\Collection;
  * The strip at the top of "Hoy": every member's avatar with how much of today
  * they have already closed. "Today" is each member's own local day, so someone
  * in a different timezone is measured against their day, not yours.
+ *
+ * The ring counts group goals only, for the owner too: a 2/3 over a goal
+ * nobody else can see would be a ring that hints at its existence.
  */
 final readonly class GroupPulse
 {
@@ -29,7 +32,7 @@ final readonly class GroupPulse
             return collect();
         }
 
-        $goals = Goal::query()->active()->get(['id', 'user_id']);
+        $goals = Goal::query()->active()->sharedWithGroup()->get(['id', 'user_id']);
         $goalCounts = $goals->countBy('user_id');
 
         $localDates = $users->mapWithKeys(
