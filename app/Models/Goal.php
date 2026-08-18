@@ -100,10 +100,10 @@ final class Goal extends Model
 
     public function wasActiveOn(string $date, UserClock $clock): bool
     {
-        $pauses = collect($this->streakPauses());
+        $periods = collect($this->archivePeriods());
 
-        if ($pauses->contains(fn (array $pause): bool => $pause['archived_on'] <= $date
-            && ($pause['through'] === null || $pause['through'] >= $date))) {
+        if ($periods->contains(fn (array $period): bool => $period['archived_on'] <= $date
+            && ($period['restored_on'] === null || $period['restored_on'] > $date))) {
             return false;
         }
 
@@ -111,7 +111,7 @@ final class Goal extends Model
             return true;
         }
 
-        if ($pauses->contains(fn (array $pause): bool => $pause['through'] === null)) {
+        if ($periods->contains(fn (array $period): bool => $period['restored_on'] === null)) {
             return true;
         }
 

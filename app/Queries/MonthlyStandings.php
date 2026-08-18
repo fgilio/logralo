@@ -77,7 +77,7 @@ final readonly class MonthlyStandings
 
         $goalsByUser = Goal::query()
             ->sharedWithGroup()
-            ->get(['id', 'user_id', 'created_at', 'archived_at', 'streak_pauses'])
+            ->get(['id', 'user_id', 'created_at', 'archived_at', 'archive_periods'])
             ->groupBy('user_id');
 
         // Counted as of the window's last day rather than as of now. A month
