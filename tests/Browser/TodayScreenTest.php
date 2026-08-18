@@ -61,6 +61,9 @@ it('un-marks a goal from the sheet, and never from the tap alone', function (): 
     // whether the day survived the tap.
     visit('/')->on()->iPhone15Pro()
         ->assertAriaAttribute('@goal-card-'.$goal->id, 'pressed', 'true')
+        // And the card says the tap opens a dialog, so a screen reader does
+        // not announce a toggle and then hand over a sheet.
+        ->assertAriaAttribute('@goal-card-'.$goal->id, 'haspopup', 'dialog')
         // The tap that used to delete the day now only opens the way out.
         ->click('@goal-card-'.$goal->id)
         ->wait(1)

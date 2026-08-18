@@ -254,6 +254,10 @@ new class extends Component
     // copies could drift into disagreeing about the same goal.
     $dimFlame = $mark === null && ! $isFull;
     $owesPhoto = $this->requiresPhoto && $mark === null;
+    // The two cards whose activation opens the sheet rather than marking. Said
+    // out loud below, because `aria-pressed` alone promises a toggle and a
+    // screen reader would meet the sheet with no warning it was coming.
+    $opensSheet = $mark !== null || $owesPhoto;
 
     $shell = match ($variant) {
         'chip' => 'flex items-center gap-2 rounded-full border py-1.5 pr-3 pl-2.5 text-sm transition',
@@ -316,6 +320,7 @@ new class extends Component
         role="button"
         tabindex="0"
         aria-pressed="{{ $mark !== null ? 'true' : 'false' }}"
+        aria-haspopup="{{ $opensSheet ? 'dialog' : 'false' }}"
         aria-label="{{ $goal->name }}"
         data-test="{{ $testId }}"
     >
