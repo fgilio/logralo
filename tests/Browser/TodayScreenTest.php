@@ -262,6 +262,34 @@ it('opens a photo full screen without the reaction bar coming with it', function
         ->assertNoJavaScriptErrors();
 });
 
+it('dismisses the photo with a drag, and leaves the note alone', function (): void {
+    $ana = User::factory()->create(['name' => 'Ana Pérez']);
+    $bruno = User::factory()->create(['name' => 'Bruno']);
+    $mark = Mark::factory()
+        ->for(Goal::factory()->for($bruno)->create(['name' => 'Guitarra']))
+        ->withPhoto()
+        ->create(['note' => 'Media hora de escalas antes de que se despierte nadie.']);
+
+    $this->actingAs($ana);
+
+    $page = visit('/')->on()->iPhone15Pro()
+        ->click('@viewer-open-'.$mark->id)
+        ->wait(1)
+        ->assertVisible('@viewer-close-'.$mark->id);
+
+    // The note is not part of the gesture: it carries its own scroll and its
+    // own selection, and a touch on it used to close the whole viewer.
+    $page->click('@viewer-note-'.$mark->id)
+        ->wait(1)
+        ->assertVisible('@viewer-close-'.$mark->id);
+
+    // The picture itself, carried far enough to count as a throw.
+    $page->drag('@viewer-photo-'.$mark->id, '@viewer-note-'.$mark->id)
+        ->wait(1)
+        ->assertMissing('@viewer-close-'.$mark->id)
+        ->assertNoJavaScriptErrors();
+});
+
 it('opens the month table from the trophy button', function (): void {
     $user = User::factory()->create(['name' => 'Ana Pérez']);
     Goal::factory()->for($user)->create();

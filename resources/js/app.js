@@ -448,6 +448,11 @@ document.addEventListener("alpine:init", () => {
      * far enough from where it started and it goes away. A tap dismisses too,
      * which is what the viewer this replaced did with any click at all.
      *
+     * The drag is measured in both axes and away from the start point rather
+     * than down the screen: there is nothing to swipe sideways to, so a
+     * sideways throw is the same intention as a downward one, and measuring
+     * only the vertical would have counted it as a tap.
+     *
      * Flux closes on a click outside the dialog's own box, and this dialog is
      * the whole screen, so `dismiss()` is the only way out besides Escape.
      */
@@ -457,39 +462,48 @@ document.addEventListener("alpine:init", () => {
         tapTolerance: options.tapTolerance ?? 10,
 
         pointerId: null,
+        startX: 0,
         startY: 0,
-        offset: 0,
+        x: 0,
+        y: 0,
         dragging: false,
 
-        /** How far gone the picture looks while it is being thrown away. */
+        /** How far the picture has been carried from where it started. */
+        get travelled() {
+            return Math.hypot(this.x, this.y);
+        },
+
+        /** How far gone it looks while it is being thrown away. */
         get faded() {
-            return 1 - Math.min(Math.abs(this.offset) / 480, 0.75);
+            return 1 - Math.min(this.travelled / 480, 0.75);
         },
 
         start(event) {
             if (event.button !== undefined && event.button !== 0) return;
 
             this.pointerId = event.pointerId;
+            this.startX = event.clientX;
             this.startY = event.clientY;
             this.dragging = true;
 
             try {
                 event.currentTarget.setPointerCapture(event.pointerId);
             } catch {
-                // Capture is a nicety; the pointerup still lands on the figure.
+                // Capture is a nicety; the pointerup still lands on the photo.
             }
         },
 
         move(event) {
             if (!this.dragging || event.pointerId !== this.pointerId) return;
 
-            this.offset = event.clientY - this.startY;
+            this.x = event.clientX - this.startX;
+            this.y = event.clientY - this.startY;
         },
 
         end(event) {
             if (!this.dragging || event.pointerId !== this.pointerId) return;
 
-            const travelled = Math.abs(this.offset);
+            const travelled = this.travelled;
 
             this.cancel();
 
@@ -503,7 +517,8 @@ document.addEventListener("alpine:init", () => {
         cancel() {
             this.dragging = false;
             this.pointerId = null;
-            this.offset = 0;
+            this.x = 0;
+            this.y = 0;
         },
 
         dismiss() {

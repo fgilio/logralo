@@ -38,7 +38,7 @@
             {{-- The drag is the picture's, so nothing springs back at a
                  fraction of the speed the finger moved. --}}
             :class="dragging || 'transition duration-200 ease-out'"
-            :style="offset && `transform: translateY(${offset}px); opacity: ${faded}`"
+            :style="travelled && `transform: translate(${x}px, ${y}px); opacity: ${faded}`"
             class="flex h-full flex-col bg-zinc-950 text-white"
         >
             <header class="flex items-center gap-2.5 px-4 pt-[max(0.75rem,env(safe-area-inset-top))] pb-3">
@@ -62,27 +62,37 @@
                 </button>
             </header>
 
-            {{-- `touch-action: none` hands the drag over: the page behind is
-                 locked while the dialog is open, so there is no scroll here to
-                 give up. --}}
-            <figure
-                x-on:pointerdown="start($event)"
-                x-on:pointermove="move($event)"
-                x-on:pointerup="end($event)"
-                x-on:pointercancel="cancel()"
-                class="tap-target flex min-h-0 flex-1 flex-col justify-center"
-                style="touch-action: none"
-            >
-                {{-- The dialog is display:none until it opens, and a lazy image
+            <figure class="flex min-h-0 flex-1 flex-col justify-center">
+                {{-- The gesture belongs to the picture and stops there: the
+                     note below it scrolls and can be selected, and neither is
+                     possible inside `touch-action: none` under a captured
+                     pointer. The picture fills the space around the photo, so
+                     the letterbox is part of the same surface.
+
+                     Giving the drag away costs nothing the page needs — it is
+                     locked behind the dialog while this is open.
+
+                     The dialog is display:none until it opens, and a lazy image
                      inside one is never fetched, so a feed of cards does not
                      download every photo at full size to sit unseen. --}}
-                <picture class="flex min-h-0 flex-1 items-center justify-center">
+                <picture
+                    x-on:pointerdown="start($event)"
+                    x-on:pointermove="move($event)"
+                    x-on:pointerup="end($event)"
+                    x-on:pointercancel="cancel()"
+                    class="tap-target flex min-h-0 flex-1 items-center justify-center"
+                    style="touch-action: none"
+                    data-test="viewer-photo-{{ $mark->id }}"
+                >
                     <source type="image/webp" srcset="{{ $links->srcset }}" sizes="100vw">
+                    {{-- A picture is draggable by default, and the browser's
+                         own drag would take the pointer mid-gesture. --}}
                     <img
                         src="{{ $links->fallbackUrl }}"
                         alt="{{ $alt }}"
                         loading="lazy"
                         decoding="async"
+                        draggable="false"
                         class="max-h-full max-w-full object-contain"
                     >
                 </picture>
@@ -90,6 +100,7 @@
                 @if ($mark->note !== null)
                     <figcaption
                         class="max-h-32 shrink-0 overflow-y-auto px-5 pt-4 text-center text-note text-white/90 select-text"
+                        data-test="viewer-note-{{ $mark->id }}"
                     >
                         {{ $mark->note }}
                     </figcaption>

@@ -89,7 +89,9 @@ The viewer lives beside the photo it belongs to rather than at the foot of the p
 
 The image is `loading="lazy"` and a closed dialog is `display: none`, so a page of cards downloads its thumbnails and none of the full-size photos behind them. It asks for the same `sizes="100vw"` a cover does, so on a phone the picture the viewer wants is usually the one the feed already has.
 
-Three ways out, because a viewer that traps you reads as a bug: the ✕, Escape, and a drag in either direction, where the picture follows the finger and leaves once it has travelled far enough. A tap is a drag of nothing at all and dismisses too, which is what the overlay this replaced did with any click.
+Three ways out, because a viewer that traps you reads as a bug: the ✕, Escape, and a drag in any direction, where the picture follows the finger and leaves once it has travelled far enough from where it started. Distance is measured in both axes rather than down the screen: there is nothing to swipe sideways to, so a sideways throw means the same thing as a downward one, and the vertical alone would have read it as a tap. A tap is a drag of nothing at all, and dismisses too, which is what the overlay this replaced did with any click.
+
+The drag belongs to the picture and stops there. It fills the space around the photo, so the letterbox goes with it, but the note below does not: a caption long enough to scroll cannot be scrolled inside `touch-action: none` under a captured pointer, and every touch on it would have been a tap that closed the viewer.
 
 ## A mark without a photo
 
