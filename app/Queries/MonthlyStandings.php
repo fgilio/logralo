@@ -16,10 +16,10 @@ use Illuminate\Support\Collection;
 /**
  * The monthly table behind the pulse strip.
  *
- * Only marks on goals that are still active count. That is what "archiving
- * stops the goal counting from that day" means in the score: archiving removes
- * a goal from both sides of the ratio, so it can neither inflate a member's
- * percentage nor be used to game the last day of the month.
+ * Only marks on goals that were active through the window count. That is what
+ * "archiving stops the goal counting from that day" means in the score:
+ * archiving removes a goal from both sides of the ratio, so it can neither
+ * inflate a member's percentage nor be used to game the last day of the month.
  */
 final readonly class MonthlyStandings
 {
@@ -72,7 +72,9 @@ final readonly class MonthlyStandings
             return collect();
         }
 
-        $goalsByUser = Goal::query()->active()->get(['id', 'user_id', 'created_at'])->groupBy('user_id');
+        $goalsByUser = Goal::query()
+            ->get(['id', 'user_id', 'created_at', 'archived_at'])
+            ->groupBy('user_id');
 
         // Counted as of the window's last day rather than as of now. A month
         // closes hours after it ends, so a goal created in that
@@ -85,8 +87,8 @@ final readonly class MonthlyStandings
             $clock = $user->clock();
             $lastDayOfWindow = $lastDay($user);
 
-            return [$user->id => $goals->filter(
-                fn (Goal $goal): bool => $this->existedBy($goal, $clock, $lastDayOfWindow),
+            return [$user->id => $goals->filter(fn (Goal $goal): bool => $this->existedBy($goal, $clock, $lastDayOfWindow)
+                && $this->remainedActiveThrough($goal, $clock, $lastDayOfWindow)
             )];
         });
 
@@ -149,5 +151,12 @@ final readonly class MonthlyStandings
     {
         return $goal->created_at === null
             || $clock->dayOf($goal->created_at)->toDateString() <= $lastDay;
+    }
+
+    /** Whether archiving had already removed the goal by $lastDay. */
+    private function remainedActiveThrough(Goal $goal, UserClock $clock, string $lastDay): bool
+    {
+        return $goal->archived_at === null
+            || $clock->dayOf($goal->archived_at)->toDateString() > $lastDay;
     }
 }
