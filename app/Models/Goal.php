@@ -26,12 +26,13 @@ use Override;
  * @property int $position
  * @property GoalVisibility $visibility
  * @property CarbonImmutable|null $archived_at
+ * @property list<array{archived_on: string, restored_on: string|null, paused_from: string, paused_through: string|null}>|null $archive_periods
  * @property CarbonImmutable|null $created_at
  * @property CarbonImmutable|null $updated_at
  * @property-read User $user
  * @property-read Collection<int, Mark> $marks
  */
-#[Fillable(['emoji', 'name', 'position', 'visibility', 'archived_at'])]
+#[Fillable(['emoji', 'name', 'position', 'visibility', 'archived_at', 'archive_periods'])]
 final class Goal extends Model
 {
     /** @use HasFactory<GoalFactory> */
@@ -66,6 +67,34 @@ final class Goal extends Model
     public function isPrivate(): bool
     {
         return $this->visibility === GoalVisibility::Private;
+    }
+
+    /** @return list<array{archived_on: string, restored_on: string|null, paused_from: string, paused_through: string|null}> */
+    public function archivePeriods(): array
+    {
+        return $this->archive_periods ?? [];
+    }
+
+    /** @return list<array{from: string, through: string|null}> */
+    public function streakPauses(): array
+    {
+        return array_map(fn (array $period): array => [
+            'from' => $period['paused_from'],
+            'through' => $period['paused_through'],
+        ], $this->archivePeriods());
+    }
+
+    /** @return array{archived_on: string, restored_on: null, paused_from: string, paused_through: null} */
+    public function archivePeriodStartingAt(CarbonImmutable $archivedAt): array
+    {
+        $clock = $this->user->clock();
+
+        return [
+            'archived_on' => $clock->dayOf($archivedAt)->toDateString(),
+            'restored_on' => null,
+            'paused_from' => $clock->oldestOpenDayAt($archivedAt)->toDateString(),
+            'paused_through' => null,
+        ];
     }
 
     /** @param  Builder<$this>  $query */
@@ -111,6 +140,7 @@ final class Goal extends Model
             'position' => 'integer',
             'visibility' => GoalVisibility::class,
             'archived_at' => 'immutable_datetime',
+            'archive_periods' => 'array',
             'created_at' => 'immutable_datetime',
             'updated_at' => 'immutable_datetime',
         ];

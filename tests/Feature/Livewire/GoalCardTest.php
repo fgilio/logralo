@@ -290,6 +290,31 @@ it('counts the streak the mark belongs to', function (): void {
     expect($component->get('streak'))->toBe(4);
 });
 
+it('celebrates a milestone reached across an archive pause', function (): void {
+    $this->travelTo(CarbonImmutable::parse('2026-08-10 09:00', 'America/Montevideo')->utc());
+
+    $user = User::factory()->create();
+    $goal = Goal::factory()->for($user)->create([
+        'archive_periods' => [
+            [
+                'archived_on' => '2026-08-04',
+                'restored_on' => '2026-08-07',
+                'paused_from' => '2026-08-04',
+                'paused_through' => '2026-08-06',
+            ],
+        ],
+    ]);
+
+    foreach (['2026-08-01', '2026-08-02', '2026-08-03', '2026-08-07', '2026-08-08', '2026-08-09'] as $date) {
+        Mark::factory()->for($goal)->withPhoto()->on($date)->create();
+    }
+
+    Livewire::actingAs($user)
+        ->test('goal-card', ['goal' => $goal])
+        ->call('press', false)
+        ->assertDispatched('milestone-reached');
+});
+
 it("reads the day off the member's own clock when none is given", function (): void {
     // 23:30 in Montevideo is already the next day in Madrid.
     $this->travelTo(CarbonImmutable::parse('2026-08-11 23:30', 'America/Montevideo')->utc());

@@ -10,7 +10,7 @@ Everything else falls out of that:
 
 - **Today** is always open.
 - **Yesterday** is open until noon — that is the grace banner's entire condition.
-- **A streak** breaks when a day _closes_ unmarked. An unmarked day that is still open is skipped, not counted as a miss, which is why an untouched today never breaks your flame.
+- **A streak** breaks when a day _closes_ unmarked. An unmarked day that is still open is skipped, not counted as a miss, which is why an untouched today never breaks your flame. Archiving pauses the run: archived days add nothing and cannot break it. Restoring resumes from the last flame count.
 - **A mark becomes immutable** when its day closes, or when its month is recapped, whichever comes first. Un-marking is allowed right up to that instant and refused after it.
 - **A month** is closeable only once its last day has closed for _every_ member. With members in different timezones there is no single moment that is "the end of the month" for the group, so `logralo:close-months` runs hourly and asks.
 

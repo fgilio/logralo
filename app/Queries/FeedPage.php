@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Queries;
 
+use App\Models\Goal;
 use App\Models\Mark;
 use App\Models\MonthlyRecap;
 use App\Models\User;
@@ -49,7 +50,7 @@ final readonly class FeedPage
         $marks = $marks->take($limit);
 
         $histories = $this->history->forGoals(
-            array_values($marks->pluck('goal_id')->unique()->all())
+            $marks->map(fn (Mark $mark): Goal => $mark->goal)->unique('id'),
         );
 
         /** @var Collection<int, FeedEntry> $entries */

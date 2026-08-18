@@ -134,6 +134,27 @@ it('reads a stored instant as the day the member was living', function (): void 
         ->and(UserClock::in('Pacific/Kiritimati')->dayOf($created)->toDateString())->toBe('2026-09-01');
 });
 
+it('finds the oldest day still open at an instant', function (string $localTime, string $expected): void {
+    $clock = UserClock::in('America/Montevideo');
+
+    expect($clock->oldestOpenDayAt(instantInZone($clock->timezone, $localTime))->toDateString())
+        ->toBe($expected);
+})->with([
+    'before cutoff' => ['2026-08-11 11:59:59', '2026-08-10'],
+    'at cutoff' => ['2026-08-11 12:00:00', '2026-08-11'],
+    'after cutoff' => ['2026-08-11 12:00:01', '2026-08-11'],
+]);
+
+it('finds the latest day that has closed', function (string $localTime, string $expected): void {
+    $this->travelTo(instantInZone('America/Montevideo', $localTime));
+
+    expect(UserClock::in('America/Montevideo')->latestClosedDay()->toDateString())->toBe($expected);
+})->with([
+    'before cutoff' => ['2026-08-11 11:59:59', '2026-08-09'],
+    'at cutoff' => ['2026-08-11 12:00:00', '2026-08-10'],
+    'after cutoff' => ['2026-08-11 12:00:01', '2026-08-10'],
+]);
+
 it('reads the grace hour from configuration', function (): void {
     config()->set('logralo.grace_cutoff_hour', 9);
 

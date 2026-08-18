@@ -236,6 +236,31 @@ it('records the best streak of the month, counting a run that started before it'
         ->and($recap->best_streak_goal_id)->toBe($longGoal->id);
 });
 
+it('records a best streak that crosses an archive pause', function (): void {
+    $this->travelTo(CarbonImmutable::parse('2026-08-01 15:00', 'UTC'));
+
+    $user = User::factory()->create(['name' => 'Ana']);
+    $goal = julyGoal($user, [
+        'archive_periods' => [
+            [
+                'archived_on' => '2026-07-03',
+                'restored_on' => '2026-07-06',
+                'paused_from' => '2026-07-03',
+                'paused_through' => '2026-07-05',
+            ],
+        ],
+    ]);
+
+    foreach (['2026-07-01', '2026-07-02', '2026-07-06'] as $date) {
+        Mark::factory()->for($goal)->on($date)->withPhoto()->create();
+    }
+
+    $recap = closeJulyRecap();
+
+    expect($recap->best_streak_days)->toBe(3)
+        ->and($recap->best_streak_goal_id)->toBe($goal->id);
+});
+
 it('counts a streak on a goal that was archived after the month', function (): void {
     $this->travelTo(CarbonImmutable::parse('2026-08-01 15:00', 'UTC'));
 

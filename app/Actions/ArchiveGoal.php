@@ -23,7 +23,15 @@ final readonly class ArchiveGoal
 
         try {
             if (! $goal->isArchived()) {
-                $goal->update(['archived_at' => CarbonImmutable::now()]);
+                $archivedAt = CarbonImmutable::now();
+
+                $goal->update([
+                    'archived_at' => $archivedAt,
+                    'archive_periods' => [
+                        ...$goal->archivePeriods(),
+                        $goal->archivePeriodStartingAt($archivedAt),
+                    ],
+                ]);
             }
 
             Context::add('logralo.outcome', 'completed');

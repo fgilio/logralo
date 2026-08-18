@@ -30,6 +30,7 @@ final readonly class RestoreGoal
             $goal->update([
                 'archived_at' => null,
                 'position' => $goal->user->nextGoalPosition(),
+                'archive_periods' => $this->archivePeriodsAfterRestore($goal),
             ]);
 
             Context::add('logralo.outcome', 'completed');
@@ -49,5 +50,29 @@ final readonly class RestoreGoal
         } finally {
             Log::info('goal.restore.handled');
         }
+    }
+
+    /** @return list<array{archived_on: string, restored_on: string|null, paused_from: string, paused_through: string|null}> */
+    private function archivePeriodsAfterRestore(Goal $goal): array
+    {
+        $archivedAt = $goal->archived_at;
+
+        if ($archivedAt === null) {
+            return $goal->archivePeriods();
+        }
+
+        $clock = $goal->user->clock();
+        $periods = $goal->archivePeriods();
+        $periodIndex = array_key_last($periods);
+
+        if ($periodIndex === null || $periods[$periodIndex]['restored_on'] !== null) {
+            $periods[] = $goal->archivePeriodStartingAt($archivedAt);
+            $periodIndex = array_key_last($periods);
+        }
+
+        $periods[$periodIndex]['restored_on'] = $clock->today()->toDateString();
+        $periods[$periodIndex]['paused_through'] = $clock->latestClosedDay()->toDateString();
+
+        return $periods;
     }
 }
