@@ -20,6 +20,9 @@ use Illuminate\Support\Collection;
  * stops the goal counting from that day" means in the score: archiving removes
  * a goal from both sides of the ratio, so it can neither inflate a member's
  * percentage nor be used to game the last day of the month.
+ *
+ * Private goals sit outside the ratio the same way: the table ranks
+ * what the group can witness, and nothing else.
  */
 final readonly class MonthlyStandings
 {
@@ -72,7 +75,7 @@ final readonly class MonthlyStandings
             return collect();
         }
 
-        $goalsByUser = Goal::query()->active()->get(['id', 'user_id', 'created_at'])->groupBy('user_id');
+        $goalsByUser = Goal::query()->active()->sharedWithGroup()->get(['id', 'user_id', 'created_at'])->groupBy('user_id');
 
         // Counted as of the window's last day rather than as of now. A month
         // closes hours after it ends, so a goal created in that

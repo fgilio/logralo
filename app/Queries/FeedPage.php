@@ -4,8 +4,10 @@ declare(strict_types=1);
 
 namespace App\Queries;
 
+use App\Models\Goal;
 use App\Models\Mark;
 use App\Models\MonthlyRecap;
+use App\Models\User;
 use App\ValueObjects\FeedEntry;
 use App\ValueObjects\FeedResult;
 use App\ValueObjects\MarkHistory;
@@ -29,13 +31,16 @@ final readonly class FeedPage
         private MarkEntries $entries,
     ) {}
 
-    public function load(int $limit): FeedResult
+    public function load(User $viewer, int $limit): FeedResult
     {
         $marks = Mark::query()
             // `reactions` without its user: the feed reads the emoji and the
             // reactor's id off the pivot row itself and never names anybody,
             // so loading the users was a query per page for nothing.
             ->with(['user', 'goal', 'reactions'])
+            // A private goal's marks stay in its owner's feed — the feed is
+            // the only history the app has — and in nobody else's.
+            ->whereIn('goal_id', Goal::query()->visibleTo($viewer)->select('id'))
             ->latest('marked_on')->latest()
             ->orderByDesc('id')
             ->limit($limit + 1)

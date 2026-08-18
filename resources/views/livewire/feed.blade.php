@@ -6,6 +6,7 @@ use App\Actions\ToggleReaction;
 use App\Concerns\InteractsWithMember;
 use App\Concerns\ResumesSharing;
 use App\Enums\ReactionEmoji;
+use App\Models\Goal;
 use App\Models\Mark;
 use App\Queries\FeedPage;
 use App\ValueObjects\FeedEntry;
@@ -44,7 +45,7 @@ new class extends Component
     #[Computed]
     public function page(): FeedResult
     {
-        return resolve(FeedPage::class)->load($this->limit);
+        return resolve(FeedPage::class)->load($this->member(), $this->limit);
     }
 
     /** @return Collection<string, Collection<int, FeedEntry>> */
@@ -95,7 +96,11 @@ new class extends Component
 
     public function react(string $markId, string $emoji): void
     {
-        $mark = Mark::query()->findOrFail($markId);
+        // Scoped to what this member's feed can show, so a mark id lifted
+        // from elsewhere cannot reach a private goal's mark.
+        $mark = Mark::query()
+            ->whereIn('goal_id', Goal::query()->visibleTo($this->member())->select('id'))
+            ->findOrFail($markId);
 
         resolve(ToggleReaction::class)->handle($mark, $this->member(), ReactionEmoji::from($emoji));
 
