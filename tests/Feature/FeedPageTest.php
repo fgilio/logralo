@@ -129,6 +129,21 @@ it('restarts the flame after a gap in the goal history', function (): void {
         ->and(feedEntryFor($page, $after)->streak)->toBe(1);
 });
 
+it('keeps the feed flame connected across an archive pause', function (): void {
+    feedAt('2026-08-11 09:00');
+
+    $goal = Goal::factory()->create([
+        'streak_pauses' => [
+            ['from' => '2026-08-09', 'archived_on' => '2026-08-09', 'through' => '2026-08-10'],
+        ],
+    ]);
+
+    Mark::factory()->for($goal)->on('2026-08-08')->create();
+    $after = Mark::factory()->for($goal)->on('2026-08-11')->create();
+
+    expect(feedEntryFor(feedFor(10), $after)->streak)->toBe(2);
+});
+
 it('counts only the goal own days towards its flame', function (): void {
     feedAt('2026-08-11 09:00');
 
