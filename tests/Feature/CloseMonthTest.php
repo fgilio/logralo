@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use App\Actions\ArchiveGoal;
 use App\Actions\CloseMonth;
 use App\Actions\MarkGoal;
 use App\Exceptions\MonthClosedException;
@@ -187,6 +188,26 @@ it('freezes the standings so later archiving cannot rewrite them', function (): 
         ->and($reread->standingEntries()->first()->possibleMarks)->toBe(31);
 });
 
+it('counts a goal archived after the month ended but before it closed', function (): void {
+    $this->travelTo(CarbonImmutable::parse('2026-08-01 09:00', 'America/Montevideo')->utc());
+
+    $user = User::factory()->create(['name' => 'Ana']);
+    $goal = julyGoal($user);
+
+    Mark::factory()->for($goal)->on('2026-07-01')->withPhoto()->create();
+    Mark::factory()->for($goal)->on('2026-07-02')->create();
+
+    resolve(ArchiveGoal::class)->handle($goal);
+
+    $this->travelTo(CarbonImmutable::parse('2026-08-01 15:00', 'UTC'));
+
+    $frozen = closeJulyRecap()->standingEntries()->sole();
+
+    expect($frozen->fullMarks)->toBe(1)
+        ->and($frozen->ghostMarks)->toBe(1)
+        ->and($frozen->possibleMarks)->toBe(31);
+});
+
 it('stays shut to a member whose clock moves west after the close', function (): void {
     // Closing asks every member's clock; marking asks one. That is the whole
     // gap: any change to a member's clock after the close can reopen a day
@@ -261,7 +282,7 @@ it('records a best streak that crosses an archive pause', function (): void {
         ->and($recap->best_streak_goal_id)->toBe($goal->id);
 });
 
-it('counts a streak on a goal that was archived after the month', function (): void {
+it('counts standings and a streak on a goal archived after the month', function (): void {
     $this->travelTo(CarbonImmutable::parse('2026-08-01 15:00', 'UTC'));
 
     $user = User::factory()->create(['name' => 'Ana']);
@@ -271,12 +292,10 @@ it('counts a streak on a goal that was archived after the month', function (): v
         Mark::factory()->for($goal)->on("2026-{$day}")->withPhoto()->create();
     }
 
-    // The member has no active goal left, so the table is empty…
     $recap = closeJulyRecap();
 
-    expect($recap->standings)->toBe([])
-        ->and($recap->winner_user_id)->toBeNull()
-        // …but the flame really burned, so the recap still remembers it.
+    expect($recap->standingEntries()->sole()->possibleMarks)->toBe(31)
+        ->and($recap->winner_user_id)->toBe($user->id)
         ->and($recap->best_streak_days)->toBe(4)
         ->and($recap->best_streak_goal_id)->toBe($goal->id);
 });
