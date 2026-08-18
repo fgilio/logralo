@@ -36,18 +36,30 @@ final readonly class GoalHistory
             return collect();
         }
 
-        return Mark::query()
+        $goals = Goal::query()
+            ->whereKey($goalIds)
+            ->get(['id', 'streak_pauses'])
+            ->keyBy('id');
+
+        $marks = Mark::query()
             ->whereIn('goal_id', $goalIds)
             ->oldest('marked_on')
             ->get(['goal_id', 'marked_on', 'photo_key'])
-            ->groupBy('goal_id')
-            ->map(fn (Collection $marks): MarkHistory => new MarkHistory(array_values(
-                $marks
+            ->groupBy('goal_id');
+
+        return collect($goalIds)->mapWithKeys(function (string $goalId) use ($goals, $marks): array {
+            /** @var Collection<int, Mark> $goalMarks */
+            $goalMarks = $marks->get($goalId, collect());
+
+            return [$goalId => new MarkHistory(
+                entries: array_values($goalMarks
                     ->map(fn (Mark $mark): array => [
                         'date' => $mark->marked_on->toDateString(),
                         'full' => $mark->photo_key !== null,
                     ])
-                    ->all()
-            )));
+                    ->all()),
+                pauses: $goals->get($goalId)?->streakPauses() ?? [],
+            )];
+        });
     }
 }
