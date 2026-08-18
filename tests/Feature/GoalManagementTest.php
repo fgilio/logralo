@@ -258,6 +258,19 @@ it('renames a goal from the profile screen', function (): void {
         ->and($user->goals()->count())->toBe(1);
 });
 
+it('opens the rename sheet clean after a rejected new goal', function (): void {
+    $user = User::factory()->create();
+    $goal = Goal::factory()->for($user)->create(['name' => 'Gimnasio']);
+
+    Livewire::actingAs($user)
+        ->test('pages::profile')
+        ->set('goalName', '')
+        ->call('saveGoal')
+        ->assertHasErrors('goalName')
+        ->call('editGoal', $goal->id)
+        ->assertHasNoErrors();
+});
+
 it('keeps the profile screen from touching another member goal', function (): void {
     $user = User::factory()->create();
     $foreign = Goal::factory()->create();

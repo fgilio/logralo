@@ -149,6 +149,9 @@ new #[Title('Perfil')] class extends Component
         $this->goalEmoji = $goal->emoji;
         $this->goalName = $goal->name;
         $this->goalPrivate = $goal->isPrivate();
+        // One sheet serves both, so a rejected "Nuevo objetivo" leaves an error
+        // behind that would otherwise greet a rename with nothing wrong with it.
+        $this->resetValidation();
 
         $this->modal('goal-form')->show();
     }
