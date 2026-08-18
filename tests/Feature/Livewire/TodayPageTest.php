@@ -99,7 +99,7 @@ it('hides the grace banner once the cutoff has passed', function (): void {
     $component->assertDontSeeHtml('data-test="grace-banner"');
 });
 
-it('keeps a goal already marked yesterday out of the grace banner', function (): void {
+it('keeps every goal in the grace banner after one is marked', function (): void {
     $user = User::factory()->create();
     $done = Goal::factory()->for($user)->create(['name' => 'Natacion', 'position' => 1]);
     $pending = Goal::factory()->for($user)->create(['name' => 'Guitarra', 'position' => 2]);
@@ -108,19 +108,25 @@ it('keeps a goal already marked yesterday out of the grace banner', function ():
 
     $component = Livewire::actingAs($user)->test('pages::today');
 
-    expect($component->get('graceGoals')->pluck('id')->all())->toBe([$pending->id]);
+    expect($component->get('graceGoals')->pluck('id')->all())->toBe([$done->id, $pending->id]);
 
     $component
+        ->assertSeeHtml('data-test="grace-goal-'.$done->id.'"')
+        ->assertSeeHtml('aria-pressed="true"')
         ->assertSeeHtml('data-test="grace-goal-'.$pending->id.'"')
-        ->assertDontSeeHtml('data-test="grace-goal-'.$done->id.'"');
+        ->assertSeeHtml('aria-pressed="false"');
 });
 
-it('drops the grace banner once every goal is caught up', function (): void {
+it('keeps the grace banner after every goal is caught up', function (): void {
     $user = User::factory()->create();
     $goal = Goal::factory()->for($user)->create();
     Mark::factory()->for($goal)->on('2026-08-10')->create();
 
-    Livewire::actingAs($user)->test('pages::today')->assertDontSeeHtml('data-test="grace-banner"');
+    Livewire::actingAs($user)
+        ->test('pages::today')
+        ->assertSeeHtml('data-test="grace-banner"')
+        ->assertSeeHtml('data-test="grace-goal-'.$goal->id.'"')
+        ->assertSeeHtml('aria-pressed="true"');
 });
 
 it("reads the grace window off the member's own clock", function (): void {
@@ -248,6 +254,6 @@ it('recomputes everything when a mark lands anywhere on the page', function (): 
     $component->dispatch('mark-updated');
 
     expect($component->get('pulse')->first()->markedToday)->toBe(1)
-        ->and($component->get('graceGoals'))->toHaveCount(0)
+        ->and($component->get('graceGoals'))->toHaveCount(1)
         ->and($component->get('standings')->first()->ghostMarks)->toBe(2);
 });
