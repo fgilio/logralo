@@ -7,7 +7,6 @@ namespace App\Actions;
 use App\Exceptions\GoalLimitReachedException;
 use App\Exceptions\UserFacingException;
 use App\Models\Goal;
-use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\Context;
 use Illuminate\Support\Facades\Log;
 use Throwable;
@@ -67,7 +66,7 @@ final readonly class RestoreGoal
         $pauseIndex = array_key_last($pauses);
 
         if ($pauseIndex === null || $pauses[$pauseIndex]['through'] !== null) {
-            $pauses[] = $this->legacyOpenStreakPause($goal, $archivedAt);
+            $pauses[] = $goal->streakPauseStartingAt($archivedAt);
             $pauseIndex = array_key_last($pauses);
         }
 
@@ -82,24 +81,5 @@ final readonly class RestoreGoal
         $pauses[$pauseIndex]['through'] = $through->toDateString();
 
         return $pauses;
-    }
-
-    /** @return array{from: string, archived_on: string, through: null} */
-    private function legacyOpenStreakPause(Goal $goal, CarbonImmutable $archivedAt): array
-    {
-        $clock = $goal->user->clock();
-        $archivedAt = $archivedAt->setTimezone($clock->timezone);
-        $archivedDay = $archivedAt->startOfDay();
-        $from = $archivedDay;
-
-        if ($archivedAt->hour < $clock->graceCutoffHour) {
-            $from = $from->subDay();
-        }
-
-        return [
-            'from' => $from->toDateString(),
-            'archived_on' => $archivedDay->toDateString(),
-            'through' => null,
-        ];
     }
 }

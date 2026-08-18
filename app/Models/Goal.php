@@ -75,6 +75,18 @@ final class Goal extends Model
         return $this->streak_pauses ?? [];
     }
 
+    /** @return array{from: string, archived_on: string, through: null} */
+    public function streakPauseStartingAt(CarbonImmutable $archivedAt): array
+    {
+        $clock = $this->user->clock();
+
+        return [
+            'from' => $clock->oldestOpenDayAt($archivedAt)->toDateString(),
+            'archived_on' => $clock->dayOf($archivedAt)->toDateString(),
+            'through' => null,
+        ];
+    }
+
     /** @param  Builder<$this>  $query */
     #[Scope]
     protected function active(Builder $query): void

@@ -69,6 +69,15 @@ final readonly class UserClock
         return $this->localize($instant)->startOfDay();
     }
 
+    public function oldestOpenDayAt(CarbonImmutable $instant): CarbonImmutable
+    {
+        $day = $this->dayOf($instant);
+
+        return $this->localize($instant)->lessThan($this->closesAt($day->subDay()))
+            ? $day->subDay()
+            : $day;
+    }
+
     /**
      * The instant day $day stops accepting marks: the next day at the grace
      * hour.
