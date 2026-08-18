@@ -30,6 +30,7 @@ final readonly class RestoreGoal
             $goal->update([
                 'archived_at' => null,
                 'position' => $goal->user->nextGoalPosition(),
+                'streak_pauses' => $this->streakPausesAfterRestore($goal),
             ]);
 
             Context::add('logralo.outcome', 'completed');
@@ -49,5 +50,35 @@ final readonly class RestoreGoal
         } finally {
             Log::info('goal.restore.handled');
         }
+    }
+
+    /** @return list<array{from: string, through: string}> */
+    private function streakPausesAfterRestore(Goal $goal): array
+    {
+        if ($goal->archived_at === null) {
+            return $goal->streakPauses();
+        }
+
+        $clock = $goal->user->clock();
+        $archivedAt = $goal->archived_at->setTimezone($clock->timezone);
+        $from = $clock->dayOf($goal->archived_at);
+
+        if ($archivedAt->hour < $clock->graceCutoffHour) {
+            $from = $from->subDay();
+        }
+
+        $through = $clock->today()->subDay();
+
+        if ($through->lessThan($from)) {
+            return $goal->streakPauses();
+        }
+
+        return [
+            ...$goal->streakPauses(),
+            [
+                'from' => $from->toDateString(),
+                'through' => $through->toDateString(),
+            ],
+        ];
     }
 }

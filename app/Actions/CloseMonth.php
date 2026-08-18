@@ -128,7 +128,7 @@ final readonly class CloseMonth
                 continue;
             }
 
-            $days = $this->streaks->bestWithin($history->dates(), $from, $to);
+            $days = $this->streaks->bestWithin($history->dates(), $from, $to, $history->pauses);
 
             if ($days > $best['days']) {
                 $best = ['user_id' => $goal->user_id, 'goal_id' => $goal->id, 'days' => $days];

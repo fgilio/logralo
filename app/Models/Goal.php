@@ -26,12 +26,13 @@ use Override;
  * @property int $position
  * @property GoalVisibility $visibility
  * @property CarbonImmutable|null $archived_at
+ * @property list<array{from: string, through: string}>|null $streak_pauses
  * @property CarbonImmutable|null $created_at
  * @property CarbonImmutable|null $updated_at
  * @property-read User $user
  * @property-read Collection<int, Mark> $marks
  */
-#[Fillable(['emoji', 'name', 'position', 'visibility', 'archived_at'])]
+#[Fillable(['emoji', 'name', 'position', 'visibility', 'archived_at', 'streak_pauses'])]
 final class Goal extends Model
 {
     /** @use HasFactory<GoalFactory> */
@@ -66,6 +67,12 @@ final class Goal extends Model
     public function isPrivate(): bool
     {
         return $this->visibility === GoalVisibility::Private;
+    }
+
+    /** @return list<array{from: string, through: string}> */
+    public function streakPauses(): array
+    {
+        return $this->streak_pauses ?? [];
     }
 
     /** @param  Builder<$this>  $query */
@@ -111,6 +118,7 @@ final class Goal extends Model
             'position' => 'integer',
             'visibility' => GoalVisibility::class,
             'archived_at' => 'immutable_datetime',
+            'streak_pauses' => 'array',
             'created_at' => 'immutable_datetime',
             'updated_at' => 'immutable_datetime',
         ];
