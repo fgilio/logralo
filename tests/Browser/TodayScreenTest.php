@@ -492,3 +492,134 @@ it('leaves the gesture to an open sheet', function (): void {
 
     $page->assertNoJavaScriptErrors();
 });
+
+/**
+ * The slow pull.
+ *
+ * A finger that creeps off the top delivers its first `touchmove` before it
+ * has travelled the slop the indicator waits for, and that move is the only
+ * one the page can still claim: measured in Chromium, everything after the
+ * first unclaimed move arrives uncancelable and the browser is already
+ * scrolling. So the claim is asserted on the small move, not the big one.
+ */
+it('claims the pull on the first move, before the finger has travelled', function (): void {
+    $user = User::factory()->create();
+    Goal::factory()->for($user)->create(['name' => 'Gimnasio']);
+
+    $this->actingAs($user);
+
+    $page = visit('/')->on()->iPhone15Pro();
+
+    $creep = <<<'CREEP'
+        (() => {
+            const root = document.querySelector('[data-test="pull-to-refresh"]');
+            const state = () => Alpine.$data(root);
+
+            // dispatchEvent answers false when something called preventDefault.
+            const fire = (type, y) => {
+                const touch = new Touch({ identifier: 1, target: root, clientX: 40, clientY: y });
+                const held = type === 'touchend' ? [] : [touch];
+
+                return ! root.dispatchEvent(new TouchEvent(type, {
+                    bubbles: true,
+                    cancelable: true,
+                    touches: held,
+                    targetTouches: held,
+                    changedTouches: [touch],
+                }));
+            };
+
+            fire('touchstart', 100);
+
+            // 4px: under the 8px slop, and the whole gesture rides on it.
+            const claimedTheCreep = fire('touchmove', 104);
+            const showingYet = state().owning;
+
+            for (let y = 120; y <= 260; y += 20) fire('touchmove', y);
+
+            return JSON.stringify({
+                claimedTheCreep,
+                // The indicator still waits: a tap's jitter must not twitch it.
+                showingYet,
+                owning: state().owning,
+                distance: state().distance,
+            });
+        })()
+    CREEP;
+
+    expect(json_decode((string) $page->script($creep), true))->toBe([
+        'claimedTheCreep' => true,
+        'showingYet' => false,
+        'owning' => true,
+        'distance' => 80,
+    ]);
+
+    $page->assertNoJavaScriptErrors();
+});
+
+/**
+ * The pulse strip is the one thing on this screen that scrolls sideways, and
+ * it sits at the very top, where every pull begins. Claiming the first move
+ * means claiming before the direction is obvious, so the direction has to be
+ * decided in that same move or a swipe along the strip is blocked by a pull
+ * that was never intended.
+ */
+it('leaves a sideways swipe to the pulse strip', function (): void {
+    $user = User::factory()->create(['name' => 'Ana Pérez']);
+    Goal::factory()->for($user)->create(['name' => 'Gimnasio']);
+
+    $this->actingAs($user);
+
+    $page = visit('/')->on()->iPhone15Pro();
+
+    $swipe = <<<'SWIPE'
+        (() => {
+            const root = document.querySelector('[data-test="pull-to-refresh"]');
+            const avatar = document.querySelector('[data-test^="pulse-"]');
+
+            const fire = (type, x, y) => {
+                const touch = new Touch({ identifier: 1, target: avatar, clientX: x, clientY: y });
+                const held = type === 'touchend' ? [] : [touch];
+
+                return ! avatar.dispatchEvent(new TouchEvent(type, {
+                    bubbles: true,
+                    cancelable: true,
+                    touches: held,
+                    targetTouches: held,
+                    changedTouches: [touch],
+                }));
+            };
+
+            fire('touchstart', 300, 40);
+
+            // Sideways, with the drift a real thumb leaves down the screen.
+            const blocked = [];
+
+            for (let step = 1; step <= 8; step++) {
+                blocked.push(fire('touchmove', 300 - step * 25, 40 + step * 1.5));
+            }
+
+            const state = Alpine.$data(root);
+
+            return JSON.stringify({
+                // Reported rather than assumed: a swipe that never reached the
+                // page handler would pass this test for the wrong reason.
+                reachedThePage: root.contains(avatar),
+                blockedAny: blocked.some(Boolean),
+                tracking: state.tracking,
+                owning: state.owning,
+                distance: state.distance,
+            });
+        })()
+    SWIPE;
+
+    expect(json_decode((string) $page->script($swipe), true))->toBe([
+        'reachedThePage' => true,
+        'blockedAny' => false,
+        'tracking' => false,
+        'owning' => false,
+        'distance' => 0,
+    ]);
+
+    $page->assertNoJavaScriptErrors();
+});

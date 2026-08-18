@@ -548,8 +548,9 @@ document.addEventListener("alpine:init", () => {
 
         /** The gesture could still become a pull. */
         tracking: false,
-        /** It did, and the browser has been told to keep its hands off. */
+        /** It did, and the indicator is following the finger. */
         owning: false,
+        startX: 0,
         startY: 0,
 
         /**
@@ -604,14 +605,23 @@ document.addEventListener("alpine:init", () => {
                 event.target.closest("dialog") === null;
 
             this.owning = false;
+            this.startX = event.touches[0]?.clientX ?? 0;
             this.startY = event.touches[0]?.clientY ?? 0;
         },
 
         /**
-         * The frame that decides. Until `owning`, the browser still holds the
-         * gesture and the `preventDefault()` below is what takes it; let one
-         * move go by unclaimed and the rest arrive uncancelable, with the page
-         * scrolling whatever this does.
+         * The frame that decides, and there is only one of it. A move that
+         * goes by without `preventDefault()` hands the gesture to the browser
+         * for good: measured in Chromium, every touchmove after the first
+         * unclaimed one arrives uncancelable. So the pull is claimed on the
+         * very first move, well before the slop — which only decides when the
+         * indicator starts following the finger, not who owns the gesture.
+         *
+         * Sideways has to be ruled out in the same breath, because claiming
+         * early means claiming before the direction is obvious. The pulse
+         * strip scrolls horizontally and sits at the top of the page, where
+         * every pull begins, so a swipe along it is the one gesture that would
+         * otherwise be taken for a pull and blocked.
          */
         move(event) {
             const touch = this.tracking ? event.touches[0] : null;
@@ -621,21 +631,27 @@ document.addEventListener("alpine:init", () => {
             const delta = touch.clientY - this.startY;
 
             if (!this.owning) {
-                // Upwards, or a page that moved under the finger: a scroll, and
-                // it stays one for the rest of the gesture.
-                if (delta <= 0 || this.scroller.scrollTop > 0) {
+                // Upwards, sideways, or a page that moved under the finger:
+                // a scroll, and it stays one for the rest of the gesture.
+                if (
+                    delta <= 0 ||
+                    Math.abs(touch.clientX - this.startX) > delta ||
+                    this.scroller.scrollTop > 0
+                ) {
                     this.tracking = false;
 
                     return;
                 }
 
-                if (delta < this.slop) return;
-
-                this.owning = true;
+                this.owning = delta >= this.slop;
             }
 
             // Resistance, so the indicator never tracks the finger one to one.
-            this.distance = Math.min(this.max, delta * 0.5);
+            // A finger that comes back up past where it started leaves the
+            // indicator at rest rather than dragging it off the top.
+            if (this.owning) {
+                this.distance = Math.min(this.max, Math.max(0, delta) * 0.5);
+            }
 
             if (event.cancelable) event.preventDefault();
         },
