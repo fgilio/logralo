@@ -49,6 +49,31 @@ it('marks a goal when the card is tapped', function (): void {
         ->and($mark->marked_on->toDateString())->toBe($user->clock()->today()->toDateString());
 });
 
+it('un-marks a goal from the sheet, and never from the tap alone', function (): void {
+    $user = User::factory()->create();
+    $goal = Goal::factory()->for($user)->create(['name' => 'Correr']);
+    Mark::factory()->for($goal)->on($user->clock()->today()->toDateString())->create();
+
+    $this->actingAs($user);
+
+    $page = visit('/')->on()->iPhone15Pro()
+        ->assertAriaAttribute('@goal-card-'.$goal->id, 'pressed', 'true')
+        // The tap that used to delete the day now only opens the way out.
+        ->click('@goal-card-'.$goal->id)
+        ->wait(1)
+        ->assertVisible('@remove')
+        ->assertAriaAttribute('@goal-card-'.$goal->id, 'pressed', 'true');
+
+    expect(Mark::query()->count())->toBe(1);
+
+    $page->click('@remove')
+        ->wait(1)
+        ->assertAriaAttribute('@goal-card-'.$goal->id, 'pressed', 'false')
+        ->assertNoJavaScriptErrors();
+
+    expect(Mark::query()->count())->toBe(0);
+});
+
 it('marks a goal activated without a pointer or a key', function (): void {
     $user = User::factory()->create();
     $goal = Goal::factory()->for($user)->create(['name' => 'Correr']);

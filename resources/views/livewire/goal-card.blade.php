@@ -26,11 +26,13 @@ use Livewire\WithFileUploads;
 /**
  * One goal, on one day.
  *
- * Tap marks. Tap again un-marks, while the day is still open. Holding opens the
- * sheet, where the camera and the note live — a hold cannot open the camera
- * directly, because the browser's user activation does not survive the press
- * timer on iOS, and a camera button that silently does nothing would be worse
- * than one extra tap.
+ * Tap marks. Tap a marked card and the sheet opens instead — un-marking is a
+ * button in there, never the tap itself, because the same one-finger gesture
+ * that claims a day was also giving it back, photo and all, to a pocket touch.
+ * Holding opens that same sheet, where the camera and the note live — a hold
+ * cannot open the camera directly, because the browser's user activation does
+ * not survive the press timer on iOS, and a camera button that silently does
+ * nothing would be worse than one extra tap.
  */
 new class extends Component
 {
@@ -118,11 +120,12 @@ new class extends Component
     }
 
     /**
-     * A single tap: mark, or un-mark what a mistap marked.
+     * A single tap: mark the day, or open the sheet on one already marked.
      *
      * The tap answers the card the finger saw. Livewire queues a call made
      * while a request is in flight, so an impatient double tap arrives as two
-     * presses, and the second one would take back the mark the first wrote.
+     * presses, and the second one would land on a card that has already
+     * changed under it.
      */
     public function press(bool $marked): void
     {
@@ -130,15 +133,13 @@ new class extends Component
             return;
         }
 
-        if ($marked) {
-            $this->remove();
-
-            return;
-        }
-
-        // Two ghost marks in a row and the third tap owes a photo, so the tap
-        // opens the sheet instead of marking.
-        if ($this->requiresPhoto) {
+        // Both of the taps that do not mark end up in the same place. A day
+        // already marked goes there because nothing destructive rides on a
+        // tap — un-marking is a labelled button in the sheet, and a mistap
+        // costs a second one rather than the day. Two ghost marks in a row
+        // go there because the third tap owes a photo, and the camera is in
+        // there too.
+        if ($marked || $this->requiresPhoto) {
             $this->modal($this->sheetName)->show();
 
             return;
@@ -288,8 +289,9 @@ new class extends Component
 
      `press()` is the card's own, not `$wire.press()`: it reads the
      `aria-pressed` below off this element and sends it along, which is what
-     tells a deliberate un-mark from the second half of a double tap. Every
-     variant hangs it on the same root, so all three get that for free. --}}
+     lets the second half of a double tap be dropped instead of acted on after
+     the first has already changed the card. Every variant hangs it on the same
+     root, so all three get that for free. --}}
 <div wire:key="goal-card-{{ $goal->id }}-{{ $date }}">
     <div
         x-data="goalCard({ delay: 420 })"
@@ -506,6 +508,8 @@ new class extends Component
                 </flux:button>
             </div>
         @else
+            {{-- The only way to un-mark: a tap on the card opens this instead
+                 of taking the day back where the finger landed. --}}
             <div class="mt-5 flex flex-col gap-4">
                 @if ($mark->note !== null)
                     <flux:text>{{ $mark->note }}</flux:text>
@@ -516,7 +520,11 @@ new class extends Component
                 </flux:button>
 
                 <flux:text size="sm" class="text-center">
-                    Podés quitarla mientras el día siga abierto.
+                    @if ($isFull)
+                        La foto se va con ella. Podés quitarla mientras el día siga abierto.
+                    @else
+                        Podés quitarla mientras el día siga abierto.
+                    @endif
                 </flux:text>
             </div>
         @endif
