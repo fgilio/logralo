@@ -127,12 +127,12 @@ it('refuses a message longer than the sheet allows', function (): void {
 it('puts the button on every screen behind the gate', function (): void {
     $user = User::factory()->create();
 
-    $this->actingAs($user)->get(route('today'))->assertOk()->assertSee('open-feedback', escape: false);
-    $this->actingAs($user)->get(route('profile'))->assertOk()->assertSee('open-feedback', escape: false);
+    $this->actingAs($user)->get(route('today'))->assertOk()->assertSeeLivewire('feedback');
+    $this->actingAs($user)->get(route('profile'))->assertOk()->assertSeeLivewire('feedback');
 });
 
 it('leaves the login screen alone', function (): void {
     // The sheet needs a member to attribute the message to, and the login page
     // has none — it is drawn by `layouts::auth`, which carries no button.
-    $this->get(route('login'))->assertOk()->assertDontSee('open-feedback', escape: false);
+    $this->get(route('login'))->assertOk()->assertDontSeeLivewire('feedback');
 });

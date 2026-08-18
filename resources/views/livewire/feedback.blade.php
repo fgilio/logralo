@@ -57,7 +57,7 @@ new class extends Component
     <button
         type="button"
         x-on:click="$flux.modal('feedback').show()"
-        class="tap-target fixed right-4 bottom-[calc(1rem+env(safe-area-inset-bottom,0px))] z-30 grid size-12 place-items-center rounded-full bg-zinc-900 text-white shadow-lg ring-1 ring-black/10 transition active:scale-95 dark:bg-white dark:text-zinc-900 dark:ring-white/10"
+        class="tap-target fixed right-4 bottom-[calc(1rem+var(--spacing-safe-b))] z-30 grid size-12 place-items-center rounded-full bg-zinc-900 text-white shadow-lg ring-1 ring-black/10 transition active:scale-95 dark:bg-white dark:text-zinc-900 dark:ring-white/10"
         aria-label="Contar algo de la app"
         data-test="open-feedback"
     >

@@ -10,6 +10,7 @@ use App\Models\User;
 use Illuminate\Support\Facades\Context;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Mail;
+use Illuminate\Support\Str;
 use Throwable;
 
 /**
@@ -29,9 +30,14 @@ final readonly class SendFeedback
 
         try {
             $feedback = $user->feedback()->create([
-                'body' => $body,
+                'body' => $this->clean($body),
                 'page' => $page,
             ]);
+
+            // The mailable needs the member, and the member is right here.
+            // `create()` on a relation does not set the inverse, so without
+            // this the nudge re-reads a row we already hold.
+            $feedback->setRelation('user', $user);
 
             Context::add('logralo.feedback_id', $feedback->id);
             Context::add('logralo.notified', $this->notify($feedback));
@@ -47,6 +53,20 @@ final readonly class SendFeedback
         } finally {
             Log::info('feedback.send.handled');
         }
+    }
+
+    /**
+     * The cap belongs to the unit of work, not only to the form in front of
+     * it: the sheet validates, but the Action is what always runs. Trimmed
+     * rather than squished, unlike a mark's note — a report of any length is
+     * somebody's paragraphs, and their line breaks are theirs.
+     */
+    private function clean(string $body): string
+    {
+        return Str::of($body)
+            ->trim()
+            ->limit(config()->integer('logralo.feedback.max_length'), end: '')
+            ->toString();
     }
 
     /** Whether the inbox heard about it. An unset inbox is a choice, not a failure. */

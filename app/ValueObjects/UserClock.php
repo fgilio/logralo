@@ -47,6 +47,17 @@ final readonly class UserClock
     }
 
     /**
+     * An instant as the member reads it off their own phone.
+     *
+     * Timestamps are stored in the app's zone, so anything shown back to
+     * somebody — or shown to us about them — passes through here first.
+     */
+    public function localize(CarbonImmutable $instant): CarbonImmutable
+    {
+        return $instant->setTimezone($this->timezone);
+    }
+
+    /**
      * The member's own calendar day an instant fell on.
      *
      * Timestamps are stored in the app's zone, so a row written at 22:00 on
@@ -55,7 +66,7 @@ final readonly class UserClock
      */
     public function dayOf(CarbonImmutable $instant): CarbonImmutable
     {
-        return $instant->setTimezone($this->timezone)->startOfDay();
+        return $this->localize($instant)->startOfDay();
     }
 
     /**

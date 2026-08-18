@@ -260,7 +260,7 @@ new #[Title('Perfil')] class extends Component
     $hasUpload = $user->avatar_key !== null;
 @endphp
 
-<div class="mx-auto min-h-dvh w-full max-w-lg px-4 pt-safe-t pb-safe-b">
+<div class="mx-auto min-h-dvh w-full max-w-lg px-4 pt-safe-t pb-safe-fab">
     <header class="flex items-center gap-3 py-4">
         <flux:button
             href="{{ route('today') }}"
