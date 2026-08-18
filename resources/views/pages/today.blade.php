@@ -100,7 +100,7 @@ new #[Title('Hoy')] class extends Component
 
 <div
     x-data="pullToRefresh()"
-    class="mx-auto min-h-dvh w-full max-w-lg px-4 pb-safe-b"
+    class="mx-auto min-h-dvh w-full max-w-lg px-4 pb-safe-fab"
     data-test="pull-to-refresh"
 >
     {{-- Pull-to-refresh indicator, riding above the header. --}}

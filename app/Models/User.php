@@ -37,6 +37,7 @@ use Illuminate\Support\Str;
  * @property-read Collection<int, Goal> $activeGoals
  * @property-read Collection<int, Mark> $marks
  * @property-read Collection<int, Reaction> $reactions
+ * @property-read Collection<int, Feedback> $feedback
  */
 #[Fillable(['name', 'email', 'avatar_key', 'password', 'timezone'])]
 #[Hidden(['password', 'remember_token', 'magic_link_token'])]
@@ -87,6 +88,12 @@ final class User extends Authenticatable
     public function reactions(): HasMany
     {
         return $this->hasMany(Reaction::class);
+    }
+
+    /** @return HasMany<Feedback, $this> */
+    public function feedback(): HasMany
+    {
+        return $this->hasMany(Feedback::class);
     }
 
     /**

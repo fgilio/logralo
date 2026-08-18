@@ -291,6 +291,91 @@ it('opens the month table from the trophy button', function (): void {
         ->assertNoJavaScriptErrors();
 });
 
+it('sends feedback from the floating button', function (): void {
+    $user = User::factory()->create();
+    Goal::factory()->for($user)->create();
+
+    $this->actingAs($user);
+
+    visit('/')->on()->iPhone15Pro()
+        ->assertMissing('@feedback-body')
+        ->click('@open-feedback')
+        ->wait(1)
+        ->type('@feedback-body', 'La cámara no abre')
+        ->click('@send-feedback')
+        ->wait(1)
+        ->assertSee('Gracias')
+        ->assertNoJavaScriptErrors();
+
+    $feedback = $user->feedback()->sole();
+
+    expect($feedback->body)->toBe('La cámara no abre')
+        // The layout hands the component the screen it is drawing, and "Hoy"
+        // is the root path.
+        ->and($feedback->page)->toBe('/');
+});
+
+it('writes what the member dictates into the feedback sheet', function (): void {
+    $user = User::factory()->create();
+    Goal::factory()->for($user)->create();
+
+    $this->actingAs($user);
+
+    // A stand-in for the phone's speech engine, because a headless Chromium
+    // has the API and no microphone behind it. It answers a `start()` with one
+    // settled phrase and then keeps listening, which is the state the button
+    // has to survive: everything under test is on this side of the engine.
+    $engine = <<<'JS'
+        window.SpeechRecognition = window.webkitSpeechRecognition = class {
+            start() {
+                setTimeout(() => {
+                    this.onresult({
+                        results: [
+                            { isFinal: true, 0: { transcript: 'la cámara no abre' } },
+                        ],
+                    });
+                }, 20);
+            }
+
+            stop() {
+                this.onend();
+            }
+        };
+
+        // Playwright calls back whatever the script evaluates to, and a class
+        // is callable enough to try. Anything else ends it.
+        'installed';
+    JS;
+
+    // Opened in one chain, up to and including the assertion that the sheet is
+    // really there: a `click()` left on its own line has nothing waiting on it,
+    // and the script below would land on a page that has not opened yet.
+    $page = visit('/')->on()->iPhone15Pro()
+        ->click('@open-feedback')
+        ->wait(1)
+        ->assertVisible('@feedback-body');
+
+    expect($page->script($engine))->toBe('installed');
+
+    $page->click('@dictate')
+        ->wait(1)
+        ->assertValue('@feedback-body', 'la cámara no abre')
+        ->assertAriaAttribute('@dictate', 'pressed', 'true')
+        ->assertSeeIn('@dictate', 'Escuchando')
+        // Tapping it again is what stops the microphone, and the label follows
+        // the engine rather than the tap.
+        ->click('@dictate')
+        ->wait(1)
+        ->assertAriaAttribute('@dictate', 'pressed', 'false')
+        ->assertSeeIn('@dictate', 'Hablar')
+        ->click('@send-feedback')
+        ->wait(1)
+        ->assertSee('Gracias')
+        ->assertNoJavaScriptErrors();
+
+    expect($user->feedback()->sole()->body)->toBe('la cámara no abre');
+});
+
 it('leaves the goal name the wide half of the new-goal sheet', function (): void {
     $user = User::factory()->create();
 
