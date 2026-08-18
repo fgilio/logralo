@@ -78,6 +78,11 @@ final readonly class UserClock
             : $day;
     }
 
+    public function latestClosedDay(): CarbonImmutable
+    {
+        return $this->oldestOpenDayAt($this->now())->subDay();
+    }
+
     /**
      * The instant day $day stops accepting marks: the next day at the grace
      * hour.

@@ -252,8 +252,30 @@ it('resumes the streak a goal had when it was archived', function (): void {
 
     expect($component->get('streak'))->toBe(4)
         ->and($goal->fresh()->streakPauses())->toBe([
-            ['from' => '2026-08-10', 'archived_on' => '2026-08-11', 'through' => '2026-08-17'],
+            ['from' => '2026-08-10', 'archived_on' => '2026-08-11', 'through' => '2026-08-16'],
         ]);
+});
+
+it('lets an open day break a restored streak after it closes', function (): void {
+    $this->travelTo(CarbonImmutable::parse('2026-08-11 09:00', 'America/Montevideo')->utc());
+
+    $user = User::factory()->create();
+    $goal = Goal::factory()->for($user)->create();
+
+    foreach (['2026-08-07', '2026-08-08', '2026-08-09'] as $date) {
+        Mark::factory()->for($goal)->on($date)->withPhoto()->create();
+    }
+
+    resolve(ArchiveGoal::class)->handle($goal);
+
+    $this->travelTo(CarbonImmutable::parse('2026-08-18 09:00', 'America/Montevideo')->utc());
+    resolve(RestoreGoal::class)->handle($goal);
+
+    $this->travelTo(CarbonImmutable::parse('2026-08-18 12:00', 'America/Montevideo')->utc());
+
+    $component = Livewire::actingAs($user)->test('goal-card', ['goal' => $goal->fresh()]);
+
+    expect($component->get('streak'))->toBe(0);
 });
 
 it('keeps the original pause boundary after a timezone change', function (): void {

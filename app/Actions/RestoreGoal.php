@@ -70,7 +70,7 @@ final readonly class RestoreGoal
             $pauseIndex = array_key_last($pauses);
         }
 
-        $through = $clock->today()->subDay();
+        $through = $clock->latestClosedDay();
 
         if ($through->toDateString() < $pauses[$pauseIndex]['from']) {
             array_pop($pauses);

@@ -145,6 +145,16 @@ it('finds the oldest day still open at an instant', function (string $localTime,
     'after cutoff' => ['2026-08-11 12:00:01', '2026-08-11'],
 ]);
 
+it('finds the latest day that has closed', function (string $localTime, string $expected): void {
+    $this->travelTo(instantInZone('America/Montevideo', $localTime));
+
+    expect(UserClock::in('America/Montevideo')->latestClosedDay()->toDateString())->toBe($expected);
+})->with([
+    'before cutoff' => ['2026-08-11 11:59:59', '2026-08-09'],
+    'at cutoff' => ['2026-08-11 12:00:00', '2026-08-10'],
+    'after cutoff' => ['2026-08-11 12:00:01', '2026-08-10'],
+]);
+
 it('reads the grace hour from configuration', function (): void {
     config()->set('logralo.grace_cutoff_hour', 9);
 
