@@ -7,14 +7,14 @@
     // the card's own colours.
     $onPhoto = $entry->photo !== null;
     $tone = $onPhoto ? 'inverse' : 'default';
-    $alt = $mark->user->name . ': ' . $mark->goal->name;
+    $alt = $entry->photoAlt();
 @endphp
 
 <div class="mark-3u relative">
     @if ($onPhoto)
-        <x-feed.viewer :links="$entry->photo" :alt="$alt" class="size-full">
+        <x-feed.photo-button :entry="$entry" class="size-full">
             <x-photo :links="$entry->photo" :alt="$alt" :eager="$eager" fill wide />
-        </x-feed.viewer>
+        </x-feed.photo-button>
     @else
         <x-feed.ghost :entry="$entry" size="lg" class="size-full" />
     @endif
@@ -50,7 +50,6 @@
 @if ($mark->note !== null)
     <p
         x-data="{ full: false }"
-        x-on:pointerdown.stop
         x-on:click="full = ! full"
         class="flex min-h-(--rung-note) items-center px-3 py-1.5 text-note text-zinc-700 select-text dark:text-zinc-200"
     >

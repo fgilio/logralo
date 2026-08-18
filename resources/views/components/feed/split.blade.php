@@ -10,9 +10,9 @@
 
 <div class="mark-2u flex gap-2.5 p-2.5">
     @if ($entry->photo !== null)
-        <x-feed.viewer :links="$entry->photo" :alt="$mark->user->name . ': ' . $mark->goal->name" class="{{ $box }}">
+        <x-feed.photo-button :entry="$entry" class="{{ $box }}">
             <x-photo :links="$entry->photo" :alt="$mark->goal->name" fill sizes="(max-width: 359px) 112px, 140px" />
-        </x-feed.viewer>
+        </x-feed.photo-button>
     @else
         <x-feed.ghost :entry="$entry" size="md" class="{{ $box }}" />
     @endif

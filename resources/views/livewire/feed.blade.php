@@ -152,6 +152,10 @@ new class extends Component
         </x-empty-state>
     @endforelse
 
+    {{-- One viewer for the whole feed, opened by whichever photo was
+         tapped. --}}
+    <x-feed.viewer />
+
     @if ($this->page->hasMore)
         {{-- The button is the only way in for anyone whose browser never fires
              the intersection, and the sentinel is what everyone else gets. --}}

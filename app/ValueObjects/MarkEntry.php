@@ -27,6 +27,15 @@ final readonly class MarkEntry implements FeedEntry
         return $this->mark->marked_on;
     }
 
+    /**
+     * What a screen reader is told the photo is, wherever it is drawn: the
+     * card, the panel a row opens, and the viewer the tap leads to.
+     */
+    public function photoAlt(): string
+    {
+        return "{$this->mark->user->name}: {$this->mark->goal->name}";
+    }
+
     public function occurredAt(): CarbonImmutable
     {
         return $this->mark->created_at ?? $this->mark->marked_on;

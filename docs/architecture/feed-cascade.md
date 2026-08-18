@@ -73,18 +73,29 @@ Showing and adding are two different problems. A five-emoji bar under every card
 
 **Showing.** Once a mark has any reactions, a summary at every height: the emoji used, overlapped in a small stack, plus the total. About 20 px. The stack shows three at most, and the total beside it stays exact however many kinds are behind it. Your own reaction always holds one of those three slots, ringed in ember, so the ring is reachable even when three louder reactions would push it out.
 
-**Adding.** Two ways into the same floating bar:
+**Adding.** One way into the floating bar: **the `＋` button**, beside the summary, which is what makes the feature discoverable. At 1u it lives in the panel the row opens, so a row carries the summary and no button. The bar opens across the middle of the card, over the photo rather than over the row it was opened from — measured from the foot it would land on that row, and a 3u card's note band moves the foot without moving the button.
 
-1. **The `＋` button.** Beside the summary, which is what makes the feature discoverable. At 1u it lives in the panel the row opens, so a row carries the summary and no button.
-2. **Press and hold, then drag to the emoji and release.** Anywhere on the card except the `＋` and the share button, which own their own press.
+Opening one bar closes any other. It stays in the DOM hidden rather than being built on demand, because a bar created inside the click that opens it hears that same click as an outside click and shuts again.
 
-Opening one bar closes any other. It stays in the DOM hidden rather than being built on demand, because a bar created inside the click that opens it hears that same click as an outside click and shuts again. The hit test runs on coordinates rather than on hover, because a touch pointer captured by the card never fires `pointerenter` on the bar.
-
-The card takes `touch-action: pan-y` so a sideways drag along the bar belongs to the picker while the page keeps its scroll. That is also why **the hold opens the bar centred on the press** rather than at the foot of the card: every vertical move is the page's, and a bar the finger has to travel down to is one the browser scrolls away from, cancelling the pointer on the way. The `＋` button has no press point of its own, so it opens the bar at the foot, and either way the bar is held clear of both edges since the card clips its own overflow.
-
-A hold that never travels is still only a hold: it leaves the bar open for a tap. Sliding is what turns the same press into a choice, which is what keeps the emoji the bar happens to open under from being picked on release.
+**Holding the card opened the same bar under the finger, and no longer does.** A photo is also something you can open full screen, and both features answered the same press on the same pixels: which one you got depended on how long your finger happened to stay down, so tapping a photo was a coin toss between the picture and five emoji. The card's `touch-action: pan-y`, the bar anchored to the press point, and the slide-to-choose hit test went with it. The `＋` was always the discoverable half.
 
 `ReactionEmoji` is where "one reaction per member per mark, and choosing the current one takes it away" is written down. It also carries each emoji's Spanish name, because left to the glyph a screen reader reads the Unicode name in its own language and 🫵 has none worth hearing.
+
+## The photo, full screen
+
+Tapping a photo at any height opens it in a `flux:modal` with `variant="bare"`, named `foto`. Flux owns the dialog — the top layer, the scroll lock, Escape, the fade — and the app owns what is drawn inside it: the member and the goal above the picture, the note below it, and a ✕.
+
+**One viewer for the feed, not one per card**, which is the rule the milestone sheet already wrote down a page away. Twenty cards carrying twenty dialogs is twenty custom elements, forty document listeners and some sixty kilobytes of markup — and because the feed re-renders whole, every reaction tap re-serialises and morphs all of it. So the dialog is rendered once at the foot of the feed and each photo is a button that hands it what it needs: the srcset, the alt, the member, the goal line and the note, as strings, on the click. Nothing about the tapped card reaches it any other way, and nothing it draws costs a round trip.
+
+That is also what decides what the viewer shows. The avatar and the flame stay on the card: an avatar is a server-side chain of upload, then Gravatar, then initials, and a shared dialog cannot carry one without asking the server which mark it is looking at. Neither is why anybody opened the photo.
+
+The card could have hosted its own dialog — `showModal()` paints in the top layer, so neither the card's `overflow-hidden` nor its `content-visibility: auto` clips it, which is the trap the share menu has to be teleported out of. It is placement that argues against it, not painting.
+
+The picture has no `src` until a card hands one over, so a feed downloads its thumbnails and no full-size photo behind a viewer nobody opened. It asks for the same `sizes="100vw"` a cover does, so on a phone the picture the viewer wants is usually the one the feed already has.
+
+Three ways out, because a viewer that traps you reads as a bug: the ✕, Escape, and a drag in any direction, where the picture follows the finger and leaves once it has travelled far enough from where it started. Distance is measured in both axes rather than down the screen: there is nothing to swipe sideways to, so a sideways throw means the same thing as a downward one, and the vertical alone would have read it as a tap. A tap is a drag of nothing at all, and dismisses too, which is what the overlay this replaced did with any click.
+
+The drag belongs to the picture and stops there. It fills the space around the photo, so the letterbox goes with it, but the note below does not: a caption long enough to scroll cannot be scrolled inside `touch-action: none` under a captured pointer, and every touch on it would have been a tap that closed the viewer.
 
 ## A mark without a photo
 
