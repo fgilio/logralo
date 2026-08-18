@@ -52,7 +52,7 @@ final readonly class RestoreGoal
         }
     }
 
-    /** @return list<array{from: string, through: string}> */
+    /** @return list<array{from: string, archived_on: string, through: string}> */
     private function streakPausesAfterRestore(Goal $goal): array
     {
         if ($goal->archived_at === null) {
@@ -61,7 +61,8 @@ final readonly class RestoreGoal
 
         $clock = $goal->user->clock();
         $archivedAt = $goal->archived_at->setTimezone($clock->timezone);
-        $from = $clock->dayOf($goal->archived_at);
+        $archivedDay = $clock->dayOf($goal->archived_at);
+        $from = $archivedDay;
 
         if ($archivedAt->hour < $clock->graceCutoffHour) {
             $from = $from->subDay();
@@ -77,6 +78,7 @@ final readonly class RestoreGoal
             ...$goal->streakPauses(),
             [
                 'from' => $from->toDateString(),
+                'archived_on' => $archivedDay->toDateString(),
                 'through' => $through->toDateString(),
             ],
         ];

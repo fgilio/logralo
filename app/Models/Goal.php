@@ -26,7 +26,7 @@ use Override;
  * @property int $position
  * @property GoalVisibility $visibility
  * @property CarbonImmutable|null $archived_at
- * @property list<array{from: string, through: string}>|null $streak_pauses
+ * @property list<array{from: string, archived_on: string, through: string}>|null $streak_pauses
  * @property CarbonImmutable|null $created_at
  * @property CarbonImmutable|null $updated_at
  * @property-read User $user
@@ -69,7 +69,7 @@ final class Goal extends Model
         return $this->visibility === GoalVisibility::Private;
     }
 
-    /** @return list<array{from: string, through: string}> */
+    /** @return list<array{from: string, archived_on: string, through: string}> */
     public function streakPauses(): array
     {
         return $this->streak_pauses ?? [];

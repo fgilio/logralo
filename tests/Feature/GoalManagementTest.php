@@ -247,7 +247,7 @@ it('resumes the streak a goal had when it was archived', function (): void {
 
     expect($component->get('streak'))->toBe(4)
         ->and($goal->fresh()->streakPauses())->toBe([
-            ['from' => '2026-08-10', 'through' => '2026-08-17'],
+            ['from' => '2026-08-10', 'archived_on' => '2026-08-11', 'through' => '2026-08-17'],
         ]);
 });
 
@@ -277,8 +277,8 @@ it('preserves the streak through repeated archive cycles', function (): void {
 
     expect($component->get('streak'))->toBe(4)
         ->and($goal->fresh()->streakPauses())->toBe([
-            ['from' => '2026-08-11', 'through' => '2026-08-14'],
-            ['from' => '2026-08-16', 'through' => '2026-08-17'],
+            ['from' => '2026-08-11', 'archived_on' => '2026-08-11', 'through' => '2026-08-14'],
+            ['from' => '2026-08-16', 'archived_on' => '2026-08-16', 'through' => '2026-08-17'],
         ]);
 });
 
