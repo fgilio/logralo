@@ -77,7 +77,7 @@ final readonly class MonthlyStandings
 
         $goalsByUser = Goal::query()
             ->sharedWithGroup()
-            ->get(['id', 'user_id', 'created_at', 'archived_at'])
+            ->get(['id', 'user_id', 'created_at', 'archived_at', 'streak_pauses'])
             ->groupBy('user_id');
 
         // Counted as of the window's last day rather than as of now. A month
@@ -160,7 +160,14 @@ final readonly class MonthlyStandings
     /** Whether archiving had already removed the goal by $lastDay. */
     private function remainedActiveThrough(Goal $goal, UserClock $clock, string $lastDay): bool
     {
-        return $goal->archived_at === null
-            || $clock->dayOf($goal->archived_at)->toDateString() > $lastDay;
+        if ($goal->archived_at !== null
+            && $clock->dayOf($goal->archived_at)->toDateString() <= $lastDay) {
+            return false;
+        }
+
+        return collect($goal->streakPauses())->doesntContain(
+            fn (array $pause): bool => $pause['archived_on'] <= $lastDay
+                && $pause['through'] >= $lastDay,
+        );
     }
 }

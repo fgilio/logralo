@@ -5,6 +5,7 @@ declare(strict_types=1);
 use App\Actions\ArchiveGoal;
 use App\Actions\CloseMonth;
 use App\Actions\MarkGoal;
+use App\Actions\RestoreGoal;
 use App\Exceptions\MonthClosedException;
 use App\Models\Goal;
 use App\Models\Mark;
@@ -206,6 +207,26 @@ it('counts a goal archived after the month ended but before it closed', function
     expect($frozen->fullMarks)->toBe(1)
         ->and($frozen->ghostMarks)->toBe(1)
         ->and($frozen->possibleMarks)->toBe(31);
+});
+
+it('omits a goal archived at month end after it is restored and archived again', function (): void {
+    $this->travelTo(CarbonImmutable::parse('2026-07-31 15:00', 'America/Montevideo')->utc());
+
+    $user = User::factory()->create(['name' => 'Ana']);
+    $goal = julyGoal($user);
+
+    Mark::factory()->for($goal)->on('2026-07-31')->withPhoto()->create();
+
+    resolve(ArchiveGoal::class)->handle($goal);
+
+    $this->travelTo(CarbonImmutable::parse('2026-08-01 09:00', 'America/Montevideo')->utc());
+
+    resolve(RestoreGoal::class)->handle($goal);
+    resolve(ArchiveGoal::class)->handle($goal);
+
+    $this->travelTo(CarbonImmutable::parse('2026-08-01 15:00', 'UTC'));
+
+    expect(closeJulyRecap()->standingEntries())->toBeEmpty();
 });
 
 it('stays shut to a member whose clock moves west after the close', function (): void {
