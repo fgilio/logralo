@@ -97,7 +97,7 @@ it('lets a member with five archived goals create a new one', function (): void 
 it('renames a goal', function (): void {
     $goal = Goal::factory()->create(['emoji' => '🏋️', 'name' => 'Gimnasio']);
 
-    $renamed = resolve(RenameGoal::class)->handle($goal, '🏃', 'Correr');
+    $renamed = resolve(RenameGoal::class)->handle($goal, '🏃', 'Correr', $goal->visibility);
 
     expect($renamed->emoji)->toBe('🏃')
         ->and($renamed->name)->toBe('Correr')
@@ -107,7 +107,7 @@ it('renames a goal', function (): void {
 it('renames an archived goal too', function (): void {
     $goal = Goal::factory()->archived()->create(['emoji' => '🏋️', 'name' => 'Gimnasio']);
 
-    resolve(RenameGoal::class)->handle($goal, '🧘', 'Meditar');
+    resolve(RenameGoal::class)->handle($goal, '🧘', 'Meditar', $goal->visibility);
 
     expect($goal->fresh())
         ->name->toBe('Meditar')
@@ -119,7 +119,7 @@ it('leaves the marks of a renamed goal alone', function (): void {
     $goal = Goal::factory()->create(['name' => 'Gimnasio']);
     $mark = Mark::factory()->for($goal)->on('2026-08-10')->create();
 
-    resolve(RenameGoal::class)->handle($goal, '🏃', 'Correr');
+    resolve(RenameGoal::class)->handle($goal, '🏃', 'Correr', $goal->visibility);
 
     expect($goal->marks()->count())->toBe(1)
         ->and($mark->fresh()->marked_on->toDateString())->toBe('2026-08-10');

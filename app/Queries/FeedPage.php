@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace App\Queries;
 
-use App\Models\Goal;
 use App\Models\Mark;
 use App\Models\MonthlyRecap;
 use App\Models\User;
@@ -40,7 +39,7 @@ final readonly class FeedPage
             ->with(['user', 'goal', 'reactions'])
             // A private goal's marks stay in its owner's feed — the feed is
             // the only history the app has — and in nobody else's.
-            ->whereIn('goal_id', Goal::query()->visibleTo($viewer)->select('id'))
+            ->visibleTo($viewer)
             ->latest('marked_on')->latest()
             ->orderByDesc('id')
             ->limit($limit + 1)

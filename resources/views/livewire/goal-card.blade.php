@@ -395,12 +395,12 @@ new class extends Component
                     <x-flame :days="$this->streak" :dim="$dimFlame" size="sm" />
 
                     <div class="flex items-center gap-1.5">
-                        @if ($goal->isPrivate())
-                            <span class="text-xs opacity-60" title="Privado">🔒</span>
-                        @endif
-
                         @if ($owesPhoto)
                             <span class="text-xs" title="Esta va con foto">📸</span>
+                        @endif
+
+                        @if ($goal->isPrivate())
+                            <span class="text-xs opacity-60" title="Privado">🔒</span>
                         @endif
                     </div>
                 </div>

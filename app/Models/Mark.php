@@ -12,6 +12,8 @@ use App\ValueObjects\PhotoLinks;
 use Carbon\CarbonImmutable;
 use Database\Factories\MarkFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
+use Illuminate\Database\Eloquent\Attributes\Scope;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Database\Eloquent\Concerns\HasUlids;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -100,6 +102,18 @@ final class Mark extends Model
     public function isManagedBy(?User $member): bool
     {
         return $member instanceof User && $this->user_id === $member->id;
+    }
+
+    /**
+     * Marks on goals this viewer may see. The policy lives on the Goal
+     * scope of the same name; this only carries it across the join.
+     *
+     * @param  Builder<$this>  $query
+     */
+    #[Scope]
+    protected function visibleTo(Builder $query, User $viewer): void
+    {
+        $query->whereIn('goal_id', Goal::query()->visibleTo($viewer)->select('id'));
     }
 
     /** @return array<string, string> */

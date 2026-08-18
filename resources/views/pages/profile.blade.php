@@ -166,7 +166,6 @@ new #[Title('Perfil')] class extends Component
         $validated = $this->validate([
             'goalEmoji' => ['required', 'string', 'max:8'],
             'goalName' => ['required', 'string', 'max:'.config('logralo.goals.name_max_length')],
-            'goalPrivate' => ['boolean'],
         ]);
 
         $visibility = $this->goalPrivate ? GoalVisibility::Private : GoalVisibility::Group;

@@ -6,7 +6,7 @@ A goal is `group` (the default, and what every goal was before the column existe
 
 Both live on `Goal`, and they are the only places allowed to answer a visibility question:
 
-- **`visibleTo($viewer)`** — every group goal, plus the viewer's own private ones. The feed reads through it, and so does the feed's reaction handler, so a mark id lifted from someone else's page cannot reach a private mark. When audiences arrive, this scope grows an `orWhereHas` and the feed is done.
+- **`visibleTo($viewer)`** — every group goal, plus the viewer's own private ones. The feed reads through it, and so does the feed's reaction handler, so a mark id lifted from someone else's page cannot reach a private mark. Both reach it through `Mark::visibleTo($viewer)`, which owns no policy of its own: it carries the goal-level answer across the join, so a new surface that reads marks has one scope to call. When audiences arrive, the Goal scope grows an `orWhereHas` and the feed is done.
 - **`sharedWithGroup()`** — group goals only, owner included. The pulse ring and the monthly table read through this one.
 
 ## Why the owner's own ring excludes their private goals

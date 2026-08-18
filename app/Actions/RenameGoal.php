@@ -21,7 +21,7 @@ use Throwable;
  */
 final readonly class RenameGoal
 {
-    public function handle(Goal $goal, string $emoji, string $name, ?GoalVisibility $visibility = null): Goal
+    public function handle(Goal $goal, string $emoji, string $name, GoalVisibility $visibility): Goal
     {
         Context::add('logralo.user_id', $goal->user_id);
         Context::add('logralo.goal_id', $goal->id);
@@ -30,7 +30,7 @@ final readonly class RenameGoal
             $goal->update([
                 'emoji' => $emoji,
                 'name' => $name,
-                'visibility' => $visibility ?? $goal->visibility,
+                'visibility' => $visibility,
             ]);
 
             Context::add('logralo.outcome', 'completed');
