@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use App\Actions\SendFeedback;
+use App\Exceptions\EmptyFeedbackException;
 use App\Mail\FeedbackReceived;
 use App\Models\Feedback;
 use App\Models\User;
@@ -29,6 +30,23 @@ it('takes feedback with no page behind it', function (): void {
     $user = User::factory()->create();
 
     expect(resolve(SendFeedback::class)->handle($user, 'Ponele modo oscuro')->page)->toBeNull();
+});
+
+it('refuses a message with nothing in it', function (): void {
+    // The sheet validates too, but the Action is what always runs, and a
+    // blank row is a notification about nothing.
+    expect(fn (): Feedback => resolve(SendFeedback::class)->handle(User::factory()->create(), "  \n "))
+        ->toThrow(EmptyFeedbackException::class);
+
+    expect(Feedback::query()->count())->toBe(0);
+});
+
+it('cuts a message the sheet would never have let through', function (): void {
+    $max = config()->integer('logralo.feedback.max_length');
+
+    $feedback = resolve(SendFeedback::class)->handle(User::factory()->create(), str_repeat('a', $max + 50));
+
+    expect($feedback->body)->toHaveLength($max);
 });
 
 /*
@@ -60,6 +78,15 @@ it('mails nobody when no inbox is configured', function (): void {
     Mail::assertNothingSent();
 
     expect(Feedback::query()->count())->toBe(1);
+});
+
+it('mails what the member typed, character for character', function (): void {
+    // The mail is plain text, so an escaped `&` arrives as `&amp;` — no mail
+    // client decodes it back. What somebody typed has to survive the view.
+    $feedback = Feedback::factory()->create(['body' => 'La "cámara" & el perfil <no> abren']);
+
+    expect(new FeedbackReceived($feedback)->render())
+        ->toContain('La "cámara" & el perfil <no> abren');
 });
 
 it('keeps the feedback when the mail cannot go out', function (): void {

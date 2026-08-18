@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Actions;
 
+use App\Exceptions\EmptyFeedbackException;
+use App\Exceptions\UserFacingException;
 use App\Mail\FeedbackReceived;
 use App\Models\Feedback;
 use App\Models\User;
@@ -29,8 +31,14 @@ final readonly class SendFeedback
         Context::add('logralo.user_id', $user->id);
 
         try {
+            $clean = $this->clean($body);
+
+            if ($clean === '') {
+                throw EmptyFeedbackException::make();
+            }
+
             $feedback = $user->feedback()->create([
-                'body' => $this->clean($body),
+                'body' => $clean,
                 'page' => $page,
             ]);
 
@@ -44,6 +52,11 @@ final readonly class SendFeedback
             Context::add('logralo.outcome', 'completed');
 
             return $feedback;
+        } catch (UserFacingException $exception) {
+            Context::add('logralo.outcome', 'rejected');
+            Context::add('logralo.reject_reason', $exception->reason());
+
+            throw $exception;
         } catch (Throwable $throwable) {
             Context::add('logralo.outcome', 'error');
             Context::add('logralo.error', $throwable->getMessage());

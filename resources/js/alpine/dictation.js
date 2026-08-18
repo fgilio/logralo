@@ -69,11 +69,6 @@ export default (options = {}) => ({
 
         if (!Recognition) return;
 
-        // Whatever is already in the box is kept. Somebody who typed half
-        // a sentence and then gave up on the keyboard is finishing it, not
-        // starting over.
-        this.base = this.$wire[this.property] ?? "";
-
         const recognition = new Recognition();
 
         recognition.lang = navigator.language || "es";
@@ -100,6 +95,12 @@ export default (options = {}) => ({
             // is nothing listening now.
             return;
         }
+
+        // Whatever is already in the box is kept. Somebody who typed half
+        // a sentence and then gave up on the keyboard is finishing it, not
+        // starting over. Read once the engine is running, so a refused start
+        // leaves no state behind it.
+        this.base = this.$wire[this.property] ?? "";
 
         this.recognition = recognition;
         this.listening = true;

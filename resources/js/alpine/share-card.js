@@ -49,6 +49,12 @@ export default (options = {}) => ({
             const response = await fetch(this.imageUrl, {
                 credentials: "same-origin",
             });
+
+            // `fetch` resolves for a 404 too, and the body of an error page
+            // wrapped in a `File` named `logralo.jpg` is a share sheet
+            // offering somebody an HTML document.
+            if (!response.ok) return;
+
             const blob = await response.blob();
             const file = new File([blob], this.filename, {
                 type: blob.type,

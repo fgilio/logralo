@@ -22,6 +22,9 @@ export default (options = {}) => ({
     distance: 0,
     refreshing: false,
 
+    /** The handlers `init` wires up by hand, kept so `destroy` can undo it. */
+    listeners: {},
+
     /** The gesture could still become a pull. */
     tracking: false,
     /** It did, and the indicator is following the finger. */
@@ -161,6 +164,11 @@ export default (options = {}) => ({
             // into one round trip.
             window.Livewire.dispatchTo("feed", "mark-updated");
             await this.$wire.$refresh();
+        } catch {
+            // A pull with no signal behind it, or a session that expired
+            // while the phone was in a pocket. Nothing here is listening for
+            // the reason: the indicator has to come back up either way, and
+            // an unawaited listener that rejects is an unhandled rejection.
         } finally {
             this.refreshing = false;
             this.reset();
