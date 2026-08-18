@@ -271,6 +271,21 @@ it('opens the rename sheet clean after a rejected new goal', function (): void {
         ->assertHasNoErrors();
 });
 
+it('leaves the other forms on the screen their errors', function (): void {
+    $user = User::factory()->create();
+    $goal = Goal::factory()->for($user)->create(['name' => 'Gimnasio']);
+
+    Livewire::actingAs($user)
+        ->test('pages::profile')
+        ->set('name', '')
+        ->call('saveProfile')
+        ->assertHasErrors('name')
+        ->call('editGoal', $goal->id)
+        ->assertHasErrors('name')
+        ->call('newGoal')
+        ->assertHasErrors('name');
+});
+
 it('keeps the profile screen from touching another member goal', function (): void {
     $user = User::factory()->create();
     $foreign = Goal::factory()->create();

@@ -151,7 +151,7 @@ new #[Title('Perfil')] class extends Component
         $this->goalPrivate = $goal->isPrivate();
         // One sheet serves both, so a rejected "Nuevo objetivo" leaves an error
         // behind that would otherwise greet a rename with nothing wrong with it.
-        $this->resetValidation();
+        $this->resetGoalValidation();
 
         $this->modal('goal-form')->show();
     }
@@ -159,7 +159,7 @@ new #[Title('Perfil')] class extends Component
     public function newGoal(): void
     {
         $this->reset('editingGoalId', 'goalEmoji', 'goalName', 'goalPrivate');
-        $this->resetValidation();
+        $this->resetGoalValidation();
 
         $this->modal('goal-form')->show();
     }
@@ -250,6 +250,17 @@ new #[Title('Perfil')] class extends Component
     private function ownedGoal(string $goalId): Goal
     {
         return $this->member()->goals()->findOrFail($goalId);
+    }
+
+    /**
+     * The goal sheet's own errors, and only those. Four forms share this
+     * component and therefore share one error bag, so a bare resetValidation()
+     * here would take the message off a name or a password the member has
+     * still to correct, leaving the bad value on screen with nothing saying so.
+     */
+    private function resetGoalValidation(): void
+    {
+        $this->resetValidation(['goalEmoji', 'goalName']);
     }
 };
 
