@@ -23,7 +23,7 @@ No tabs and no menus. Goal management, timezone, and logout live behind the prof
 - **Tap a pending card**: marked done instantly with optimistic UI. The mark is a ghost until it has a photo.
 - **Hold a card**: opens the native camera input (`<input capture>`). The resulting mark is full. A short note can be added from the same hold action (photo, note, or both). Check Flux Pro for a file upload component to build on.
 - **Forced camera.** Per goal, after 2 consecutive ghost marks, the 3rd tap does not mark. It opens the camera directly with the copy "Pics or it didn't happen 📸". Taking the photo creates a full mark and resets the counter. Backing out of the camera leaves the day unmarked.
-- **Un-mark.** Tapping an already-done card removes the mark (and its photo) while the day is still open. Marks become immutable when the day closes.
+- **Un-mark.** Tapping an already-done card opens its sheet, where one button removes the mark (and its photo) while the day is still open. The tap itself never removes anything: a single stray touch was giving back a whole day, photo included. Marks become immutable when the day closes.
 - **Grace** uses the exact same flow for yesterday. Days before yesterday can never be logged.
 
 ## Time, streaks, and scoring

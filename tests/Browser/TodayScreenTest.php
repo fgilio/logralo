@@ -50,6 +50,33 @@ it('marks a goal when the card is tapped', function (): void {
         ->and($mark->marked_on->toDateString())->toBe($user->clock()->today()->toDateString());
 });
 
+it('un-marks a goal from the sheet, and never from the tap alone', function (): void {
+    $user = User::factory()->create();
+    $goal = Goal::factory()->for($user)->create(['name' => 'Correr']);
+    Mark::factory()->for($goal)->on($user->clock()->today()->toDateString())->create();
+
+    $this->actingAs($user);
+
+    // `aria-pressed` is drawn straight off the mark, so it is the card saying
+    // whether the day survived the tap.
+    visit('/')->on()->iPhone15Pro()
+        ->assertAriaAttribute('@goal-card-'.$goal->id, 'pressed', 'true')
+        // And the card says the tap opens a dialog, so a screen reader does
+        // not announce a toggle and then hand over a sheet.
+        ->assertAriaAttribute('@goal-card-'.$goal->id, 'haspopup', 'dialog')
+        // The tap that used to delete the day now only opens the way out.
+        ->click('@goal-card-'.$goal->id)
+        ->wait(1)
+        ->assertVisible('@remove')
+        ->assertAriaAttribute('@goal-card-'.$goal->id, 'pressed', 'true')
+        ->click('@remove')
+        ->wait(1)
+        ->assertAriaAttribute('@goal-card-'.$goal->id, 'pressed', 'false')
+        ->assertNoJavaScriptErrors();
+
+    expect(Mark::query()->count())->toBe(0);
+});
+
 it('marks and un-marks yesterday without removing the grace chip', function (): void {
     $this->travelTo(CarbonImmutable::parse('2026-08-11 09:00', 'America/Montevideo')->utc());
 
@@ -69,7 +96,13 @@ it('marks and un-marks yesterday without removing the grace chip', function (): 
 
     expect($mark->marked_on->toDateString())->toBe($user->clock()->yesterday()->toDateString());
 
+    // The chip stays in the banner precisely so yesterday can still be taken
+    // back, and taking it back goes through the chip's own sheet — the tap
+    // itself no longer un-marks anything. Today's card for this goal is
+    // unmarked, so its sheet offers the camera rather than a second `@remove`.
     $page->click('@grace-goal-'.$goal->id)
+        ->wait(1)
+        ->click('@remove')
         ->wait(1)
         ->assertVisible('@grace-goal-'.$goal->id)
         ->assertAriaAttribute('@grace-goal-'.$goal->id, 'pressed', 'false')
