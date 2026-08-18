@@ -79,6 +79,31 @@ new class extends Component
 
             <flux:error name="body" />
 
+            {{-- Speaking instead of typing. Absent where the browser has no
+                 speech recognition, which is why it hides itself rather than
+                 being rendered by something the server knows: the server sees
+                 a user agent, and whether this works is a question about the
+                 engine behind it. See `dictation` in `resources/js/app.js`. --}}
+            <div
+                x-data="dictation({ max: {{ config('logralo.feedback.max_length') }} })"
+                x-show="supported"
+                x-cloak
+                class="-mt-2 flex"
+            >
+                <flux:button
+                    type="button"
+                    variant="subtle"
+                    size="sm"
+                    icon="microphone"
+                    x-on:click="toggle()"
+                    x-bind:aria-pressed="listening ? 'true' : 'false'"
+                    x-bind:class="listening && 'text-red-600! dark:text-red-400!'"
+                    data-test="dictate"
+                >
+                    <span x-text="listening ? 'Escuchando…' : 'Hablar'">Hablar</span>
+                </flux:button>
+            </div>
+
             <flux:button
                 type="submit"
                 variant="primary"
