@@ -20,45 +20,43 @@ final readonly class GoalHistory
 {
     public function for(Goal $goal): MarkHistory
     {
-        return $this->forGoals([$goal->id])->get($goal->id, MarkHistory::empty());
+        return $this->forGoals([$goal])->get($goal->id, MarkHistory::empty());
     }
 
     /**
-     * Many goals at once, keyed by goal id — one query for a whole screen.
+     * Many goals at once, keyed by goal ID.
      *
-     * @param  list<string>  $goalIds
+     * @param  iterable<array-key, Goal>  $goals
      * @return Collection<string, MarkHistory>
      */
-    public function forGoals(array $goalIds): Collection
+    public function forGoals(iterable $goals): Collection
     {
-        if ($goalIds === []) {
+        /** @var Collection<string, Goal> $goals */
+        $goals = collect($goals)->keyBy(fn (Goal $goal): string => $goal->id);
+
+        if ($goals->isEmpty()) {
             /** @var Collection<string, MarkHistory> */
             return collect();
         }
 
-        $goals = Goal::query()
-            ->whereKey($goalIds)
-            ->get(['id', 'streak_pauses'])
-            ->keyBy('id');
-
         $marks = Mark::query()
-            ->whereIn('goal_id', $goalIds)
+            ->whereIn('goal_id', $goals->keys()->all())
             ->oldest('marked_on')
             ->get(['goal_id', 'marked_on', 'photo_key'])
             ->groupBy('goal_id');
 
-        return collect($goalIds)->mapWithKeys(function (string $goalId) use ($goals, $marks): array {
+        return $goals->mapWithKeys(function (Goal $goal) use ($marks): array {
             /** @var Collection<int, Mark> $goalMarks */
-            $goalMarks = $marks->get($goalId, collect());
+            $goalMarks = $marks->get($goal->id, collect());
 
-            return [$goalId => new MarkHistory(
+            return [$goal->id => new MarkHistory(
                 entries: array_values($goalMarks
                     ->map(fn (Mark $mark): array => [
                         'date' => $mark->marked_on->toDateString(),
                         'full' => $mark->photo_key !== null,
                     ])
                     ->all()),
-                pauses: $goals->get($goalId)?->streakPauses() ?? [],
+                pauses: $goal->streakPauses(),
             )];
         });
     }
