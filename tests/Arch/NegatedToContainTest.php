@@ -33,7 +33,20 @@ it('never negates a toContain with more than one needle', function (): void {
     $parser = (new ParserFactory)->createForNewestSupportedVersion();
     $finder = new NodeFinder;
 
-    $isNegatedToContain = function (Node $node): bool {
+    $isNegation = function (Node $node): bool {
+        if ($node instanceof PropertyFetch) {
+            return $node->name instanceof Identifier
+                && $node->name->toString() === 'not';
+        }
+
+        // `->not()` returns the same OppositeExpectation as `->not`.
+        return $node instanceof MethodCall
+            && $node->args === []
+            && $node->name instanceof Identifier
+            && $node->name->toString() === 'not';
+    };
+
+    $isNegatedToContain = function (Node $node) use ($isNegation): bool {
         if (! $node instanceof MethodCall || ! $node->name instanceof Identifier) {
             return false;
         }
@@ -42,11 +55,7 @@ it('never negates a toContain with more than one needle', function (): void {
             return false;
         }
 
-        $receiver = $node->var;
-
-        return $receiver instanceof PropertyFetch
-            && $receiver->name instanceof Identifier
-            && $receiver->name->toString() === 'not';
+        return $isNegation($node->var);
     };
 
     // A spread carries the same hazard while presenting one argument.
