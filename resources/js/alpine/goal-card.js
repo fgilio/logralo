@@ -3,8 +3,9 @@ import pressGesture from "./press-gesture";
 /**
  * A goal card's tap and hold.
  *
- * The press carries the state the card was showing, which is what tells a
- * deliberate un-mark apart from the second half of a double tap.
+ * The press carries the state the card was showing, which is what lets a call
+ * that lands after the card has already changed under it — the second half of
+ * a double tap — be dropped rather than acted on.
  */
 export default (options = {}) => ({
     ...pressGesture(options),

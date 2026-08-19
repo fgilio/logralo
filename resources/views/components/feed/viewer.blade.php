@@ -73,8 +73,11 @@
 
                  Giving the drag away costs nothing the page needs — it is
                  locked behind the dialog while this is open. `tap-target`
-                 comes for the callout and the selection it turns off; the
-                 inline `touch-action` is what overrides its `manipulation`.
+                 comes for the tap flash it turns off; the inline
+                 `touch-action` is what overrides its `manipulation`. The
+                 callout, the selection and the browser's own drag — which
+                 would take the pointer mid-gesture — are already off for
+                 every picture in the app, in `app.css` and `protect-media.js`.
 
                  Nothing is fetched until a card hands the srcset over, so the
                  feed downloads its thumbnails and no full-size photo behind
@@ -89,13 +92,10 @@
                 data-test="viewer-photo"
             >
                 <source type="image/webp" :srcset="photo.srcset" sizes="100vw">
-                {{-- A picture is draggable by default, and the browser's own
-                     drag would take the pointer mid-gesture. --}}
                 <img
                     :src="photo.src"
                     :alt="photo.alt"
                     decoding="async"
-                    draggable="false"
                     class="max-h-full max-w-full object-contain"
                 >
             </picture>

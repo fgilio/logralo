@@ -204,7 +204,23 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npm run build # the in-process server serves public/build directly
-      - run: npx playwright install --with-deps chromium
+      # The browser bundle is ~300 MB across chromium, its headless shell and
+      # ffmpeg, and it is the same bundle on every run. Key it on
+      # package-lock.json, which is where the playwright version is pinned.
+      - uses: actions/cache@v6
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
+      # No `--with-deps`: it switches to root and runs apt, and the runner image
+      # already carries every library chromium links against — that apt log
+      # lists each one as "already the newest version". The only packages it
+      # actually installs are CJK font sets this app never renders. It is also
+      # the slowest thing in CI whenever azure.archive.ubuntu.com is having a
+      # bad day: 17 kB/s on run 32267201880, which spent 20 of its 22 minutes
+      # fetching those fonts while the browser suite itself ran in 36 seconds.
+      # Put `npx playwright install-deps chromium` back only if a
+      # missing-library error ever surfaces.
+      - run: npx playwright install chromium
       - name: Prepare the app
         run: |
           cp .env.example .env

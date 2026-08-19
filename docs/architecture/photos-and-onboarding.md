@@ -13,7 +13,7 @@ So:
 - **Tap** a pending card → marks it instantly (a ghost mark).
 - **Hold** a pending card → opens the sheet, whose primary button is the native camera input. That button is a real tap, so the camera always opens.
 - **Tap** when the photo rule is armed → opens the same sheet, with the "Pics or it didn't happen 📸" copy. Backing out leaves the day unmarked, exactly as specified.
-- **Tap** a marked card → un-marks it, while the day is still open.
+- **Tap** a marked card → opens the same sheet, where **Quitar marca** un-marks it while the day is still open. Un-marking is never on the tap: it deletes the day and its photo, and a pocket touch on the same gesture that marks was enough to do it.
 
 The sheet is also what makes "photo, note, or both" possible from one gesture.
 
@@ -74,6 +74,28 @@ A signature is only good for an hour, and a fresh one is minted on every render 
 The bucket also needs the app's origins in its CORS allow-list. Sharing to WhatsApp `fetch()`es the JPEG derivative to build the `File` that `navigator.share` sends, and that fetch is cross-origin to the bucket.
 
 HEIC only reaches the server from desktop Safari — iOS transcodes to JPEG inside the file input, and the browser-side resize above re-encodes whatever is left as JPEG. GD cannot decode HEIC, so an upload that gets past both raises `PhotoUnreadableException` with copy that tells the member what to change. That is the one place a wasm codec would still earn its download: `libheif-js` would let a Chrome-on-Android HEIC be decoded client-side rather than refused server-side. Nobody in the group has hit it.
+
+## The photos are not offered for download
+
+What a member proves in here is meant to stay in here, so nothing on the page hands a photo over on a gesture. Four ways out, and each is closed where it happens:
+
+| Gesture                    | Where it is refused                                           |
+| -------------------------- | ------------------------------------------------------------- |
+| Long press on iOS          | `-webkit-touch-callout: none`, in `resources/css/app.css`     |
+| Long press on Android      | the `contextmenu` listener in `resources/js/protect-media.js` |
+| Right click on the desktop | the same listener                                             |
+| Dragging the picture out   | `-webkit-user-drag: none`, plus the `dragstart` listener      |
+
+Both halves match on `img, picture, video` rather than on a class, and the listeners sit on the document. That is the point of doing it this way: the feed re-renders whole on every reaction, the viewer fills itself from a payload rather than from Blade, and neither has to remember to opt in. Gifs are `<img>` and a gallery is more of them, so those arrive covered too. `picture` is in the selector for the viewer alone, where the letterbox around the photo is part of the same surface and is what a thumb lands on.
+
+The share page is in scope on purpose, and gets there by loading the same bundle. It is the one screen a photo is shown on to somebody outside the group, which makes it the likeliest place for a save, not a reason to allow one — a shop window is still not a shop.
+
+Two things it deliberately does not claim:
+
+- **This is a deterrent, not a lock.** The URL is in the DOM, the network panel lists every request, and every phone screenshots. What it removes is the one-gesture save — which is the one that actually happens, by somebody who was not planning anything.
+- **The browser's own video controls are out of reach of any event.** When the first `<video>` lands it needs `controlslist="nodownload" disablepictureinpicture` on the tag itself; the CSS and the listeners cover everything around it, but not the download button inside a native control bar.
+
+`tests/Browser/TodayScreenTest.php` proves the half a headless Chromium can prove: the two events come back cancelled and the computed `user-select` is `none`. The iOS callout has no event behind it and Chromium does not implement the property, so that one is only ever verified on a phone.
 
 ## The face on an avatar
 

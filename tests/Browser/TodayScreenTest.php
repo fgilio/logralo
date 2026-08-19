@@ -51,6 +51,33 @@ it('marks a goal when the card is tapped', function (): void {
         ->and($mark->marked_on->toDateString())->toBe($user->clock()->today()->toDateString());
 });
 
+it('un-marks a goal from the sheet, and never from the tap alone', function (): void {
+    $user = User::factory()->create();
+    $goal = Goal::factory()->for($user)->create(['name' => 'Correr']);
+    Mark::factory()->for($goal)->on($user->clock()->today()->toDateString())->create();
+
+    $this->actingAs($user);
+
+    // `aria-pressed` is drawn straight off the mark, so it is the card saying
+    // whether the day survived the tap.
+    visit('/')->on()->iPhone15Pro()
+        ->assertAriaAttribute('@goal-card-'.$goal->id, 'pressed', 'true')
+        // And the card says the tap opens a dialog, so a screen reader does
+        // not announce a toggle and then hand over a sheet.
+        ->assertAriaAttribute('@goal-card-'.$goal->id, 'haspopup', 'dialog')
+        // The tap that used to delete the day now only opens the way out.
+        ->click('@goal-card-'.$goal->id)
+        ->wait(1)
+        ->assertVisible('@remove')
+        ->assertAriaAttribute('@goal-card-'.$goal->id, 'pressed', 'true')
+        ->click('@remove')
+        ->wait(1)
+        ->assertAriaAttribute('@goal-card-'.$goal->id, 'pressed', 'false')
+        ->assertNoJavaScriptErrors();
+
+    expect(Mark::query()->count())->toBe(0);
+});
+
 it('marks and un-marks yesterday without removing the grace chip', function (): void {
     $this->travelTo(CarbonImmutable::parse('2026-08-11 09:00', 'America/Montevideo')->utc());
 
@@ -70,7 +97,13 @@ it('marks and un-marks yesterday without removing the grace chip', function (): 
 
     expect($mark->marked_on->toDateString())->toBe($user->clock()->yesterday()->toDateString());
 
+    // The chip stays in the banner precisely so yesterday can still be taken
+    // back, and taking it back goes through the chip's own sheet — the tap
+    // itself no longer un-marks anything. Today's card for this goal is
+    // unmarked, so its sheet offers the camera rather than a second `@remove`.
     $page->click('@grace-goal-'.$goal->id)
+        ->wait(1)
+        ->click('@remove')
         ->wait(1)
         ->assertVisible('@grace-goal-'.$goal->id)
         ->assertAriaAttribute('@grace-goal-'.$goal->id, 'pressed', 'false')
@@ -804,4 +837,62 @@ it('leaves a sideways swipe to the pulse strip', function (): void {
 
     $page->assertMissing('@pull-indicator')
         ->assertNoJavaScriptErrors();
+});
+
+/**
+ * The photo does not hand itself over.
+ *
+ * Only a real browser can answer this: what is under test is a cancelled
+ * event and a computed style, and neither exists in a rendered string. The
+ * long press that opens iOS's own save sheet has no event behind it at all —
+ * `-webkit-touch-callout` is what turns it off, and Chromium does not
+ * implement the property, so this proves the half that is provable here.
+ */
+it('refuses the gestures that would save a photo', function (): void {
+    $user = User::factory()->create();
+    $goal = Goal::factory()->for($user)->create(['name' => 'Correr']);
+    $mark = Mark::factory()->for($goal)->for($user)->withPhoto()->create(['note' => 'Diez kilómetros']);
+
+    $this->actingAs($user);
+
+    // The photo is on the page before the script asks for it, the way every
+    // other test here waits: an assertion, rather than a branch inside the JS.
+    $page = visit('/')->on()->iPhone15Pro()->assertVisible('@viewer-open-'.$mark->id);
+
+    $refused = $page->script(<<<'REFUSED'
+        (() => {
+            const photo = document.querySelector('picture img');
+
+            // `dispatchEvent` answers false once something has cancelled it.
+            const refuses = (type) =>
+                ! photo.dispatchEvent(new Event(type, { bubbles: true, cancelable: true }));
+
+            // The one target that is not an element: Gecko hands `dragstart`
+            // the text node when a selection is dragged, and the note under a
+            // card is selectable. Dispatching from the node itself is the
+            // whole case — a listener that throws here is reported to the
+            // page rather than to `dispatchEvent`, so the error assertion
+            // below is what catches it.
+            const note = document.querySelector('.select-text');
+            const text = note && document.createTreeWalker(note, NodeFilter.SHOW_TEXT).nextNode();
+
+            text?.dispatchEvent(new Event('dragstart', { bubbles: true, cancelable: true }));
+
+            return JSON.stringify({
+                menu: refuses('contextmenu'),
+                drag: refuses('dragstart'),
+                select: getComputedStyle(photo).userSelect,
+                draggedText: text !== null,
+            });
+        })()
+    REFUSED);
+
+    expect(json_decode((string) $refused, true))->toBe([
+        'menu' => true,
+        'drag' => true,
+        'select' => 'none',
+        'draggedText' => true,
+    ]);
+
+    $page->assertNoJavaScriptErrors();
 });
