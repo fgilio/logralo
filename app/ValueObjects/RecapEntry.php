@@ -49,6 +49,26 @@ final readonly class RecapEntry implements FeedEntry
         return $this->winners()->pluck('name')->join(', ', ' y ');
     }
 
+    /** "Guido", or "Franco y Guido" on a tie. Empty when nobody came second. */
+    public function runnerUpNames(): string
+    {
+        return $this->runnersUp()->pluck('name')->join(', ', ' y ');
+    }
+
+    /**
+     * What to call whoever came second. The podium is shared, so a tie puts
+     * two or three of them on that step and the singular reads as a mistake
+     * next to the names it labels. A month with nobody there keeps the
+     * singular, which is what the em dash under it answers.
+     *
+     * Spelled out rather than inflected, for the reason bestStreakLabel()
+     * gives below.
+     */
+    public function runnerUpLabel(): string
+    {
+        return $this->runnersUp()->count() > 1 ? 'Escoltas' : 'Escolta';
+    }
+
     /**
      * "23 días · Guido", or null for a month nobody strung two days together
      * in — which is the same month that has no podium either.
@@ -141,5 +161,16 @@ final readonly class RecapEntry implements FeedEntry
     public function sharePhotoKey(): ?string
     {
         return null;
+    }
+
+    /**
+     * Second place, which `ScoreCalculator` hands out as rank 2 to everybody
+     * tied on it.
+     *
+     * @return Collection<int, Standing>
+     */
+    private function runnersUp(): Collection
+    {
+        return $this->recap->standingEntries()->where('rank', 2)->values();
     }
 }
