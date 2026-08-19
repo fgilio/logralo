@@ -14,6 +14,7 @@ import goalCard from "./alpine/goal-card";
 import photoPicker from "./alpine/photo-picker";
 import photoViewer from "./alpine/photo-viewer";
 import pressGesture from "./alpine/press-gesture";
+import protectMedia from "./protect-media";
 import pullToRefresh from "./alpine/pull-to-refresh";
 import reactionPicker from "./alpine/reaction-picker";
 import shareCard from "./alpine/share-card";
@@ -27,6 +28,10 @@ import shareCard from "./alpine/share-card";
  */
 // Merged, not assigned: the head has already put the resize budget here.
 window.Logralo = { ...window.Logralo, compressPhoto };
+
+// Not an Alpine component and not tied to any template: the gestures that save
+// a photo are the browser's own, and they are refused on the document.
+protectMedia();
 
 document.addEventListener("alpine:init", () => {
     Alpine.data("longPress", pressGesture);
