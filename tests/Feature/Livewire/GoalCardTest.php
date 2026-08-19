@@ -11,8 +11,8 @@ use Illuminate\Support\Facades\Storage;
 use Livewire\Livewire;
 
 /**
- * The goal card is the whole product in one tile: one tap marks, another
- * un-marks, and the sheet behind it is the only way a photo or a note gets in.
+ * The goal card is the whole product in one tile: one tap marks, and the sheet
+ * behind it is the only way a photo, a note, or an un-mark gets in.
  */
 
 /** 09:00 in Montevideo: today is open, and so is yesterday's grace window. */
@@ -39,7 +39,7 @@ it('marks the day when pressed', function (): void {
         ->and($mark->note)->toBeNull();
 });
 
-it('un-marks the day when pressed again', function (): void {
+it('keeps the mark when a marked card is pressed again', function (): void {
     $user = User::factory()->create();
     $goal = Goal::factory()->for($user)->create();
 
@@ -49,7 +49,24 @@ it('un-marks the day when pressed again', function (): void {
 
     expect(Mark::query()->count())->toBe(1);
 
-    $component->call('press', true)->assertDispatched('mark-updated');
+    // The tap that used to delete the day now only opens the sheet, where
+    // un-marking is a button somebody has to mean.
+    $component->call('press', true)->assertNotDispatched('mark-updated');
+
+    expect(Mark::query()->count())->toBe(1);
+});
+
+it('un-marks the day from the sheet', function (): void {
+    $user = User::factory()->create();
+    $goal = Goal::factory()->for($user)->create();
+
+    $component = Livewire::actingAs($user)
+        ->test('goal-card', ['goal' => $goal])
+        ->call('press', false);
+
+    expect(Mark::query()->count())->toBe(1);
+
+    $component->call('remove')->assertDispatched('mark-updated');
 
     expect(Mark::query()->count())->toBe(0);
 });
@@ -59,19 +76,15 @@ it('ignores the second half of a double tap', function (): void {
     $goal = Goal::factory()->for($user)->create();
 
     // Both presses carry the unmarked card the finger saw. The second one
-    // reaches a day the first has already marked, and taking it back is what a
-    // double tap must never do.
-    $component = Livewire::actingAs($user)
+    // reaches a day the first has already marked, and marking it twice is what
+    // a double tap must never do.
+    Livewire::actingAs($user)
         ->test('goal-card', ['goal' => $goal])
         ->call('press', false)
         ->call('press', false)
         ->assertNotDispatched('mark-updated');
 
     expect(Mark::query()->count())->toBe(1);
-
-    $component->call('press', true)->call('press', true)->assertNotDispatched('mark-updated');
-
-    expect(Mark::query()->count())->toBe(0);
 });
 
 it('deletes the photo of the mark it un-marks', function (): void {
@@ -84,7 +97,7 @@ it('deletes the photo of the mark it un-marks', function (): void {
         ->test('goal-card', ['goal' => $goal])
         ->upload('photo', [UploadedFile::fake()->image('proof.jpg', 400, 500)])
         ->call('save')
-        ->call('press', true);
+        ->call('remove');
 
     expect(Mark::query()->count())->toBe(0)
         ->and(Storage::disk('photos')->allFiles())->toBe([]);
@@ -240,7 +253,7 @@ it('keeps a mark whose day has already closed', function (): void {
 
     Livewire::actingAs($user)
         ->test('goal-card', ['goal' => $goal, 'date' => '2026-08-05'])
-        ->call('press', true)
+        ->call('remove')
         ->assertNotDispatched('mark-updated');
 
     expect(Mark::query()->count())->toBe(1);
@@ -288,6 +301,31 @@ it('counts the streak the mark belongs to', function (): void {
     $component->call('press', false);
 
     expect($component->get('streak'))->toBe(4);
+});
+
+it('celebrates a milestone reached across an archive pause', function (): void {
+    $this->travelTo(CarbonImmutable::parse('2026-08-10 09:00', 'America/Montevideo')->utc());
+
+    $user = User::factory()->create();
+    $goal = Goal::factory()->for($user)->create([
+        'archive_periods' => [
+            [
+                'archived_on' => '2026-08-04',
+                'restored_on' => '2026-08-07',
+                'paused_from' => '2026-08-04',
+                'paused_through' => '2026-08-06',
+            ],
+        ],
+    ]);
+
+    foreach (['2026-08-01', '2026-08-02', '2026-08-03', '2026-08-07', '2026-08-08', '2026-08-09'] as $date) {
+        Mark::factory()->for($goal)->withPhoto()->on($date)->create();
+    }
+
+    Livewire::actingAs($user)
+        ->test('goal-card', ['goal' => $goal])
+        ->call('press', false)
+        ->assertDispatched('milestone-reached');
 });
 
 it("reads the day off the member's own clock when none is given", function (): void {

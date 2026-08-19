@@ -13,7 +13,7 @@ So:
 - **Tap** a pending card → marks it instantly (a ghost mark).
 - **Hold** a pending card → opens the sheet, whose primary button is the native camera input. That button is a real tap, so the camera always opens.
 - **Tap** when the photo rule is armed → opens the same sheet, with the "Pics or it didn't happen 📸" copy. Backing out leaves the day unmarked, exactly as specified.
-- **Tap** a marked card → un-marks it, while the day is still open.
+- **Tap** a marked card → opens the same sheet, where **Quitar marca** un-marks it while the day is still open. Un-marking is never on the tap: it deletes the day and its photo, and a pocket touch on the same gesture that marks was enough to do it.
 
 The sheet is also what makes "photo, note, or both" possible from one gesture.
 

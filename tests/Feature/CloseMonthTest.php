@@ -2,8 +2,10 @@
 
 declare(strict_types=1);
 
+use App\Actions\ArchiveGoal;
 use App\Actions\CloseMonth;
 use App\Actions\MarkGoal;
+use App\Actions\RestoreGoal;
 use App\Exceptions\MonthClosedException;
 use App\Models\Goal;
 use App\Models\Mark;
@@ -187,6 +189,81 @@ it('freezes the standings so later archiving cannot rewrite them', function (): 
         ->and($reread->standingEntries()->first()->possibleMarks)->toBe(31);
 });
 
+it('counts a goal archived after the month ended but before it closed', function (): void {
+    $this->travelTo(CarbonImmutable::parse('2026-08-01 09:00', 'America/Montevideo')->utc());
+
+    $user = User::factory()->create(['name' => 'Ana']);
+    $goal = julyGoal($user);
+
+    Mark::factory()->for($goal)->on('2026-07-01')->withPhoto()->create();
+    Mark::factory()->for($goal)->on('2026-07-02')->create();
+
+    resolve(ArchiveGoal::class)->handle($goal);
+
+    $this->travelTo(CarbonImmutable::parse('2026-08-01 15:00', 'UTC'));
+
+    $frozen = closeJulyRecap()->standingEntries()->sole();
+
+    expect($frozen->fullMarks)->toBe(1)
+        ->and($frozen->ghostMarks)->toBe(1)
+        ->and($frozen->possibleMarks)->toBe(31);
+});
+
+it('omits a goal archived at month end after it is restored and archived again', function (): void {
+    $this->travelTo(CarbonImmutable::parse('2026-07-31 15:00', 'America/Montevideo')->utc());
+
+    $user = User::factory()->create(['name' => 'Ana']);
+    $goal = julyGoal($user);
+
+    Mark::factory()->for($goal)->on('2026-07-31')->withPhoto()->create();
+
+    resolve(ArchiveGoal::class)->handle($goal);
+
+    $this->travelTo(CarbonImmutable::parse('2026-08-01 09:00', 'America/Montevideo')->utc());
+
+    resolve(RestoreGoal::class)->handle($goal);
+    resolve(ArchiveGoal::class)->handle($goal);
+
+    $this->travelTo(CarbonImmutable::parse('2026-08-01 15:00', 'UTC'));
+
+    expect(closeJulyRecap()->standingEntries())->toBeEmpty();
+});
+
+it('uses the archive calendar after the member changes timezone before close', function (): void {
+    $this->travelTo(CarbonImmutable::parse('2026-07-31 23:30', 'America/Adak')->utc());
+
+    $user = User::factory()->inTimezone('America/Adak')->create(['name' => 'Ana']);
+    $goal = julyGoal($user);
+
+    resolve(ArchiveGoal::class)->handle($goal);
+
+    $user->update(['timezone' => 'Pacific/Kiritimati']);
+
+    $this->travelTo(CarbonImmutable::parse('2026-08-01 15:00', 'UTC'));
+
+    expect(closeJulyRecap()->standingEntries())->toBeEmpty();
+});
+
+it('keeps a goal when a timezone change moves its archive instant into the prior month', function (): void {
+    $this->travelTo(CarbonImmutable::parse('2026-08-01 00:30', 'Pacific/Kiritimati')->utc());
+
+    $user = User::factory()->inTimezone('Pacific/Kiritimati')->create(['name' => 'Ana']);
+    $goal = julyGoal($user);
+
+    Mark::factory()->for($goal)->on('2026-07-31')->withPhoto()->create();
+
+    resolve(ArchiveGoal::class)->handle($goal);
+
+    $user->update(['timezone' => 'America/Adak']);
+
+    $this->travelTo(CarbonImmutable::parse('2026-08-01 23:00', 'UTC'));
+
+    $standing = closeJulyRecap()->standingEntries()->sole();
+
+    expect($standing->fullMarks)->toBe(1)
+        ->and($standing->possibleMarks)->toBe(31);
+});
+
 it('stays shut to a member whose clock moves west after the close', function (): void {
     // Closing asks every member's clock; marking asks one. That is the whole
     // gap: any change to a member's clock after the close can reopen a day
@@ -236,7 +313,32 @@ it('records the best streak of the month, counting a run that started before it'
         ->and($recap->best_streak_goal_id)->toBe($longGoal->id);
 });
 
-it('counts a streak on a goal that was archived after the month', function (): void {
+it('records a best streak that crosses an archive pause', function (): void {
+    $this->travelTo(CarbonImmutable::parse('2026-08-01 15:00', 'UTC'));
+
+    $user = User::factory()->create(['name' => 'Ana']);
+    $goal = julyGoal($user, [
+        'archive_periods' => [
+            [
+                'archived_on' => '2026-07-03',
+                'restored_on' => '2026-07-06',
+                'paused_from' => '2026-07-03',
+                'paused_through' => '2026-07-05',
+            ],
+        ],
+    ]);
+
+    foreach (['2026-07-01', '2026-07-02', '2026-07-06'] as $date) {
+        Mark::factory()->for($goal)->on($date)->withPhoto()->create();
+    }
+
+    $recap = closeJulyRecap();
+
+    expect($recap->best_streak_days)->toBe(3)
+        ->and($recap->best_streak_goal_id)->toBe($goal->id);
+});
+
+it('counts standings and a streak on a goal archived after the month', function (): void {
     $this->travelTo(CarbonImmutable::parse('2026-08-01 15:00', 'UTC'));
 
     $user = User::factory()->create(['name' => 'Ana']);
@@ -246,12 +348,10 @@ it('counts a streak on a goal that was archived after the month', function (): v
         Mark::factory()->for($goal)->on("2026-{$day}")->withPhoto()->create();
     }
 
-    // The member has no active goal left, so the table is empty…
     $recap = closeJulyRecap();
 
-    expect($recap->standings)->toBe([])
-        ->and($recap->winner_user_id)->toBeNull()
-        // …but the flame really burned, so the recap still remembers it.
+    expect($recap->standingEntries()->sole()->possibleMarks)->toBe(31)
+        ->and($recap->winner_user_id)->toBe($user->id)
         ->and($recap->best_streak_days)->toBe(4)
         ->and($recap->best_streak_goal_id)->toBe($goal->id);
 });
