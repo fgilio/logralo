@@ -4,7 +4,7 @@
     $recap = $entry->recap;
     $standings = $recap->standingEntries();
     $winners = $entry->winners();
-    $runnersUp = $standings->where('rank', 2)->values();
+    $runnerUpNames = $entry->runnerUpNames();
     $month = $entry->monthName();
 @endphp
 
@@ -53,9 +53,9 @@
 
     <dl class="relative mt-5 grid grid-cols-2 gap-3 text-sm">
         <div class="rounded-xl bg-white/5 p-3">
-            <dt class="text-xs text-white/50">Escolta</dt>
+            <dt class="text-xs text-white/50">{{ $entry->runnerUpLabel() }}</dt>
             <dd class="mt-0.5 truncate font-medium">
-                {{ $runnersUp->isEmpty() ? '—' : $runnersUp->pluck('name')->join(', ', ' y ') }}
+                {{ $runnerUpNames === '' ? '—' : $runnerUpNames }}
             </dd>
         </div>
 

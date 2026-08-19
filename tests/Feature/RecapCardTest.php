@@ -5,6 +5,7 @@ declare(strict_types=1);
 use App\Models\MonthlyRecap;
 use App\Models\User;
 use App\ValueObjects\RecapEntry;
+use Illuminate\Support\Str;
 
 /**
  * The words on the month-end card, and on the page a tap behind it.
@@ -21,6 +22,31 @@ function recapEntryWith(int $bestStreak, ?User $owner = null): RecapEntry
     ]);
 
     return new RecapEntry($recap->load('bestStreakUser'));
+}
+
+/**
+ * A closed month whose podium is just names and ranks — the two columns the
+ * runner-up line reads. Everything else on a Standing is the score behind the
+ * rank, which is already frozen by the time a recap exists.
+ *
+ * @param  array<int, array{0: string, 1: int}>  $podium  name and rank
+ */
+function recapEntryRanking(array $podium): RecapEntry
+{
+    $recap = MonthlyRecap::factory()->create([
+        'standings' => collect($podium)
+            ->map(fn (array $line): array => [
+                'user_id' => (string) Str::ulid(),
+                'name' => $line[0],
+                'full_marks' => 0,
+                'ghost_marks' => 0,
+                'possible_marks' => 0,
+                'rank' => $line[1],
+            ])
+            ->all(),
+    ]);
+
+    return new RecapEntry($recap);
 }
 
 it('counts a one-day best streak in the singular', function (): void {
@@ -53,4 +79,27 @@ it('puts the same line on the card as on the page', function (): void {
 
 it('keeps the best streak off a month that has none', function (): void {
     expect(recapEntryWith(0)->shareCard()->stats)->not->toHaveKey('Mejor racha');
+});
+
+it('calls one runner-up an escolta', function (): void {
+    $entry = recapEntryRanking([['Ana', 1], ['Guido', 2]]);
+
+    expect($entry->runnerUpLabel())->toBe('Escolta')
+        ->and($entry->runnerUpNames())->toBe('Guido');
+});
+
+it('calls a tied second place escoltas', function (): void {
+    // The podium is shared, so rank 2 is a step rather than a seat: "Escolta ·
+    // Franco y Guido" is the recap counting two people in the singular.
+    $entry = recapEntryRanking([['Ana', 1], ['Franco', 2], ['Guido', 2]]);
+
+    expect($entry->runnerUpLabel())->toBe('Escoltas')
+        ->and($entry->runnerUpNames())->toBe('Franco y Guido');
+});
+
+it('keeps the singular for a month nobody came second in', function (): void {
+    $entry = recapEntryRanking([['Ana', 1]]);
+
+    expect($entry->runnerUpLabel())->toBe('Escolta')
+        ->and($entry->runnerUpNames())->toBe('');
 });
