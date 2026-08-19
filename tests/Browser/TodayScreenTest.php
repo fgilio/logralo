@@ -346,6 +346,60 @@ it('opens a photo full screen, and lets you back out of it', function (): void {
         ->assertNoJavaScriptErrors();
 });
 
+it('does not let the tap that closes a photo land on the feed behind it', function (): void {
+    $ana = User::factory()->create();
+    $bruno = User::factory()->create();
+
+    // Two photos, because the symptom is the second one opening: the tap ends
+    // on `pointerup`, the click that follows is aimed after the dialog is gone,
+    // and the card underneath answers it.
+    $first = Mark::factory()
+        ->for(Goal::factory()->for($bruno)->create(['name' => 'Guitarra']))
+        ->withPhoto()
+        ->create();
+
+    $second = Mark::factory()
+        ->for(Goal::factory()->for($bruno)->create(['name' => 'Correr']))
+        ->withPhoto()
+        ->create();
+
+    $this->actingAs($ana);
+
+    $page = visit('/')->on()->iPhone15Pro()
+        ->click('@viewer-open-'.$first->id)
+        ->wait(1)
+        ->assertVisible('@viewer-close');
+
+    // The tap and the click a phone sends afterwards, which Playwright's own
+    // click cannot stand in for: it fires the pair in one go, so the click is
+    // still aimed at the picture. A finger's is aimed after the fact, at
+    // whatever `elementFromPoint` finds — which by then is the card the photo
+    // was covering.
+    $page->script(<<<JS
+    (async () => {
+        const photo = document.querySelector('[data-test="viewer-photo"]');
+        const tap = (type) => photo.dispatchEvent(new PointerEvent(type, {
+            pointerId: 1, clientX: 180, clientY: 400, bubbles: true,
+        }));
+
+        tap('pointerdown');
+        tap('pointerup');
+
+        await new Promise((resolve) => setTimeout(resolve, 100));
+
+        const card = document.querySelector('[data-test="viewer-open-{$second->id}"]');
+        card.scrollIntoView({block: 'center'});
+
+        const box = card.getBoundingClientRect();
+        document.elementFromPoint(box.left + box.width / 2, box.top + box.height / 2)?.click();
+    })()
+    JS);
+
+    $page->wait(1)
+        ->assertMissing('@viewer-close')
+        ->assertNoJavaScriptErrors();
+});
+
 it('reacts and comments without leaving the open photo', function (): void {
     $ana = User::factory()->create(['name' => 'Ana']);
     $bruno = User::factory()->create();

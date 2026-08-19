@@ -41,6 +41,9 @@ export default (options = {}) => ({
     startX: 0,
     startY: 0,
 
+    /** The timer that takes the ghost-click guard back down. */
+    ghost: null,
+
     /** How far the picture is lifted. Never positive: down is not a way out. */
     y: 0,
 
@@ -177,8 +180,44 @@ export default (options = {}) => ({
         // — a short lift, a drag down, a drag sideways — is a gesture that
         // was not asking for the exit, and springs back.
         if (moved <= this.tapTolerance || lifted > this.threshold) {
+            this.swallowClick();
             this.dismiss();
         }
+    },
+
+    /**
+     * The click a tap still owes, refused before anything can hear it.
+     *
+     * The gesture ends on `pointerup` and the viewer closes there, but the
+     * browser has not finished with the tap: `click` comes after, and it is
+     * aimed by hit-testing the point the finger left — by which time the
+     * dialog is gone and the topmost element there is the feed card the
+     * photo was covering. That card's own click opens its photo, so the tap
+     * that closed one picture opened another, which is exactly what it looks
+     * like: the tap went through the photo.
+     *
+     * Cancelling the `pointerup` is the tidier-sounding fix and is not one:
+     * suppressing the compatibility events that way is honoured unevenly,
+     * least of all on the phones this happens on. So the click is caught on
+     * the window, ahead of every other listener, and dropped. One click, and
+     * only for as long as a tap can take to produce it — after that the
+     * listener is a trap for a real one.
+     */
+    swallowClick() {
+        const swallow = (event) => {
+            clearTimeout(this.ghost);
+            event.preventDefault();
+            event.stopPropagation();
+        };
+
+        window.addEventListener("click", swallow, {
+            capture: true,
+            once: true,
+        });
+
+        this.ghost = setTimeout(() => {
+            window.removeEventListener("click", swallow, { capture: true });
+        }, 400);
     },
 
     cancel() {
