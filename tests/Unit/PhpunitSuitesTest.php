@@ -17,8 +17,13 @@ function phpunitConfig(): SimpleXMLElement
  */
 function phpunitPaths(SimpleXMLElement $suite, string $element): Collection
 {
+    // A path may be written with a trailing separator. It has to be dropped
+    // here, or `tests/Feature/Auth/` never matches a file under it.
     return collect($suite->xpath($element) ?: [])
-        ->map(fn (SimpleXMLElement $path): string => base_path(mb_trim((string) $path)));
+        ->map(fn (SimpleXMLElement $path): string => mb_rtrim(
+            base_path(mb_trim((string) $path)),
+            DIRECTORY_SEPARATOR,
+        ));
 }
 
 // This file lives in tests/Unit because the Laravel skeleton always declares
@@ -65,9 +70,10 @@ it('runs every declared testsuite', function (): void {
 
     // --testsuite takes a comma-separated list, so the names are matched whole
     // rather than searched for: suite Arch is not selected by --testsuite=Architecture.
+    // The shell strips the quotes in --testsuite="Arch,Unit" before PHPUnit sees them.
     $selected = collect($scripts)
         ->flatten()
-        ->flatMap(fn (string $script): array => Str::matchAll('/--testsuite[= ]([^\s"\']+)/', $script)->all())
+        ->flatMap(fn (string $script): array => Str::matchAll('/--testsuite[= ]["\']?([^\s"\']+)/', $script)->all())
         ->flatMap(fn (string $names): array => explode(',', $names))
         ->map(fn (string $name): string => mb_trim($name));
 
