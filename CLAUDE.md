@@ -30,12 +30,12 @@ The layering is the thing to keep. It is enforced by `tests/Arch/`.
 
 ### `app/Queries/` — the read side, where Eloquent lives
 
-- `GroupPulse`, `MonthlyStandings`, `FeedPage`, `GoalHistory`, `SharedEntry`, `MarkEntries`, `Members`
+- `GroupPulse`, `MonthlyStandings`, `FeedPage`, `GoalHistory`, `SharedEntry`, `MarkEntries`, `MarkComments`, `Members`
 - `Members` is the group's roster, held scoped for the request. `GroupPulse`, `MonthlyStandings` and every avatar read it rather than querying `users` themselves
 
 ### `app/Actions/` — the write side, one unit of work each
 
-- `MarkGoal`, `UnmarkGoal`, `ToggleReaction`, `CreateGoal`, `RenameGoal`, `ArchiveGoal`, `RestoreGoal`, `CloseMonth`, `IssueMagicLink`, `RecordShareVisit`, `RevokeSharing`, `ResumeSharing`, `UpdateAvatar`, `RemoveAvatar`, `SendFeedback`
+- `MarkGoal`, `UnmarkGoal`, `ToggleReaction`, `AddComment`, `CreateGoal`, `RenameGoal`, `ArchiveGoal`, `RestoreGoal`, `CloseMonth`, `IssueMagicLink`, `RecordShareVisit`, `RevokeSharing`, `ResumeSharing`, `UpdateAvatar`, `RemoveAvatar`, `SendFeedback`
 - `SendFeedback` is the only one that mails: the row in `feedback` is the deliverable and `App\Mail\FeedbackReceived` is a best-effort nudge to `LOGRALO_FEEDBACK_EMAIL`, wrapped in `rescue` so a mail provider cannot swallow what a member typed
 
 ### `app/ValueObjects/` — final readonly
@@ -45,7 +45,7 @@ The layering is the thing to keep. It is enforced by `tests/Arch/`.
 ### UI
 
 - `resources/views/pages/` — Livewire page components (`pages::today`)
-- `resources/views/livewire/` — nested Livewire components (`goal-card`, `feed`)
+- `resources/views/livewire/` — nested Livewire components (`goal-card`, `feed`, `photo-comments`)
 - `resources/views/components/` — anonymous Blade only, optimised by Blaze
 
 Livewire SFCs never go in `resources/views/components/`: a non-emoji file there is also a Blade anonymous component, and the two resolve to the same name.
@@ -98,7 +98,7 @@ One canonical `Log::info()` per unit of work, emitted in `finally`, with no manu
 
 A unit of work is an **Action** — plus the two entry points that own one without an Action behind them, `CloseMonthsCommand` and `MagicLinkController`. Queries and Services do not log: a read runs on every render and every anonymous crawler fetch, and logging those buries the events that carry an outcome. Review bots read the rule above and ask for a log in `SharedEntry` or `ShareCardRenderer` — that is the rule applied a layer too wide.
 
-Key context keys: `logralo.user_id`, `logralo.goal_id`, `logralo.mark_id`, `logralo.marked_on`, `logralo.feedback_id`, `logralo.outcome`, `logralo.reject_reason`.
+Key context keys: `logralo.user_id`, `logralo.goal_id`, `logralo.mark_id`, `logralo.marked_on`, `logralo.comment_id`, `logralo.feedback_id`, `logralo.outcome`, `logralo.reject_reason`.
 
 ## Pull Request Review Comments
 

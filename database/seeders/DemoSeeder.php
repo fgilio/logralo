@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Database\Seeders;
 
 use App\Enums\ReactionEmoji;
+use App\Models\Comment;
 use App\Models\Goal;
 use App\Models\Mark;
 use App\Models\Reaction;
@@ -96,6 +97,25 @@ final class DemoSeeder extends Seeder
                             'mark_id' => $mark->id,
                             'user_id' => $reactor->id,
                             'emoji' => fake()->randomElement(ReactionEmoji::cases()),
+                        ]);
+                    }
+
+                    // Rarer than reactions, because a comment costs a sentence
+                    // and a reaction costs a tap. Only the open photo shows
+                    // these, so the demo feed stays a wall of pictures.
+                    foreach ($users->reject(fn (User $other): bool => $other->is($user))->random(fake()->numberBetween(0, 2)) as $commenter) {
+                        Comment::query()->create([
+                            'mark_id' => $mark->id,
+                            'user_id' => $commenter->id,
+                            'body' => fake()->randomElement([
+                                'Grande, seguí así 🔥',
+                                'Qué envidia sana',
+                                'Mañana voy con vos',
+                                'No aflojes que vas bien',
+                                'Yo hoy no pude, mañana',
+                            ]),
+                            'created_at' => $mark->created_at?->addMinutes(fake()->numberBetween(3, 300)),
+                            'updated_at' => $mark->created_at?->addMinutes(fake()->numberBetween(3, 300)),
                         ]);
                     }
                 }

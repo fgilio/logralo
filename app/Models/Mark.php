@@ -38,6 +38,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
  * @property-read Goal $goal
  * @property-read User $user
  * @property-read Collection<int, Reaction> $reactions
+ * @property-read Collection<int, Comment> $comments
  */
 #[Fillable(['user_id', 'marked_on', 'photo_key', 'photo_width', 'photo_height', 'note'])]
 final class Mark extends Model
@@ -64,6 +65,12 @@ final class Mark extends Model
     public function reactions(): HasMany
     {
         return $this->hasMany(Reaction::class);
+    }
+
+    /** @return HasMany<Comment, $this> */
+    public function comments(): HasMany
+    {
+        return $this->hasMany(Comment::class);
     }
 
     public function kind(): MarkKind

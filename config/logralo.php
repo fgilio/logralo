@@ -119,6 +119,22 @@ return [
 
     /*
     |---------------------------------------------------------------------------
+    | Comments
+    |---------------------------------------------------------------------------
+    |
+    | The thread under an open photo. Nothing of it reaches the feed, which
+    | stays a wall of pictures. The cap is a line's worth: a comment sits next
+    | to a face in a box a third of a phone tall, and anything longer is a
+    | message that belongs in the chat these five already have.
+    |
+    */
+
+    'comments' => [
+        'max_length' => 280,
+    ],
+
+    /*
+    |---------------------------------------------------------------------------
     | Feedback
     |---------------------------------------------------------------------------
     |

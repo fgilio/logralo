@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use App\Models\Comment;
 use App\Models\Goal;
 use App\Models\Mark;
 use App\Models\Reaction;
@@ -296,13 +297,55 @@ it('opens a photo full screen, and lets you back out of it', function (): void {
         ->wait(1)
         ->assertMissing('@viewer-close');
 
-    // And the picture itself, carried far enough to count as a throw.
+    // Down is where the thread is, so dragging that way has to hold. This is
+    // also the case that regressed once: clamping the picture at zero left a
+    // downward drag looking exactly like a tap, and a tap closes.
     $page->click('@viewer-open-'.$mark->id)
         ->wait(1)
         ->drag('@viewer-photo', '@viewer-note')
         ->wait(1)
+        ->assertVisible('@viewer-close');
+
+    // And up, carried far enough to count as a throw, is the way out.
+    $page->drag('@viewer-photo', '@viewer-grip')
+        ->wait(1)
         ->assertMissing('@viewer-close')
         ->assertNoJavaScriptErrors();
+});
+
+it('reacts and comments without leaving the open photo', function (): void {
+    $ana = User::factory()->create(['name' => 'Ana']);
+    $bruno = User::factory()->create();
+    $mark = Mark::factory()
+        ->for(Goal::factory()->for($bruno)->create(['name' => 'Guitarra']))
+        ->withPhoto()
+        ->create();
+
+    $this->actingAs($ana);
+
+    $page = visit('/')->on()->iPhone15Pro()
+        ->click('@viewer-open-'.$mark->id)
+        ->wait(1)
+        ->assertVisible('@viewer-close');
+
+    $page->click('@viewer-react-open')
+        ->wait(1)
+        ->click('@viewer-react-fire')
+        ->wait(1)
+        // The count is drawn from the payload and moved in place, so it is
+        // right before the write that follows it has come back.
+        ->assertVisible('@viewer-tally');
+
+    $page->type('@comment-body', 'Sos un crack')
+        ->click('@comment-send')
+        ->wait(1)
+        ->assertSee('Sos un crack')
+        // Still open: a comment is something you leave while looking.
+        ->assertVisible('@viewer-close')
+        ->assertNoJavaScriptErrors();
+
+    expect(Reaction::query()->sole()->user_id)->toBe($ana->id)
+        ->and(Comment::query()->sole()->body)->toBe('Sos un crack');
 });
 
 it('opens the month table from the trophy button', function (): void {
