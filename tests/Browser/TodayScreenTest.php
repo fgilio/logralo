@@ -326,7 +326,12 @@ it('reacts and comments without leaving the open photo', function (): void {
     $page = visit('/')->on()->iPhone15Pro()
         ->click('@viewer-open-'.$mark->id)
         ->wait(1)
-        ->assertVisible('@viewer-close');
+        ->assertVisible('@viewer-close')
+        // The thread arrives on its own request, so the field is the proof it
+        // landed — asserted here rather than only at the end, so a thread that
+        // never loaded reads differently from one a later render wiped.
+        ->assertVisible('@comment-body')
+        ->assertNoJavaScriptErrors();
 
     $page->click('@viewer-react-open')
         ->wait(1)

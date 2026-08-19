@@ -104,7 +104,11 @@ export default (options = {}) => ({
         // The thread cannot travel in the payload. It changes after the card
         // was drawn, and one copy per card is exactly the weight this shared
         // dialog exists to avoid — so it is fetched when the photo opens.
-        window.Livewire?.dispatch("photo-comments-open", {
+        //
+        // Addressed to the component by name rather than broadcast: this has
+        // exactly one listener, and a global dispatch is a message every
+        // component on the page is offered and only one wants.
+        window.Livewire?.dispatchTo("photo-comments", "photo-comments-open", {
             markId: photo.markId,
         });
 
