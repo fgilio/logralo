@@ -190,6 +190,10 @@
             </div>
         </div>
 
-        <livewire:photo-comments />
+        {{-- Keyed, because this is a child of the feed and the feed re-renders
+             on every reaction — including the one tapped in here. Without a
+             key Livewire mounts a new instance on each parent render, and the
+             thread this one was told to load goes with the old one. --}}
+        <livewire:photo-comments wire:key="photo-comments" />
     </div>
 </flux:modal>
