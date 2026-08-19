@@ -350,50 +350,57 @@ it('does not let the tap that closes a photo land on the feed behind it', functi
     $ana = User::factory()->create();
     $bruno = User::factory()->create();
 
-    // Two photos, because the symptom is the second one opening: the tap ends
-    // on `pointerup`, the click that follows is aimed after the dialog is gone,
-    // and the card underneath answers it.
-    $first = Mark::factory()
+    $mark = Mark::factory()
         ->for(Goal::factory()->for($bruno)->create(['name' => 'Guitarra']))
-        ->withPhoto()
-        ->create();
-
-    $second = Mark::factory()
-        ->for(Goal::factory()->for($bruno)->create(['name' => 'Correr']))
         ->withPhoto()
         ->create();
 
     $this->actingAs($ana);
 
     $page = visit('/')->on()->iPhone15Pro()
-        ->click('@viewer-open-'.$first->id)
+        ->click('@viewer-open-'.$mark->id)
         ->wait(1)
         ->assertVisible('@viewer-close');
 
-    // The tap and the click a phone sends afterwards, which Playwright's own
-    // click cannot stand in for: it fires the pair in one go, so the click is
-    // still aimed at the picture. A finger's is aimed after the fact, at
-    // whatever `elementFromPoint` finds — which by then is the card the photo
-    // was covering.
-    $page->script(<<<JS
+    // The tap, and the click a phone sends after it. Playwright's own click
+    // cannot stand in for this: it fires the pointer pair and the click in one
+    // go, so the click is still aimed at the picture however the viewer
+    // behaves. A finger's is aimed after the fact, by hit-testing the point it
+    // left — and what is there by then is the whole question.
+    //
+    // The point is where the picture and the card overlap, because both have
+    // to be true for the bug to exist: the finger is on the photo, and a card
+    // is what it would reach through it.
+    $hit = $page->script(<<<JS
     (async () => {
         const photo = document.querySelector('[data-test="viewer-photo"]');
-        const tap = (type) => photo.dispatchEvent(new PointerEvent(type, {
-            pointerId: 1, clientX: 180, clientY: 400, bubbles: true,
-        }));
+        const picture = photo.getBoundingClientRect();
+        const card = document.querySelector('[data-test="viewer-open-{$mark->id}"]').getBoundingClientRect();
 
-        tap('pointerdown');
-        tap('pointerup');
+        const top = Math.max(picture.top, card.top);
+        const bottom = Math.min(picture.bottom, card.bottom);
+
+        if (bottom <= top) throw new Error('The photo and the card behind it do not overlap.');
+
+        const x = card.left + card.width / 2;
+        const y = (top + bottom) / 2;
+
+        for (const type of ['pointerdown', 'pointerup']) {
+            photo.dispatchEvent(new PointerEvent(type, {pointerId: 1, clientX: x, clientY: y, bubbles: true}));
+        }
 
         await new Promise((resolve) => setTimeout(resolve, 100));
 
-        const card = document.querySelector('[data-test="viewer-open-{$second->id}"]');
-        card.scrollIntoView({block: 'center'});
+        const under = document.elementFromPoint(x, y);
+        under.click();
 
-        const box = card.getBoundingClientRect();
-        document.elementFromPoint(box.left + box.width / 2, box.top + box.height / 2)?.click();
+        return under.closest('[data-test]').dataset.test;
     })()
     JS);
+
+    // What the click found is the whole bug: the picture, and not the card
+    // that was behind it. Closing on `pointerup` left the card there.
+    expect($hit)->toBe('viewer-photo');
 
     $page->wait(1)
         ->assertMissing('@viewer-close')
