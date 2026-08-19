@@ -803,7 +803,7 @@ it('leaves a sideways swipe to the pulse strip', function (): void {
 it('refuses the gestures that would save a photo', function (): void {
     $user = User::factory()->create();
     $goal = Goal::factory()->for($user)->create(['name' => 'Correr']);
-    $mark = Mark::factory()->for($goal)->for($user)->withPhoto()->create();
+    $mark = Mark::factory()->for($goal)->for($user)->withPhoto()->create(['note' => 'Diez kilómetros']);
 
     $this->actingAs($user);
 
@@ -819,10 +819,22 @@ it('refuses the gestures that would save a photo', function (): void {
             const refuses = (type) =>
                 ! photo.dispatchEvent(new Event(type, { bubbles: true, cancelable: true }));
 
+            // The one target that is not an element: Gecko hands `dragstart`
+            // the text node when a selection is dragged, and the note under a
+            // card is selectable. Dispatching from the node itself is the
+            // whole case — a listener that throws here is reported to the
+            // page rather than to `dispatchEvent`, so the error assertion
+            // below is what catches it.
+            const note = document.querySelector('.select-text');
+            const text = note && document.createTreeWalker(note, NodeFilter.SHOW_TEXT).nextNode();
+
+            text?.dispatchEvent(new Event('dragstart', { bubbles: true, cancelable: true }));
+
             return JSON.stringify({
                 menu: refuses('contextmenu'),
                 drag: refuses('dragstart'),
                 select: getComputedStyle(photo).userSelect,
+                draggedText: text !== null,
             });
         })()
     REFUSED);
@@ -831,6 +843,7 @@ it('refuses the gestures that would save a photo', function (): void {
         'menu' => true,
         'drag' => true,
         'select' => 'none',
+        'draggedText' => true,
     ]);
 
     $page->assertNoJavaScriptErrors();

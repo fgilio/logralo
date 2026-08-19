@@ -27,6 +27,13 @@ const MEDIA = "img, picture, video";
 export default function protectMedia() {
     for (const gesture of ["contextmenu", "dragstart"]) {
         document.addEventListener(gesture, (event) => {
+            // A target that is not an element has no `closest`, and one does
+            // arrive: Gecko fires `dragstart` on the text node itself when a
+            // selection is dragged, and a member's note is `select-text` on
+            // purpose. Nothing is lost by ignoring it — a text node is never
+            // a photo — but the throw would be.
+            if (!(event.target instanceof Element)) return;
+
             if (event.target.closest(MEDIA) !== null) event.preventDefault();
         });
     }
