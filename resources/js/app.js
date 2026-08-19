@@ -9,6 +9,7 @@
  */
 
 import { compressPhoto } from "./compress-photo";
+import commentComposer from "./alpine/comment-composer";
 import dictation from "./alpine/dictation";
 import goalCard from "./alpine/goal-card";
 import photoPicker from "./alpine/photo-picker";
@@ -42,4 +43,5 @@ document.addEventListener("alpine:init", () => {
     Alpine.data("photoViewer", photoViewer);
     Alpine.data("pullToRefresh", pullToRefresh);
     Alpine.data("dictation", dictation);
+    Alpine.data("commentComposer", commentComposer);
 });

@@ -374,10 +374,20 @@ it('reacts and comments without leaving the open photo', function (): void {
         // right before the write that follows it has come back.
         ->assertVisible('@viewer-tally');
 
+    // Sixteen pixels is the line between a field you tap and a field that
+    // zooms the whole viewer on the way in — iOS scales the page up to reach
+    // anything smaller, and does not scale it back when the keyboard goes.
+    $page->assertScript(
+        "parseFloat(getComputedStyle(document.querySelector('[data-test=\"comment-body\"]')).fontSize) >= 16",
+    );
+
     $page->type('@comment-body', 'Sos un crack')
         ->click('@comment-send')
         ->wait(1)
         ->assertSee('Sos un crack')
+        // Emptied by the field itself the moment the arrow was tapped, so the
+        // next comment starts on a clean box rather than on the last one.
+        ->assertValue('@comment-body', '')
         // Still open: a comment is something you leave while looking.
         ->assertVisible('@viewer-close')
         ->assertNoJavaScriptErrors();

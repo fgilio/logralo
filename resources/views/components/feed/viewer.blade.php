@@ -23,7 +23,10 @@
 <flux:modal
     name="foto"
     variant="bare"
-    class="fixed inset-0 m-0 h-dvh w-full max-h-none max-w-none overflow-hidden"
+    {{-- The ground is on the dialog as well as on the column inside it: while
+         a keyboard is up the column is cut to what is still visible, and what
+         it stops covering is this. --}}
+    class="fixed inset-0 m-0 h-dvh w-full max-h-none max-w-none overflow-hidden bg-zinc-950"
 >
     <div
         {{-- The five characters come from the enum rather than from a copy in
