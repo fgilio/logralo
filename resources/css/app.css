@@ -85,6 +85,19 @@
         overscroll-behavior-y: none;
     }
 
+    /* What a surface pinned to the visible screen still owes the home
+       indicator. Zero while a keyboard is up: the indicator, and the room this
+       leaves for it, are behind the keys. Its own token rather than a narrowed
+       `--spacing-safe-b`, so that one goes on meaning the device's inset
+       everywhere. `data-keyboard` is set on the document by `viewport.js`. */
+    :root {
+        --keyboard-safe-b: var(--spacing-safe-b);
+    }
+
+    :root[data-keyboard] {
+        --keyboard-safe-b: 0px;
+    }
+
     [x-cloak] {
         display: none !important;
     }

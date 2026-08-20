@@ -435,10 +435,31 @@ it('reacts and comments without leaving the open photo', function (): void {
         // right before the write that follows it has come back.
         ->assertVisible('@viewer-tally');
 
+    // Sixteen pixels is the line between a field you tap and a field that
+    // zooms the whole screen on the way in — iOS scales the page up to reach
+    // anything smaller, and does not scale it back when the keyboard goes.
+    // Asked of every field on the screen rather than of the one that got it
+    // wrong: Flux ships `text-base sm:text-sm` for this reason, so the ones
+    // that need watching are the hand-rolled ones, and the viewer is where
+    // the kit cannot be used.
+    // The count is half the assertion: `every` on an empty list is `true`, so
+    // a selector that stopped matching would pass this by finding nothing.
+    // Hidden inputs are left out because nothing can focus one, and the zoom
+    // is a thing that happens on focus.
+    $page->assertScript(
+        '(() => {'
+        .'const fields = [...document.querySelectorAll("input:not([type=file]):not([type=hidden]), textarea, select")];'
+        .'return fields.length > 0 && fields.every(field => parseFloat(getComputedStyle(field).fontSize) >= 16);'
+        .'})()',
+    );
+
     $page->type('@comment-body', 'Sos un crack')
         ->click('@comment-send')
         ->wait(1)
         ->assertSee('Sos un crack')
+        // Emptied by the field itself the moment the arrow was tapped, so the
+        // next comment starts on a clean box rather than on the last one.
+        ->assertValue('@comment-body', '')
         // Still open: a comment is something you leave while looking.
         ->assertVisible('@viewer-close')
         ->assertNoJavaScriptErrors();
