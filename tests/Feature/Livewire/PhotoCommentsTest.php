@@ -83,32 +83,36 @@ it('says so when nobody has commented yet', function (): void {
         ->assertSee('Todavía nadie dijo nada.');
 });
 
-it('posts a comment and clears the field', function (): void {
+it('posts a comment and says that it landed', function (): void {
+    // The draft is the browser's, so the answer is what the field waits on:
+    // it has already emptied itself and needs to know whether to stay empty.
     $member = User::factory()->create();
     $mark = Mark::factory()->create();
 
     Livewire::actingAs($member)
         ->test('photo-comments')
         ->dispatch('photo-comments-open', markId: $mark->id)
-        ->set('body', 'grande')
-        ->call('send')
-        ->assertSet('body', '')
+        ->call('send', 'grande')
+        ->assertReturned(true)
         ->assertSee('grande');
 
     expect($mark->comments()->count())->toBe(1)
         ->and($mark->comments()->first()?->user_id)->toBe($member->id);
 });
 
-it('refuses an empty comment without reaching the action', function (): void {
+it('refuses a comment with nothing in it, and says so', function (): void {
+    // "Says so" is the half that matters here: the field in front of this
+    // refuses an empty line already, so a rejection that got past it is one
+    // the member has to be told about rather than left guessing at.
     $member = User::factory()->create();
     $mark = Mark::factory()->create();
 
     Livewire::actingAs($member)
         ->test('photo-comments')
         ->dispatch('photo-comments-open', markId: $mark->id)
-        ->set('body', '   ')
-        ->call('send')
-        ->assertHasErrors(['body']);
+        ->call('send', '   ')
+        ->assertReturned(false)
+        ->assertDispatched('toast-show', slots: ['text' => 'Escribí algo antes de enviarlo.']);
 
     expect(Comment::query()->count())->toBe(0);
 });
@@ -143,8 +147,8 @@ it('refuses to write into a thread the member cannot see', function (): void {
     Livewire::actingAs($stranger)
         ->test('photo-comments')
         ->dispatch('photo-comments-open', markId: $mark->id)
-        ->set('body', 'me colé')
-        ->call('send');
+        ->call('send', 'me colé')
+        ->assertReturned(false);
 
     expect(Comment::query()->count())->toBe(0);
 });
