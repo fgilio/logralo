@@ -101,6 +101,9 @@ it('posts a comment and says that it landed', function (): void {
 });
 
 it('refuses a comment with nothing in it, and says so', function (): void {
+    // "Says so" is the half that matters here: the field in front of this
+    // refuses an empty line already, so a rejection that got past it is one
+    // the member has to be told about rather than left guessing at.
     $member = User::factory()->create();
     $mark = Mark::factory()->create();
 
@@ -108,7 +111,8 @@ it('refuses a comment with nothing in it, and says so', function (): void {
         ->test('photo-comments')
         ->dispatch('photo-comments-open', markId: $mark->id)
         ->call('send', '   ')
-        ->assertReturned(false);
+        ->assertReturned(false)
+        ->assertDispatched('toast-show', slots: ['text' => 'Escribí algo antes de enviarlo.']);
 
     expect(Comment::query()->count())->toBe(0);
 });

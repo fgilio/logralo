@@ -381,9 +381,15 @@ it('reacts and comments without leaving the open photo', function (): void {
     // wrong: Flux ships `text-base sm:text-sm` for this reason, so the ones
     // that need watching are the hand-rolled ones, and the viewer is where
     // the kit cannot be used.
+    // The count is half the assertion: `every` on an empty list is `true`, so
+    // a selector that stopped matching would pass this by finding nothing.
+    // Hidden inputs are left out because nothing can focus one, and the zoom
+    // is a thing that happens on focus.
     $page->assertScript(
-        'Array.from(document.querySelectorAll("input:not([type=file]), textarea, select"))'
-        .'.every(field => parseFloat(getComputedStyle(field).fontSize) >= 16)',
+        '(() => {'
+        .'const fields = [...document.querySelectorAll("input:not([type=file]):not([type=hidden]), textarea, select")];'
+        .'return fields.length > 0 && fields.every(field => parseFloat(getComputedStyle(field).fontSize) >= 16);'
+        .'})()',
     );
 
     $page->type('@comment-body', 'Sos un crack')
