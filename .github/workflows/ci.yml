@@ -203,7 +203,11 @@ jobs:
           node-version: 22
           cache: npm
       - run: npm ci
-      - run: npm run build # the in-process server serves public/build directly
+      # No `npm run build` step: `composer test:browser` builds before it runs.
+      # The in-process server serves `public/build` directly, so assets that do
+      # not match the source are a wall of failures that reads like a
+      # regression — and one owner of that invariant is what keeps a green CI
+      # from meaning something different than a green local run.
       # The browser bundle is ~300 MB across chromium, its headless shell and
       # ffmpeg, and it is the same bundle on every run. Key it on
       # package-lock.json, which is where the playwright version is pinned.

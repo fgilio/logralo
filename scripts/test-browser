@@ -1,0 +1,78 @@
+#!/usr/bin/env bash
+# The browser suite, in a shape that survives being piped and that cleans up
+# after itself.
+#
+# Three things about `pest --testsuite=Browser` have each cost a session more
+# time than the suite takes to run.
+#
+# 1. It tests `public/build`, not `resources/`. Vite's output is a build
+#    artifact that nothing keeps in step with the source, so a branch switch, a
+#    pull, or an edit to any js or css leaves the suite driving an app that is
+#    not the one in the working tree. What that looks like is not a stale
+#    assertion or two — it is a wall of failures, often every test at once with
+#    zero assertions, because a bundle that disagrees with the markup throws on
+#    load and nothing renders. It reads exactly like a regression somebody just
+#    introduced, which is the expensive part.
+#
+#    Building first costs about a second and takes the whole failure mode off
+#    the table, so this does that rather than describing it in a doc.
+#
+# The other two are the plugin's behaviour rather than this app's, which is why
+# this is a wrapper and not a fix.
+#
+# 2. Piped, it never comes back. The browser inherits the pipe's write end and
+#    holds it open after pest has exited, so `| tail` waits on an EOF nobody
+#    will send: a suite that passed in half a minute reads as a hang, for as
+#    long as anyone is willing to wait. `timeout` does not rescue it either —
+#    killing pest leaves the browser holding the pipe. Measured here: piped,
+#    killed at 90s with no output; the same test redirected, 1.5s.
+#
+#    Writing to a file and printing it afterwards is what fixes it. The browser
+#    inherits a descriptor on a file, which nothing is waiting to end, and the
+#    caller's pipe only ever sees `cat` — which does end. So `scripts/test-
+#    browser | tail` is safe, and that matters because reaching for `| tail` is
+#    reflex.
+#
+# 3. It leaks a `playwright run-server` per run, on a pass as readily as on a
+#    failure. Measured: one more idle node process every single time, growing
+#    monotonically across a session. Nothing in the plugin takes them down.
+#
+# Arguments are passed through, so `scripts/test-browser --filter=whatever`
+# works the way the bare pest call does.
+set -uo pipefail
+
+# Matched on the whole command line, because the binary is `node`.
+readonly SERVER='playwright run-server'
+
+servers() {
+    pgrep -f "$SERVER" 2>/dev/null | sort
+}
+
+before="$(servers || true)"
+
+log="$(mktemp)"
+trap 'rm -f "$log"' EXIT
+
+# Before anything else, and loudly: a suite run against assets that do not
+# match the source answers a question nobody asked.
+if ! npm run build >"$log" 2>&1; then
+    cat "$log"
+    echo "error: the assets would not build, so the browser suite has nothing honest to test." >&2
+    exit 1
+fi
+
+./scripts/php vendor/bin/pest --testsuite=Browser --no-tia "$@" >"$log" 2>&1
+status=$?
+
+cat "$log"
+
+# Only the ones this run started. A pid that was already there belongs to
+# somebody else's suite, and taking it down would fail their run to tidy ours.
+leaked="$(comm -13 <(echo "$before") <(servers || true) | grep -E '^[0-9]+$' || true)"
+
+if [[ -n $leaked ]]; then
+    # shellcheck disable=SC2086 # word splitting is how the pid list is passed
+    kill $leaked 2>/dev/null || true
+fi
+
+exit $status

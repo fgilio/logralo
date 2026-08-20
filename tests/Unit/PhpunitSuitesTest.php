@@ -68,11 +68,24 @@ it('runs every declared testsuite', function (): void {
     /** @var array<string, string|array<int, string>> $scripts */
     $scripts = File::json(base_path('composer.json'))['scripts'] ?? [];
 
+    $commands = collect($scripts)->flatten();
+
+    // A composer script may hand the run to a shell script and the flag travels
+    // with it — `test:browser` is `scripts/test-browser`, which is where
+    // `--testsuite=Browser` is now written. Followed one hop, so that moving a
+    // command into `scripts/` does not make the suite it runs read as one
+    // nobody runs.
+    $delegated = $commands
+        ->flatMap(fn (string $script): array => Str::matchAll('#(scripts/[\w./-]+)#', $script)->all())
+        ->unique()
+        ->filter(fn (string $path): bool => File::isFile(base_path($path)))
+        ->map(fn (string $path): string => File::get(base_path($path)));
+
     // --testsuite takes a comma-separated list, so the names are matched whole
     // rather than searched for: suite Arch is not selected by --testsuite=Architecture.
     // The shell strips the quotes in --testsuite="Arch,Unit" before PHPUnit sees them.
-    $selected = collect($scripts)
-        ->flatten()
+    $selected = $commands
+        ->merge($delegated)
         ->flatMap(fn (string $script): array => Str::matchAll('/--testsuite[= ]["\']?([^\s"\']+)/', $script)->all())
         ->flatMap(fn (string $names): array => explode(',', $names))
         ->map(fn (string $name): string => mb_trim($name));

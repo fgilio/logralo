@@ -53,14 +53,34 @@ The restore installs to `/usr/local/bin/php`. If something earlier in `PATH` sha
 
 The repo is public, so `auth.json` is never committed. Hosted sessions and CI provide `FLUX_USERNAME` and `FLUX_LICENSE_KEY` as environment variables (repository secrets of the same name in CI), and `php.sh` writes the gitignored `auth.json` from them. A restored snapshot already contains `livewire/flux-pro`, so a session with the variables unset still gets a working vendor — it just cannot install it live.
 
-## The browser suite, piped, looks hung
+## The browser suite tests the build, not the source
 
-`composer test:browser` takes about half a minute. `vendor/bin/pest --testsuite=Browser | tail` never comes back at all — and it is not the suite. Chromium inherits the pipe's write end and keeps it open after pest has exited, so `tail` waits for an EOF nobody will send, and a run that passed reads as a hang for as long as anyone is willing to wait for it. `timeout` does not rescue it either: killing pest leaves the browser holding the pipe.
+The one that costs the most, because it does not look like an environment problem. The in-process HTTP server serves `public/build`, which Vite writes and nothing keeps in step with `resources/`. Switch branches, pull, or edit a js file without rebuilding, and the suite drives an app that is not the one in the working tree.
 
-Redirect instead of piping, and read the file:
+It fails wide rather than narrowly: a bundle that disagrees with the markup throws on load, so nothing renders and every test dies on its first interaction — often all of them, with zero assertions between them. Measured on this repo, on `main` at `386ddf5` with a previous branch's bundle still on disk: two failures with `Uncaught ReferenceError: tap is not defined`, then 22 of 22 passing after `npm run build`, same code and same machine.
+
+`composer test:browser` builds before it runs, which is also why the CI browser job no longer has its own `npm run build` step.
+
+## The browser suite, piped, looked hung
+
+Fixed, and recorded because the fix is a wrapper rather than something that changed underneath us. `vendor/bin/pest --testsuite=Browser | tail` never comes back at all — and it is not the suite, which takes about half a minute. Chromium inherits the pipe's write end and keeps it open after pest has exited, so `tail` waits for an EOF nobody will send, and a run that passed reads as a hang for as long as anyone is willing to wait for it. `timeout` does not rescue it either: killing pest leaves the browser holding the pipe. Measured: piped, killed at 90s with nothing printed; the same single test redirected, 1.5s.
+
+`composer test:browser` now goes through `scripts/test-browser`, which writes to a file and prints it — the browser inherits a descriptor on a file, which nothing waits to end, and the caller's pipe only ever sees `cat`. So the reflex works:
 
 ```bash
-composer test:browser > /tmp/browser.log 2>&1; tail -20 /tmp/browser.log
+composer test:browser | tail -20
+```
+
+A bare `vendor/bin/pest --testsuite=Browser` still hangs when piped. That is the reason to go through the composer script.
+
+## The browser suite leaks a server per run
+
+Also answered by `scripts/test-browser`, and worth knowing about because it explains a session that slowly fills up with idle node. Every run leaves its `playwright run-server` behind — on a pass as readily as on a failure — and nothing in the plugin takes them down. Measured: three consecutive passing runs went 4, 5, 6 processes.
+
+The wrapper records the servers running before it starts and kills only what appeared during its own run, so a suite somebody else is running in another terminal survives. To sweep by hand after a run that was killed some other way:
+
+```bash
+pkill -f "playwright run-server"; pkill -f chrome-headless-shell
 ```
 
 ## Module layout
