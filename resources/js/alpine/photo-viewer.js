@@ -41,27 +41,6 @@ export default (options = {}) => ({
     startX: 0,
     startY: 0,
 
-    /**
-     * The screen as it is actually visible, which on a phone with a keyboard
-     * up is not the window. A software keyboard shrinks the visual viewport
-     * and leaves the layout one alone, so a `fixed` dialog keeps its full
-     * height and puts its own bottom row — here, the box you type a comment
-     * into — behind the keys typing into it. `interactive-widget` is the meta
-     * tag that would say otherwise and Safari ignores it, so the height is
-     * measured and the dialog is cut to it: the picture gives up the room,
-     * the thread and the field stay where the thumb left them.
-     *
-     * `offset` goes with it. iOS answers a focus near the bottom by sliding
-     * the visual viewport up inside the layout one, and a fixed dialog that
-     * does not follow ends up scrolled half off the screen.
-     */
-    height: null,
-    offset: 0,
-
-    /** The tallest this screen has been, and how wide it was at the time. */
-    tallest: 0,
-    across: 0,
-
     /** How far the picture is lifted. Never positive: down is not a way out. */
     y: 0,
 
@@ -84,74 +63,15 @@ export default (options = {}) => ({
     },
 
     /**
-     * Whether what took the bottom of the screen is a keyboard. Asked as a
-     * question about how much was taken rather than measured outright: the
-     * browser's own bar collapses and expands by fifty or so pixels with
-     * nobody typing, and no keyboard on any phone is that short.
-     */
-    get keyboard() {
-        return this.height !== null && this.height < this.tallest - 150;
-    },
-
-    init() {
-        const viewport = window.visualViewport;
-
-        if (!viewport) return;
-
-        this.measure = () => {
-            // A turned phone is a different screen, and the tallest the old
-            // one ever was says nothing about this one.
-            if (viewport.width !== this.across) {
-                this.across = viewport.width;
-                this.tallest = 0;
-            }
-
-            this.height = viewport.height;
-            this.offset = viewport.offsetTop;
-            this.tallest = Math.max(this.tallest, viewport.height);
-        };
-
-        viewport.addEventListener("resize", this.measure);
-        viewport.addEventListener("scroll", this.measure);
-
-        this.measure();
-    },
-
-    destroy() {
-        if (!this.measure) return;
-
-        window.visualViewport?.removeEventListener("resize", this.measure);
-        window.visualViewport?.removeEventListener("scroll", this.measure);
-    },
-
-    /**
-     * Where the dialog sits, how tall it is, and how far gone it looks on the
-     * way out. One binding rather than four, so a pointermove costs one style
-     * write.
+     * Where the picture sits, and how far gone it looks on the way out.
+     * One binding rather than two, so a pointermove costs one style write.
      */
     get carried() {
-        const styles = [];
+        if (this.y === 0) return "";
 
-        // Cut to the visible screen rather than to the window. Nothing to cut
-        // to before the first measurement, and nothing to cut to at all in a
-        // browser without a visual viewport, where `h-full` is already right.
-        if (this.height !== null) styles.push(`height: ${this.height}px`);
+        const faded = 1 - Math.min(-this.y / 480, 0.75);
 
-        // While the keyboard is up, the bottom of the screen is the top of the
-        // keyboard: the home indicator, and the inset that clears it, are
-        // somewhere behind it. The token is the one the composer pads by.
-        if (this.keyboard) styles.push("--spacing-safe-b: 0px");
-
-        const lifted = this.y + this.offset;
-
-        if (lifted !== 0) styles.push(`transform: translateY(${lifted}px)`);
-
-        if (this.y !== 0) {
-            styles.push(`opacity: ${1 - Math.min(-this.y / 480, 0.75)}`);
-            styles.push("will-change: transform, opacity");
-        }
-
-        return styles.join("; ");
+        return `transform: translateY(${this.y}px); opacity: ${faded}; will-change: transform, opacity`;
     },
 
     /** The emoji shown beside the count, most-used first, mine kept. */

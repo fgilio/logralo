@@ -19,6 +19,7 @@ import protectMedia from "./protect-media";
 import pullToRefresh from "./alpine/pull-to-refresh";
 import reactionPicker from "./alpine/reaction-picker";
 import shareCard from "./alpine/share-card";
+import trackViewport from "./viewport";
 
 /**
  * The resize is the one piece of logic here with no server behind it, and the
@@ -30,9 +31,12 @@ import shareCard from "./alpine/share-card";
 // Merged, not assigned: the head has already put the resize budget here.
 window.Logralo = { ...window.Logralo, compressPhoto };
 
-// Not an Alpine component and not tied to any template: the gestures that save
-// a photo are the browser's own, and they are refused on the document.
+// Not Alpine components and not tied to any template: the gestures that save a
+// photo are the browser's own and are refused on the document, and how much of
+// the screen a keyboard is covering is one fact every surface with a field at
+// its bottom edge asks about.
 protectMedia();
+trackViewport();
 
 document.addEventListener("alpine:init", () => {
     Alpine.data("longPress", pressGesture);

@@ -375,10 +375,15 @@ it('reacts and comments without leaving the open photo', function (): void {
         ->assertVisible('@viewer-tally');
 
     // Sixteen pixels is the line between a field you tap and a field that
-    // zooms the whole viewer on the way in — iOS scales the page up to reach
+    // zooms the whole screen on the way in — iOS scales the page up to reach
     // anything smaller, and does not scale it back when the keyboard goes.
+    // Asked of every field on the screen rather than of the one that got it
+    // wrong: Flux ships `text-base sm:text-sm` for this reason, so the ones
+    // that need watching are the hand-rolled ones, and the viewer is where
+    // the kit cannot be used.
     $page->assertScript(
-        "parseFloat(getComputedStyle(document.querySelector('[data-test=\"comment-body\"]')).fontSize) >= 16",
+        'Array.from(document.querySelectorAll("input:not([type=file]), textarea, select"))'
+        .'.every(field => parseFloat(getComputedStyle(field).fontSize) >= 16)',
     );
 
     $page->type('@comment-body', 'Sos un crack')

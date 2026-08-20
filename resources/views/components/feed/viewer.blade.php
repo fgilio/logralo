@@ -38,7 +38,14 @@
              of the speed the finger moved. --}}
         :class="dragging || 'transition duration-200 ease-out'"
         :style="carried"
-        class="flex h-full flex-col bg-zinc-950 text-white"
+        {{-- Cut to the screen as it is actually visible rather than to the
+             window, and slid down with it: a keyboard shrinks one and leaves
+             the other alone, and a dialog that ignores the difference puts the
+             comment box behind the keys. `viewport.js` publishes both, and the
+             fallbacks are what is true until it has anything to say. The
+             `translate` property is the drag's `transform`'s neighbour rather
+             than its rival, so the two compose. --}}
+        class="flex h-[var(--viewport-height,100%)] translate-y-[var(--viewport-top,0px)] flex-col bg-zinc-950 text-white"
     >
         <header class="flex shrink-0 items-center gap-3 px-4 pt-[max(0.75rem,env(safe-area-inset-top))] pb-2">
             <div class="min-w-0 flex-1 leading-tight">

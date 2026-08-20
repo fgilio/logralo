@@ -1,18 +1,20 @@
 /**
  * The box you leave a comment in.
  *
- * The draft never leaves the browser until it is sent. A comment is a handful
- * of words typed in one go, and binding it to the server would put a request
- * behind a keystroke to buy nothing — so the field is Alpine's, and `send`
- * takes the line as an argument.
+ * The draft is Alpine's rather than a `wire:model` property, so that the box
+ * can empty the instant the arrow is tapped, the way every chat on the phone
+ * does: `send` takes the line as an argument and answers whether it landed,
+ * and the round trip is still running when the field is already clear. If it
+ * comes back refused, the words are handed back rather than lost. (The old
+ * binding cost no requests — plain `wire:model` is deferred — so what this
+ * buys is the wait, not the traffic.)
  *
- * That is also what makes the box empty the instant the arrow is tapped, the
- * way every chat on the phone does. The round trip is still running when the
- * field is already clear; if it comes back refused, the words are handed back
- * rather than lost.
+ * The box grows with what is in it, and that is `field-sizing: content` on the
+ * textarea rather than anything here — the same way Flux sizes its own
+ * `rows="auto"`.
  *
- * `options.max` is the cap the field and the Action both enforce, passed in
- * so the number is `config('logralo.comments.max_length')` and not a second
+ * `options.max` is the cap the field and the Action both enforce, passed in so
+ * the number is `config('logralo.comments.max_length')` and not a second
  * opinion about it.
  */
 export default (options = {}) => ({
@@ -28,31 +30,6 @@ export default (options = {}) => ({
 
     get ready() {
         return this.draft.trim() !== "" && !this.sending;
-    },
-
-    init() {
-        // Watched rather than handled on `input`, so a draft handed back after
-        // a failed send resizes the box the same way typing into it does.
-        this.$watch("draft", () => this.$nextTick(() => this.grow()));
-        this.grow();
-    },
-
-    /**
-     * One line to start with, up to four as the comment gets longer. A 280
-     * character cap in front of a box that shows twenty of them is a peephole,
-     * and the whole point of the field is reading back what you wrote.
-     *
-     * Collapsed before it is measured: `scrollHeight` is how tall the content
-     * is *or* how tall the box already is, whichever is greater, so a box that
-     * is never shrunk can only ever grow.
-     */
-    grow() {
-        const field = this.$refs.field;
-
-        if (!field) return;
-
-        field.style.height = "auto";
-        field.style.height = `${field.scrollHeight}px`;
     },
 
     async send() {

@@ -28,11 +28,12 @@ use Livewire\Component;
  * carried its thread would be re-serialised on every render of a feed that
  * re-renders whole.
  *
- * The draft is the browser's, which is why there is no `$body` here: a comment
- * is a few words typed in one go, and a bound property would put a request
- * behind a keystroke to buy nothing. `send` takes the line as an argument and
- * answers whether it landed, so the field can clear itself the moment the
- * arrow is tapped and hand the words back if it did not.
+ * The draft is the browser's, which is why there is no `$body` here — not to
+ * save requests, since a plain `wire:model` is deferred and cost none, but so
+ * that the field can clear itself the moment the arrow is tapped rather than
+ * when the round trip comes back. `send` takes the line as an argument and
+ * answers whether it landed, which is what lets the box hand the words back
+ * when it did not.
  *
  * Nothing here reaches the feed. A wall of pictures is what the feed is for,
  * and a comment is something you go and look at.
@@ -135,6 +136,10 @@ new class extends Component
                      screen, so the animation belongs to whichever node was
                      just inserted — the comment somebody sent while the photo
                      was open, arriving instead of appearing. --}}
+                {{-- Read once: a date cast is rebuilt on every access, and the
+                     line below asks for the same one twice. --}}
+                @php($at = $comment->created_at)
+
                 <div class="rise flex items-start gap-2.5" wire:key="comment-{{ $comment->id }}">
                     <x-avatar :user="$comment->user" size="sm" class="mt-px shrink-0" />
 
@@ -154,9 +159,9 @@ new class extends Component
                          saying "ago", and the two words it saves are two words
                          of somebody's comment. --}}
                     <time
-                        datetime="{{ $comment->created_at?->toIso8601String() }}"
+                        datetime="{{ $at?->toIso8601String() }}"
                         class="shrink-0 pt-px text-caption text-white/30 tabular-nums"
-                    >{{ $comment->created_at?->shortAbsoluteDiffForHumans() }}</time>
+                    >{{ $at?->shortAbsoluteDiffForHumans() }}</time>
                 </div>
             @empty
                 <p class="py-2 text-center text-xs text-white/40">
@@ -175,10 +180,10 @@ new class extends Component
             wire:key="composer-{{ $this->markId }}"
             x-data="commentComposer({ max: {{ $max }} })"
             x-on:submit.prevent="send()"
-            {{-- The bottom inset is the viewer's to decide: while the keyboard
-                 is up it sets the token to zero, because the home indicator it
-                 clears is behind the keys. --}}
-            class="flex shrink-0 items-end gap-2 px-3 pt-1 pb-[max(0.75rem,var(--spacing-safe-b))]"
+            {{-- The keyboard-aware inset rather than the device's: while the
+                 keys are up, the home indicator this would clear is behind
+                 them. `resources/css/app.css` is where it goes to zero. --}}
+            class="flex shrink-0 items-end gap-2 px-3 pt-1 pb-[max(0.75rem,var(--keyboard-safe-b))]"
         >
             <div class="relative min-w-0 flex-1">
                 {{-- `flux:input` brings a light-mode kit into a dialog that is
@@ -187,10 +192,13 @@ new class extends Component
 
                      A textarea rather than an input, and it grows: the cap is
                      280 characters and a one-line box shows twenty of them.
+                     `field-sizing-content` is the whole of the growing, the
+                     same way Flux sizes its own `rows="auto"` — an engine that
+                     has never heard of it leaves the box at the one row the
+                     input this replaced had, which is the floor, not a break.
                      Return still sends — the Action squishes a comment to one
                      line, so a newline was never going to survive the trip. --}}
                 <textarea
-                    x-ref="field"
                     x-model="draft"
                     x-on:keydown.enter.prevent="send()"
                     rows="1"
@@ -203,7 +211,7 @@ new class extends Component
                          any field smaller than that the moment it is focused,
                          and never zooms back out: the viewer is left cropped
                          and off-centre with the photo half off the screen. --}}
-                    class="block max-h-28 w-full resize-none overflow-y-auto rounded-3xl border-0 bg-white/10 py-2.5 pr-10 pl-4 text-base/5 text-white placeholder:text-white/40 focus:ring-2 focus:ring-accent focus:outline-none"
+                    class="block max-h-28 w-full resize-none overflow-y-auto rounded-3xl border-0 bg-white/10 py-2.5 pr-10 pl-4 text-base/5 field-sizing-content text-white placeholder:text-white/40 focus:ring-2 focus:ring-accent focus:outline-none"
                     aria-label="Comentar"
                     data-test="comment-body"
                 ></textarea>
