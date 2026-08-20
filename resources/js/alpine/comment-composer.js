@@ -48,13 +48,25 @@ export default (options = {}) => ({
             // `false` is a comment the server refused — an empty line, a mark
             // this member cannot write to. It said why in a toast; what is
             // left to do is give the words back.
-            if ((await this.$wire.send(body)) === false) this.draft = body;
+            if ((await this.$wire.send(body)) === false) this.restore(body);
         } catch {
             // No answer at all: the request never landed, so neither did the
             // comment.
-            this.draft = body;
+            this.restore(body);
         } finally {
             this.sending = false;
         }
+    },
+
+    /**
+     * The refused line, back in the box it was typed in. The box is left
+     * editable while the request runs — hiding that wait is the whole reason
+     * it empties early — so by now it can hold the start of the next comment.
+     * That goes after the returned one rather than under it: the Action
+     * squishes a comment to one line anyway, and dropping either half to avoid
+     * the join would throw away something somebody typed.
+     */
+    restore(body) {
+        this.draft = this.draft === "" ? body : `${body} ${this.draft}`;
     },
 });
