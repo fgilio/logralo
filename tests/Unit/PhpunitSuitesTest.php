@@ -72,18 +72,17 @@ it('runs every declared testsuite', function (): void {
 
     // A composer script may hand the run to a shell script and the flag
     // travels with it (`test:browser` runs `scripts/test-browser`, which is
-    // where `--testsuite=Browser` is written). Followed one hop, with the
-    // comment lines dropped first: a script whose header narrates the flag
-    // must not satisfy the guard once the command itself stops selecting
-    // the suite.
+    // where `--testsuite=Browser` is written). Followed one hop, with shell
+    // comments stripped first, whole-line and trailing alike: a script that
+    // narrates the flag in prose must not satisfy the guard once no command
+    // selects the suite.
     $delegated = $commands
         ->flatMap(fn (string $script): array => Str::matchAll('#(scripts/[\w./-]+)#', $script)->all())
         ->unique()
         ->filter(fn (string $path): bool => File::isFile(base_path($path)))
         ->map(fn (string $path): string => Str::of(File::get(base_path($path)))
-            ->explode("\n")
-            ->reject(fn (string $line): bool => str_starts_with(mb_ltrim($line), '#'))
-            ->implode("\n"));
+            ->replaceMatches('/(^|\s)#[^\n]*/m', '$1')
+            ->value());
 
     // --testsuite takes a comma-separated list, so the names are matched whole
     // rather than searched for: suite Arch is not selected by --testsuite=Architecture.
