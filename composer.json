@@ -87,7 +87,7 @@
         "test:type-coverage": "@php vendor/bin/pest --type-coverage --min=100",
         "test:unit": "@php vendor/bin/pest --parallel",
         "test:unit:full": "@php vendor/bin/pest --parallel --no-tia",
-        "test:browser": "@php vendor/bin/pest --testsuite=Browser --no-tia",
+        "test:browser": "./scripts/test-browser",
         "test:tia-baseline": "@php vendor/bin/pest --parallel --tia --fresh",
         "test": [
             "@test:type-coverage",

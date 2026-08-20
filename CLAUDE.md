@@ -56,6 +56,7 @@ Livewire SFCs never go in `resources/views/components/`: a non-emoji file there 
 composer setup               # first run: deps, .env, database, assets
 composer dev                 # server + queue + logs + vite
 composer test                # type coverage, phpstan, lint, unit, browser
+composer test:browser        # the phone suite alone — safe to pipe, see below
 composer lint                # rector + pint + prettier, writing fixes
 
 php artisan logralo:seed-member "Nombre" email@example.com America/Montevideo
@@ -63,6 +64,10 @@ php artisan logralo:close-months            # normally hourly on the scheduler
 php artisan migrate:fresh --seed            # local demo data (DemoSeeder)
 bash scripts/branding.sh                    # regenerate PWA icons and splashes
 ```
+
+### The browser suite
+
+Go through `composer test:browser` rather than calling pest's `--testsuite=Browser` yourself. The wrapper builds the assets first (the suite tests `public/build`, and a stale bundle fails every test at once), writes output to a file so piping is safe (the bare pest call hangs forever when piped), and cleans up the `playwright run-server` every run leaks. The full account of all three is in `scripts/cloud/SETUP.md`.
 
 ## Cloud sessions
 
