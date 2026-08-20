@@ -77,7 +77,7 @@ A bare `vendor/bin/pest --testsuite=Browser` still hangs when piped. That is the
 
 Also answered by `scripts/test-browser`, and worth knowing about because it explains a session that slowly fills up with idle node. Every run leaves its `playwright run-server` behind — on a pass as readily as on a failure — and nothing in the plugin takes them down. Measured: three consecutive passing runs went 4, 5, 6 processes.
 
-The wrapper records the servers running before it starts and kills only what appeared during its own run, so a suite somebody else is running in another terminal survives. To sweep by hand after a run that was killed some other way:
+The wrapper runs pest in its own process group and takes the group down when it exits, so it kills what its own run started, by ownership rather than by timing, and a suite somebody else is running in another terminal survives. To sweep by hand after a run of the bare pest call:
 
 ```bash
 pkill -f "playwright run-server"; pkill -f chrome-headless-shell

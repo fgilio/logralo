@@ -41,15 +41,6 @@
 # works the way the bare pest call does.
 set -uo pipefail
 
-# Matched on the whole command line, because the binary is `node`.
-readonly SERVER='playwright run-server'
-
-servers() {
-    pgrep -f "$SERVER" 2>/dev/null | sort
-}
-
-before="$(servers || true)"
-
 log="$(mktemp)"
 trap 'rm -f "$log"' EXIT
 
@@ -61,18 +52,21 @@ if ! npm run build >"$log" 2>&1; then
     exit 1
 fi
 
-./scripts/php vendor/bin/pest --testsuite=Browser --no-tia "$@" >"$log" 2>&1
+# Job control gives the backgrounded pest its own process group, and the
+# leaked server stays in it. Killing the group on exit takes down what
+# this run started and nothing else, even when the wrapper itself is
+# interrupted. A pid that was already there belongs to somebody else's
+# suite, and is in somebody else's group. KILL rather than TERM: the
+# server answers a first TERM by waiting for its client to disconnect,
+# and that client is the pest that already exited.
+set -m
+./scripts/php vendor/bin/pest --testsuite=Browser --no-tia "$@" >"$log" 2>&1 &
+pest=$!
+trap 'kill -KILL -- "-$pest" 2>/dev/null; rm -f "$log"' EXIT
+
+wait "$pest"
 status=$?
 
 cat "$log"
-
-# Only the ones this run started. A pid that was already there belongs to
-# somebody else's suite, and taking it down would fail their run to tidy ours.
-leaked="$(comm -13 <(echo "$before") <(servers || true) | grep -E '^[0-9]+$' || true)"
-
-if [[ -n $leaked ]]; then
-    # shellcheck disable=SC2086 # word splitting is how the pid list is passed
-    kill $leaked 2>/dev/null || true
-fi
 
 exit $status

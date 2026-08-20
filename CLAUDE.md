@@ -67,13 +67,7 @@ bash scripts/branding.sh                    # regenerate PWA icons and splashes
 
 ### The browser suite
 
-Go through `composer test:browser` — `scripts/test-browser` — rather than calling pest's `--testsuite=Browser` yourself. Three things about that suite have each cost a session more time than the suite takes to run, and the wrapper is where all three are answered:
-
-- **It tests `public/build`, not `resources/`.** The in-process server serves the built assets, and nothing keeps them in step with the source, so a branch switch, a pull, or an unbuilt edit to any js or css leaves the suite driving a different app than the one you are reading. It does not fail like a stale assertion — it fails wide, sometimes every test at once with zero assertions, because a bundle that disagrees with the markup throws on load and nothing renders. The wrapper builds first; that is a second, and it retires the whole failure mode.
-- **Piped, the bare pest call never returns.** The browser inherits the pipe's write end and holds it open after pest exits, so `| tail` waits on an EOF nobody sends and a passing run reads as a hang. `timeout` does not rescue it — killing pest leaves the browser holding the pipe. The wrapper writes to a file and prints it, so `composer test:browser | tail` is safe.
-- **Every run leaks a `playwright run-server`**, on a pass as readily as on a failure — they pile up across a session. The wrapper kills the ones its own run started, and leaves anyone else's alone.
-
-So a wide browser failure is worth one re-run through the wrapper before it is read as a regression. If it survives that, it is real.
+Go through `composer test:browser` rather than calling pest's `--testsuite=Browser` yourself. The wrapper builds the assets first (the suite tests `public/build`, and a stale bundle fails every test at once), writes output to a file so piping is safe (the bare pest call hangs forever when piped), and cleans up the `playwright run-server` every run leaks. The full account of all three is in `scripts/cloud/SETUP.md`.
 
 ## Cloud sessions
 
