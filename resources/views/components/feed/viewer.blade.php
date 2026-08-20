@@ -97,6 +97,10 @@
                 x-on:pointermove="move($event)"
                 x-on:pointerup="end($event)"
                 x-on:pointercancel="cancel()"
+                {{-- The tap closes here rather than on the pointer, so the
+                     click it owes is spent on the picture instead of on the
+                     card the picture was covering. --}}
+                x-on:click="tap()"
                 class="tap-target flex min-h-0 flex-1 items-center justify-center"
                 style="touch-action: none"
                 data-test="viewer-photo"

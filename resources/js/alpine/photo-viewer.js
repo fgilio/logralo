@@ -41,6 +41,9 @@ export default (options = {}) => ({
     startX: 0,
     startY: 0,
 
+    /** The gesture that just ended was a tap, so the click it owes is ours. */
+    tapped: false,
+
     /** How far the picture is lifted. Never positive: down is not a way out. */
     y: 0,
 
@@ -94,6 +97,8 @@ export default (options = {}) => ({
     show(photo) {
         this.cancel();
         this.picking = false;
+        // A tap whose click never arrived is not owed one by the next photo.
+        this.tapped = false;
 
         this.photo = photo;
         this.reacted = photo.reacted ?? null;
@@ -144,6 +149,7 @@ export default (options = {}) => ({
         this.startX = event.clientX;
         this.startY = event.clientY;
         this.travelled = 0;
+        this.tapped = false;
 
         try {
             event.currentTarget.setPointerCapture(event.pointerId);
@@ -169,16 +175,41 @@ export default (options = {}) => ({
         if (event.pointerId !== this.pointerId) return;
 
         const lifted = -this.y;
-        const moved = this.travelled;
-
-        this.cancel();
 
         // A tap and a throw upward both mean the same thing. Everything else
         // — a short lift, a drag down, a drag sideways — is a gesture that
         // was not asking for the exit, and springs back.
-        if (moved <= this.tapTolerance || lifted > this.threshold) {
-            this.dismiss();
-        }
+        this.tapped = this.travelled <= this.tapTolerance;
+
+        this.cancel();
+
+        // The throw is answered here, because a gesture that travelled this
+        // far emits no click to answer it on.
+        if (!this.tapped && lifted > this.threshold) this.dismiss();
+    },
+
+    /**
+     * The tap, answered on the click it produces rather than on the pointer.
+     *
+     * A tap is not over when the finger lifts: the browser still owes a
+     * `click`, and it aims that click by hit-testing the point the finger
+     * left. Closing on `pointerup` meant the dialog was already gone by then
+     * and the topmost element there was the feed card the photo had been
+     * covering — so the card opened its own photo, and the tap looked like it
+     * had gone straight through the picture.
+     *
+     * Waiting for the click is what removes that: it is hit-tested while the
+     * viewer is still up, so it lands here, and there is no second event left
+     * for anything underneath to answer. `travelled` is what says the gesture
+     * was a tap; the click alone cannot, since a drag inside the browser's own
+     * slop emits one too.
+     */
+    tap() {
+        if (!this.tapped) return;
+
+        this.tapped = false;
+
+        this.dismiss();
     },
 
     cancel() {
