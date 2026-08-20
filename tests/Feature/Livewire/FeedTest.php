@@ -412,6 +412,23 @@ it('summarises the reactions a mark already has', function (): void {
         ->assertSeeHtml('data-test="reactions-'.$mark->id.'"');
 });
 
+it('counts the first reaction in the singular', function (): void {
+    $ana = User::factory()->create(['name' => 'Ana']);
+    $bruno = User::factory()->create(['name' => 'Bruno']);
+    $mark = Mark::factory()->for(Goal::factory()->for($ana)->create())->on('2026-08-11')->create();
+
+    Livewire::actingAs($ana)
+        ->test('feed')
+        ->call('react', $mark->id, 'clap')
+        ->assertSeeHtml('aria-label="1 reacción: Aplausos 1"');
+
+    Livewire::actingAs($bruno)->test('feed')->call('react', $mark->id, 'fire');
+
+    Livewire::actingAs($ana)
+        ->test('feed')
+        ->assertSeeHtml('aria-label="2 reacciones: ');
+});
+
 it('reloads when a mark lands anywhere on the page', function (): void {
     $user = User::factory()->create();
     $goal = Goal::factory()->for($user)->create();
