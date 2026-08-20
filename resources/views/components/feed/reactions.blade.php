@@ -21,6 +21,11 @@
         ->map(fn (int $count, string $value): string => ReactionEmoji::from($value)->label() . ' ' . $count)
         ->join(', ');
 
+    // Read once: the pill shows this number and the label has to agree with
+    // it, in number as well as in value. Spelled out rather than run through
+    // Str::plural, for the reason share/show.blade.php gives.
+    $total = $mark->reactions->count();
+
     $inverse = $tone === 'inverse';
 
     $pill = $inverse
@@ -39,7 +44,7 @@
         <span
             class="flex items-center gap-1 rounded-full px-1.5 py-0.5 ring-1 {{ $pill }}"
             role="img"
-            aria-label="{{ $mark->reactions->count() }} reacciones: {{ $tally }}"
+            aria-label="{{ $total }} {{ $total === 1 ? 'reacción' : 'reacciones' }}: {{ $tally }}"
             data-test="reactions-{{ $mark->id }}"
         >
             <span aria-hidden="true" class="flex -space-x-1">
@@ -58,7 +63,7 @@
                 @endforeach
             </span>
 
-            <span aria-hidden="true" class="text-xs font-medium tabular-nums">{{ $mark->reactions->count() }}</span>
+            <span aria-hidden="true" class="text-xs font-medium tabular-nums">{{ $total }}</span>
         </span>
     @endif
 
