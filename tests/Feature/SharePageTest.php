@@ -116,8 +116,11 @@ it('offers a member the way back into the app, anchored on the mark', function (
         ->assertSee('#mark-'.$mark->id, escape: false);
 });
 
-it('refuses a token that never existed', function (): void {
-    $this->get('/l/'.str_repeat('a', 24))->assertNotFound();
+it("refuses a token that never existed, in the app's own voice", function (): void {
+    $this->get('/l/'.str_repeat('a', 24))
+        ->assertNotFound()
+        ->assertSee('Acá no hay nada')
+        ->assertSee('Ir a Logralo');
 });
 
 it('refuses a token of the wrong shape before it reaches the database', function (): void {
