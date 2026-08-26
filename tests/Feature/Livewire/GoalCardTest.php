@@ -315,6 +315,7 @@ it('remembers a dismissed reminder across page loads', function (): void {
 });
 
 it('adds a photo after a reminder was marked', function (): void {
+    Storage::fake('local');
     Storage::fake('photos');
     $user = User::factory()->create();
     $goal = Goal::factory()->for($user)->create();
