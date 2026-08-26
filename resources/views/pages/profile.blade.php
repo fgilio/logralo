@@ -446,9 +446,15 @@ new #[Title('Perfil')] class extends Component
                         @if ($hasUpload)
                             Si la quitás volvemos a tu Gravatar, y si no tenés, a tus iniciales.
                         @elseif ($user->gravatarUrl() !== null)
+                            {{-- The second half is not padding: that URL is a
+                                 guess, and only the browser ever learns whether
+                                 it answers. Promising the picture left this line
+                                 telling a member with no Gravatar that we were
+                                 using one, right beside the initials it was
+                                 actually drawing. --}}
                             Mientras no subas ninguna usamos la de
                             <a href="https://gravatar.com" target="_blank" rel="noopener" class="underline">Gravatar</a>
-                            de {{ $user->email }}.
+                            de {{ $user->email }}, y si no tenés, tus iniciales.
                         @else
                             Mientras no subas ninguna van tus iniciales.
                         @endif

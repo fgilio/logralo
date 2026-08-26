@@ -147,6 +147,20 @@ it('lays the Gravatar over the initials rather than replacing them', function ()
         ->toContain('d=404');
 });
 
+it('tells the profile screen the initials are still on the table', function (): void {
+    config()->set('logralo.avatars.gravatar', true);
+
+    $user = User::factory()->create(['email' => 'franco@example.com']);
+
+    $page = Livewire::actingAs($user)->test('pages::profile')->html();
+
+    // Nothing on the server knows whether that address has a picture — `d=404`
+    // and the `onerror` above are the whole of the answer — so the line beside
+    // the avatar says what happens either way instead of promising a Gravatar
+    // the member may not have.
+    expect($page)->toContain('y si no tenés, tus iniciales');
+});
+
 it('shows an uploaded picture instead of asking Gravatar', function (): void {
     Storage::fake('photos');
     config()->set('logralo.avatars.gravatar', true);
