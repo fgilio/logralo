@@ -231,6 +231,107 @@ it('marks yesterday while the grace window is open', function (): void {
     expect(Mark::query()->sole()->marked_on->toDateString())->toBe('2026-08-10');
 });
 
+it('turns the reminder into a quiet confirmation', function (): void {
+    $user = User::factory()->create();
+    $goal = Goal::factory()->for($user)->create(['name' => 'Gimnasio']);
+
+    Livewire::actingAs($user)
+        ->test('goal-card', ['goal' => $goal, 'date' => '2026-08-10', 'variant' => 'reminder'])
+        ->assertSee('Gimnasio')
+        ->assertSee('Sí, lo hice')
+        ->assertSee('Descartar')
+        ->call('press', false)
+        ->assertDispatched('grace-mark-updated')
+        ->assertSee('¡Anotado! Gimnasio')
+        ->assertSee('Agregar foto')
+        ->assertSeeHtml('data-test="grace-undo-'.$goal->id.'"');
+
+    expect(Mark::query()->sole()->marked_on->toDateString())->toBe('2026-08-10');
+});
+
+it('dismisses and restores a reminder during the undo window', function (): void {
+    $user = User::factory()->create();
+    $goal = Goal::factory()->for($user)->create(['name' => 'Gimnasio']);
+
+    Livewire::actingAs($user)
+        ->test('goal-card', ['goal' => $goal, 'date' => '2026-08-10', 'variant' => 'reminder'])
+        ->call('dismissReminder')
+        ->assertSet('dismissed', true)
+        ->assertSee('Recordatorio ocultado')
+        ->assertSee('Deshacer')
+        ->call('restoreReminder')
+        ->assertSet('dismissed', false)
+        ->assertSee('Sí, lo hice');
+
+    expect(Mark::query()->count())->toBe(0);
+});
+
+it('does not restore a reminder after the undo window', function (): void {
+    $user = User::factory()->create();
+    $goal = Goal::factory()->for($user)->create(['name' => 'Gimnasio']);
+
+    $component = Livewire::actingAs($user)
+        ->test('goal-card', ['goal' => $goal, 'date' => '2026-08-10', 'variant' => 'reminder'])
+        ->call('dismissReminder');
+
+    $this->travel(8)->seconds();
+
+    $component
+        ->call('restoreReminder')
+        ->assertSet('dismissed', true)
+        ->assertSet('showDismissUndo', false)
+        ->assertDontSee('Sí, lo hice');
+});
+
+it('closes the reminder undo window on schedule', function (): void {
+    $user = User::factory()->create();
+    $goal = Goal::factory()->for($user)->create(['name' => 'Gimnasio']);
+
+    Livewire::actingAs($user)
+        ->test('goal-card', ['goal' => $goal, 'date' => '2026-08-10', 'variant' => 'reminder'])
+        ->call('dismissReminder')
+        ->call('finishDismissal')
+        ->assertSet('showDismissUndo', false)
+        ->assertDontSee('Recordatorio ocultado')
+        ->call('restoreReminder')
+        ->assertSet('dismissed', true)
+        ->assertDontSee('Sí, lo hice');
+});
+
+it('remembers a dismissed reminder across page loads', function (): void {
+    $user = User::factory()->create();
+    $goal = Goal::factory()->for($user)->create(['name' => 'Gimnasio']);
+    $parameters = ['goal' => $goal, 'date' => '2026-08-10', 'variant' => 'reminder'];
+
+    Livewire::actingAs($user)
+        ->test('goal-card', $parameters)
+        ->call('dismissReminder');
+
+    Livewire::actingAs($user)
+        ->test('goal-card', $parameters)
+        ->assertSet('dismissed', true)
+        ->assertDontSee('Sí, lo hice')
+        ->assertDontSee('Recordatorio ocultado');
+});
+
+it('adds a photo after a reminder was marked', function (): void {
+    Storage::fake('local');
+    Storage::fake('photos');
+    $user = User::factory()->create();
+    $goal = Goal::factory()->for($user)->create();
+    Mark::factory()->for($goal)->on('2026-08-10')->create();
+
+    Livewire::actingAs($user)
+        ->test('goal-card', ['goal' => $goal, 'date' => '2026-08-10', 'variant' => 'reminder'])
+        ->upload('photo', [UploadedFile::fake()->image('proof.jpg', 400, 500)])
+        ->call('save')
+        ->assertHasNoErrors()
+        ->assertDispatched('grace-mark-updated')
+        ->assertSee('Quedó guardado con foto.');
+
+    expect(Mark::query()->sole()->isFull())->toBeTrue();
+});
+
 it('refuses to mark yesterday once the grace window has closed', function (): void {
     // 12:00 sharp is the cutoff, so yesterday is already gone.
     $this->travelTo(CarbonImmutable::parse('2026-08-11 12:00', 'America/Montevideo')->utc());

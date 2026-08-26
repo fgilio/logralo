@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use App\Actions\AttachPhotoToMark;
 use App\Actions\MarkGoal;
 use App\Actions\UnmarkGoal;
 use App\Concerns\PhotoValidationRules;
@@ -48,8 +49,8 @@ new class extends Component
 
     /**
      * How the card is drawn: a `tile` in the grid, a full-width `row` when
-     * there are too few goals to fill one, or the `chip` the grace banner
-     * packs several of into a line. Presentation only — every variant marks
+     * there are too few goals to fill one, a compact `chip`, or a row
+     * inside yesterday's `reminder`. Presentation only. Every variant marks
      * the same way.
      */
     #[Locked]
@@ -60,6 +61,12 @@ new class extends Component
 
     public string $note = '';
 
+    public bool $dismissed = false;
+
+    public bool $showDismissUndo = false;
+
+    public bool $showMarkUndo = false;
+
     public function mount(Goal $goal, ?string $date = null, string $variant = 'tile'): void
     {
         abort_unless($goal->user_id === Auth::id(), 403);
@@ -67,6 +74,8 @@ new class extends Component
         $this->goal = $goal;
         $this->variant = $variant;
         $this->date = $date ?? $goal->user->clock()->today()->toDateString();
+        $this->dismissed = $variant === 'reminder'
+            && (bool) session()->get($this->dismissalKey(), false);
     }
 
     #[Computed]
@@ -151,12 +160,59 @@ new class extends Component
 
     public function save(): void
     {
+        $mark = $this->mark;
+
         $this->validate([
-            'photo' => ['nullable', ...$this->photoRules()],
+            'photo' => [$mark === null ? 'nullable' : 'required', ...$this->photoRules()],
             'note' => ['nullable', 'string', 'max:'.config('logralo.goals.note_max_length')],
         ]);
 
+        if ($mark !== null) {
+            $this->attachPhoto($mark);
+
+            return;
+        }
+
         $this->store();
+    }
+
+    public function dismissReminder(): void
+    {
+        abort_unless($this->variant === 'reminder', 404);
+
+        session()->put($this->dismissalKey(), true);
+        session()->put($this->dismissalUndoKey(), now()->addSeconds(8)->timestamp);
+
+        $this->dismissed = true;
+        $this->showDismissUndo = true;
+    }
+
+    public function restoreReminder(): void
+    {
+        abort_unless($this->variant === 'reminder', 404);
+
+        $undoUntil = session()->get($this->dismissalUndoKey());
+
+        if (! is_int($undoUntil) || $undoUntil <= now()->timestamp) {
+            session()->forget($this->dismissalUndoKey());
+            $this->showDismissUndo = false;
+
+            return;
+        }
+
+        session()->forget([$this->dismissalKey(), $this->dismissalUndoKey()]);
+
+        $this->dismissed = false;
+        $this->showDismissUndo = false;
+    }
+
+    public function finishDismissal(): void
+    {
+        abort_unless($this->variant === 'reminder', 404);
+
+        session()->forget($this->dismissalUndoKey());
+
+        $this->showDismissUndo = false;
     }
 
     public function remove(): void
@@ -169,6 +225,26 @@ new class extends Component
 
         try {
             resolve(UnmarkGoal::class)->handle($mark);
+        } catch (UserFacingException $userFacingException) {
+            Flux::toast(text: $userFacingException->userMessage(), variant: 'warning');
+
+            return;
+        }
+
+        $this->showMarkUndo = false;
+        $this->after();
+    }
+
+    private function attachPhoto(Mark $mark): void
+    {
+        $photo = $this->photo;
+
+        if (! $photo instanceof TemporaryUploadedFile) {
+            return;
+        }
+
+        try {
+            resolve(AttachPhotoToMark::class)->handle($mark, $photo);
         } catch (UserFacingException $userFacingException) {
             Flux::toast(text: $userFacingException->userMessage(), variant: 'warning');
 
@@ -194,6 +270,7 @@ new class extends Component
             return;
         }
 
+        $this->showMarkUndo = $this->variant === 'reminder';
         $this->after();
         $this->celebrate($mark);
     }
@@ -239,7 +316,23 @@ new class extends Component
         unset($this->mark, $this->history, $this->streak, $this->requiresPhoto, $this->photoLinks);
 
         $this->modal($this->sheetName)->close();
+        if ($this->variant === 'reminder') {
+            $this->dispatch('grace-mark-updated', goalId: $this->goal->id);
+
+            return;
+        }
+
         $this->dispatch('mark-updated');
+    }
+
+    private function dismissalKey(): string
+    {
+        return "grace-reminders.{$this->goal->user_id}.{$this->date}.{$this->goal->id}";
+    }
+
+    private function dismissalUndoKey(): string
+    {
+        return "grace-reminder-undo.{$this->goal->user_id}.{$this->date}.{$this->goal->id}";
     }
 };
 
@@ -278,10 +371,14 @@ new class extends Component
     // The chip is small enough that it needs the deeper of the two nudges to
     // register as a press at all.
     $pressScale = $variant === 'chip' ? 'scale-95' : 'scale-[0.97]';
-    $testId = ($variant === 'chip' ? 'grace-goal' : 'goal-card').'-'.$goal->id;
+    $testId = match ($variant) {
+        'chip' => 'grace-goal-'.$goal->id,
+        'reminder' => 'grace-reminder-'.$goal->id,
+        default => 'goal-card-'.$goal->id,
+    };
 @endphp
 
-{{-- One interaction wrapper for all three variants: tap marks, hold opens the
+{{-- One interaction wrapper for the goal-card variants: tap marks, hold opens the
      sheet, and only what sits inside changes. Every variant is a div with
      `role="button"` rather than a `<button>`, because `short-press` rides on
      pointerup, which a keyboard never sends — the keydown handlers below are
@@ -301,29 +398,150 @@ new class extends Component
      the first has already changed the card. Every variant hangs it on the same
      root, so all three get that for free. --}}
 <div wire:key="goal-card-{{ $goal->id }}-{{ $date }}">
-    <div
-        x-data="goalCard({ delay: 420 })"
-        @pointerdown="start($event)"
-        @pointermove="move($event)"
-        @pointerup="end()"
-        @pointercancel="cancel()"
-        @lostpointercapture="cancel()"
-        @contextmenu.prevent
-        @click.capture="onClick($event)"
-        @short-press="press()"
-        @long-press="$flux.modal('{{ $this->sheetName }}').show()"
-        @keydown.enter.prevent="press()"
-        @keydown.space.prevent="press()"
-        @click="$event.detail === 0 && press()"
-        class="tap-target {{ $shell }} {{ $tone }}"
-        :class="pressing && '{{ $pressScale }}'"
-        role="button"
-        tabindex="0"
-        aria-pressed="{{ $mark !== null ? 'true' : 'false' }}"
-        aria-haspopup="{{ $opensSheet ? 'dialog' : 'false' }}"
-        aria-label="{{ $goal->name }}"
-        data-test="{{ $testId }}"
-    >
+    @if ($variant === 'reminder')
+        @if ($dismissed)
+            @if ($showDismissUndo)
+                <div
+                    x-init="setTimeout(() => $wire.finishDismissal(), 8000)"
+                    class="flex items-center justify-between px-4 py-3 text-sm"
+                    role="status"
+                    aria-live="polite"
+                    data-grace-row
+                    data-test="grace-dismissed-{{ $goal->id }}"
+                >
+                    <span class="text-zinc-600 dark:text-zinc-300">Recordatorio ocultado</span>
+
+                    <button
+                        type="button"
+                        wire:click="restoreReminder"
+                        class="rounded-lg px-2 py-1 font-semibold text-accent-content transition hover:bg-accent/10 focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:outline-none dark:focus-visible:ring-offset-zinc-950"
+                        data-test="grace-restore-{{ $goal->id }}"
+                    >
+                        Deshacer
+                    </button>
+                </div>
+            @endif
+        @else
+            <article
+                class="px-4 py-3"
+                aria-live="polite"
+                data-grace-row
+                data-test="{{ $testId }}"
+            >
+                @if ($mark === null)
+                    <div class="grid grid-cols-[auto_minmax(0,1fr)] items-center gap-x-3 gap-y-2 sm:grid-cols-[auto_minmax(0,1fr)_auto]">
+                        <span class="row-span-2 grid size-11 shrink-0 place-items-center rounded-xl bg-zinc-100 text-2xl leading-none sm:row-span-1 dark:bg-white/5">
+                            {{ $goal->emoji }}
+                        </span>
+
+                        <p class="min-w-0 flex-1 truncate text-sm font-semibold text-zinc-900 dark:text-white">
+                            {{ $goal->name }}
+                        </p>
+
+                        <div class="col-start-2 flex shrink-0 items-center gap-1 sm:col-start-3 sm:row-start-1 sm:ml-auto">
+                            <flux:button
+                                wire:click="press(false)"
+                                wire:loading.attr="disabled"
+                                wire:target="press"
+                                variant="primary"
+                                size="sm"
+                                :icon="$owesPhoto ? 'camera' : 'check'"
+                                data-test="grace-complete-{{ $goal->id }}"
+                            >
+                                {{ $owesPhoto ? 'Completar con foto' : 'Sí, lo hice' }}
+                            </flux:button>
+
+                            <flux:button
+                                wire:click="dismissReminder"
+                                variant="subtle"
+                                size="sm"
+                                data-test="grace-dismiss-{{ $goal->id }}"
+                            >
+                                Descartar
+                            </flux:button>
+                        </div>
+                    </div>
+                @else
+                    <div class="flex items-center gap-3">
+                        <span class="grid size-11 shrink-0 place-items-center rounded-full bg-emerald-500/10 text-emerald-600 dark:text-emerald-400">
+                            <flux:icon name="check" variant="solid" class="size-5" />
+                        </span>
+
+                        <div class="min-w-0 flex-1">
+                            <p class="truncate text-sm font-semibold text-zinc-900 dark:text-white">
+                                ¡Anotado! {{ $goal->name }}
+                            </p>
+                            <p class="mt-0.5 text-xs text-zinc-500 dark:text-zinc-400">
+                                {{ $isFull ? 'Quedó guardado con foto.' : 'Si querés, todavía podés sumar una foto.' }}
+                            </p>
+                        </div>
+                    </div>
+
+                    <div class="mt-2 flex min-h-8 items-center gap-1 pl-14">
+                        @if ($isGhost)
+                            <flux:button
+                                type="button"
+                                x-on:click="$flux.modal('{{ $this->sheetName }}').show()"
+                                variant="subtle"
+                                size="sm"
+                                icon="camera"
+                                data-test="grace-add-photo-{{ $goal->id }}"
+                            >
+                                Agregar foto
+                            </flux:button>
+                        @endif
+
+                        @if ($showMarkUndo)
+                            <button
+                                type="button"
+                                x-data="{ visible: true }"
+                                x-init="setTimeout(() => visible = false, 8000)"
+                                x-show="visible"
+                                x-transition.opacity.duration.150ms
+                                wire:click="remove"
+                                class="rounded-lg px-2 py-1.5 text-xs font-medium text-zinc-500 transition hover:bg-zinc-100 hover:text-zinc-800 focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:outline-none dark:hover:bg-white/10 dark:hover:text-zinc-100 dark:focus-visible:ring-offset-zinc-950"
+                                data-test="grace-undo-{{ $goal->id }}"
+                            >
+                                Deshacer
+                            </button>
+                        @endif
+
+                        <flux:button
+                            wire:click="dismissReminder"
+                            variant="subtle"
+                            size="sm"
+                            class="ml-auto"
+                        >
+                            Descartar
+                        </flux:button>
+                    </div>
+                @endif
+            </article>
+        @endif
+    @else
+        <div
+            x-data="goalCard({ delay: 420 })"
+            @pointerdown="start($event)"
+            @pointermove="move($event)"
+            @pointerup="end()"
+            @pointercancel="cancel()"
+            @lostpointercapture="cancel()"
+            @contextmenu.prevent
+            @click.capture="onClick($event)"
+            @short-press="press()"
+            @long-press="$flux.modal('{{ $this->sheetName }}').show()"
+            @keydown.enter.prevent="press()"
+            @keydown.space.prevent="press()"
+            @click="$event.detail === 0 && press()"
+            class="tap-target {{ $shell }} {{ $tone }}"
+            :class="pressing && '{{ $pressScale }}'"
+            role="button"
+            tabindex="0"
+            aria-pressed="{{ $mark !== null ? 'true' : 'false' }}"
+            aria-haspopup="{{ $opensSheet ? 'dialog' : 'false' }}"
+            aria-label="{{ $goal->name }}"
+            data-test="{{ $testId }}"
+        >
         @if ($variant === 'chip')
             <span class="text-base leading-none">{{ $goal->emoji }}</span>
             <span class="max-w-28 truncate font-medium">{{ $goal->name }}</span>
@@ -418,6 +636,7 @@ new class extends Component
             </div>
         @endif
     </div>
+    @endif
 
     {{-- The sheet: camera, note, and the way out of a mistap. --}}
     <x-sheet :name="$this->sheetName">
@@ -433,7 +652,7 @@ new class extends Component
             </flux:callout>
         @endif
 
-        @if ($mark === null)
+        @if ($mark === null || $isGhost)
             {{-- The camera original is resized and re-encoded in the browser
                  before it uploads, so `wire:model` is out and `photoPicker`
                  does the upload by hand. --}}
@@ -489,12 +708,14 @@ new class extends Component
 
                 <flux:error name="photo" />
 
-                <flux:input
-                    wire:model="note"
-                    placeholder="Una línea, si querés"
-                    maxlength="{{ config('logralo.goals.note_max_length') }}"
-                    data-test="note"
-                />
+                @if ($mark === null)
+                    <flux:input
+                        wire:model="note"
+                        placeholder="Una línea, si querés"
+                        maxlength="{{ config('logralo.goals.note_max_length') }}"
+                        data-test="note"
+                    />
+                @endif
 
                 {{-- Saving mid-upload would mark the day without the photo the
                      member is watching upload, so the button waits for it.
@@ -503,7 +724,7 @@ new class extends Component
                      button before Alpine is up, and the `x-bind` governs it
                      afterwards — but the rule they share is written once, or
                      the two would disagree with nothing to notice. --}}
-                @php($photoStillOwed = $this->requiresPhoto && $photo === null)
+                @php($photoStillOwed = ($mark !== null || $this->requiresPhoto) && $photo === null)
 
                 <flux:button
                     wire:click="save"
@@ -513,8 +734,22 @@ new class extends Component
                     x-bind:disabled="busy || @js($photoStillOwed)"
                     data-test="save"
                 >
-                    {{ $photo !== null ? 'Marcar con foto' : 'Marcar' }}
+                    @if ($mark !== null)
+                        Agregar foto
+                    @else
+                        {{ $photo !== null ? 'Marcar con foto' : 'Marcar' }}
+                    @endif
                 </flux:button>
+
+                @if ($mark !== null)
+                    <flux:button wire:click="remove" variant="danger" class="w-full" data-test="remove">
+                        Quitar marca
+                    </flux:button>
+
+                    <flux:text size="sm" class="text-center">
+                        Podés quitarla mientras el día siga abierto.
+                    </flux:text>
+                @endif
             </div>
         @else
             {{-- The only way to un-mark: a tap on the card opens this instead

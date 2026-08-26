@@ -78,7 +78,7 @@ it('un-marks a goal from the sheet, and never from the tap alone', function (): 
     expect(Mark::query()->count())->toBe(0);
 });
 
-it('marks and un-marks yesterday without removing the grace chip', function (): void {
+it('marks yesterday from the reminder and offers a short undo', function (): void {
     $this->travelTo(CarbonImmutable::parse('2026-08-11 09:00', 'America/Montevideo')->utc());
 
     $user = User::factory()->create();
@@ -87,29 +87,59 @@ it('marks and un-marks yesterday without removing the grace chip', function (): 
     $this->actingAs($user);
 
     $page = visit('/')->on()->iPhone15Pro()
-        ->assertAriaAttribute('@grace-goal-'.$goal->id, 'pressed', 'false')
-        ->click('@grace-goal-'.$goal->id)
+        ->assertVisible('@grace-reminder-'.$goal->id)
+        ->assertSee('¿Te quedó algo por registrar de ayer?')
+        ->click('@grace-complete-'.$goal->id)
         ->wait(1)
-        ->assertVisible('@grace-goal-'.$goal->id)
-        ->assertAriaAttribute('@grace-goal-'.$goal->id, 'pressed', 'true');
+        ->assertSee('¡Anotado! Correr')
+        ->assertVisible('@grace-undo-'.$goal->id);
 
     $mark = Mark::query()->where('goal_id', $goal->id)->sole();
 
     expect($mark->marked_on->toDateString())->toBe($user->clock()->yesterday()->toDateString());
 
-    // The chip stays in the banner precisely so yesterday can still be taken
-    // back, and taking it back goes through the chip's own sheet — the tap
-    // itself no longer un-marks anything. Today's card for this goal is
-    // unmarked, so its sheet offers the camera rather than a second `@remove`.
-    $page->click('@grace-goal-'.$goal->id)
+    $page->click('@grace-undo-'.$goal->id)
         ->wait(1)
-        ->click('@remove')
-        ->wait(1)
-        ->assertVisible('@grace-goal-'.$goal->id)
-        ->assertAriaAttribute('@grace-goal-'.$goal->id, 'pressed', 'false')
+        ->assertSee('Sí, lo hice')
         ->assertNoJavaScriptErrors();
 
     expect(Mark::query()->where('goal_id', $goal->id)->count())->toBe(0);
+});
+
+it('keeps the add-photo action after reloading a grace confirmation', function (): void {
+    $this->travelTo(CarbonImmutable::parse('2026-08-11 09:00', 'America/Montevideo')->utc());
+
+    $user = User::factory()->create();
+    $goal = Goal::factory()->for($user)->create(['name' => 'Correr']);
+
+    $this->actingAs($user);
+
+    visit('/')->on()->iPhone15Pro()
+        ->click('@grace-complete-'.$goal->id)
+        ->wait(1)
+        ->assertVisible('@grace-add-photo-'.$goal->id)
+        ->refresh()
+        ->assertVisible('@grace-add-photo-'.$goal->id)
+        ->assertSee('Si querés, todavía podés sumar una foto.')
+        ->assertNoJavaScriptErrors();
+});
+
+it('dismisses yesterday without marking it', function (): void {
+    $this->travelTo(CarbonImmutable::parse('2026-08-11 09:00', 'America/Montevideo')->utc());
+
+    $user = User::factory()->create();
+    $goal = Goal::factory()->for($user)->create(['name' => 'Correr']);
+
+    $this->actingAs($user);
+
+    visit('/')->on()->iPhone15Pro()
+        ->click('@grace-dismiss-'.$goal->id)
+        ->wait(1)
+        ->assertSee('Recordatorio ocultado')
+        ->assertVisible('@grace-restore-'.$goal->id)
+        ->assertNoJavaScriptErrors();
+
+    expect(Mark::query()->count())->toBe(0);
 });
 
 it('marks a goal activated without a pointer or a key', function (): void {

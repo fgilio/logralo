@@ -9,9 +9,11 @@ use App\Queries\MonthlyStandings;
 use App\ValueObjects\PulseEntry;
 use App\ValueObjects\Standing;
 use App\ValueObjects\UserClock;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Collection as EloquentCollection;
 use Illuminate\Support\Collection;
 use Livewire\Attributes\Computed;
+use Livewire\Attributes\Locked;
 use Livewire\Attributes\On;
 use Livewire\Attributes\Title;
 use Livewire\Component;
@@ -26,6 +28,32 @@ use Livewire\Component;
 new #[Title('Hoy')] class extends Component
 {
     use InteractsWithMember;
+
+    /** @var list<string> */
+    #[Locked]
+    public array $confirmedGraceGoalIds = [];
+
+    public function mount(): void
+    {
+        $confirmation = session()->get($this->graceConfirmationKey());
+        $yesterday = $this->clock->yesterday()->toDateString();
+
+        if (
+            ! is_array($confirmation)
+            || ($confirmation['date'] ?? null) !== $yesterday
+            || ! is_array($confirmation['goal_ids'] ?? null)
+        ) {
+            session()->forget($this->graceConfirmationKey());
+
+            return;
+        }
+
+        $this->confirmedGraceGoalIds = array_values(
+            collect($confirmation['goal_ids'])
+                ->filter(fn (mixed $goalId): bool => is_string($goalId))
+                ->all(),
+        );
+    }
 
     #[Computed]
     public function clock(): UserClock
@@ -48,7 +76,20 @@ new #[Title('Hoy')] class extends Component
             return new EloquentCollection;
         }
 
-        return $this->goals;
+        $yesterday = $this->clock->yesterday()->toDateString();
+
+        return $this->member()
+            ->activeGoals()
+            ->where(fn (Builder $goals): Builder => $goals
+                ->whereDoesntHave(
+                    'marks',
+                    fn (Builder $marks): Builder => $marks->where('marked_on', $yesterday),
+                )
+                ->when(
+                    $this->confirmedGraceGoalIds !== [],
+                    fn (Builder $goals): Builder => $goals->orWhereIn('id', $this->confirmedGraceGoalIds),
+                ))
+            ->get();
     }
 
     /** @return Collection<int, PulseEntry> */
@@ -70,6 +111,26 @@ new #[Title('Hoy')] class extends Component
     {
         unset($this->goals, $this->graceGoals, $this->pulse, $this->standings);
     }
+
+    #[On('grace-mark-updated')]
+    public function reloadAfterGraceMark(string $goalId): void
+    {
+        if (! in_array($goalId, $this->confirmedGraceGoalIds, strict: true)) {
+            $this->confirmedGraceGoalIds[] = $goalId;
+        }
+
+        session()->put($this->graceConfirmationKey(), [
+            'date' => $this->clock->yesterday()->toDateString(),
+            'goal_ids' => $this->confirmedGraceGoalIds,
+        ]);
+
+        unset($this->goals, $this->graceGoals, $this->pulse, $this->standings);
+    }
+
+    private function graceConfirmationKey(): string
+    {
+        return "grace-confirmations.{$this->member()->id}";
+    }
 };
 
 ?>
@@ -78,7 +139,6 @@ new #[Title('Hoy')] class extends Component
     $user = $this->member();
     $today = $this->clock->today();
     $yesterday = $this->clock->yesterday();
-    $graceEndsAt = $this->clock->closesAt($yesterday)->format('H:i');
     $month = Str::ucfirst($today->translatedFormat('F'));
 
     // How today's goals are drawn. The threshold is the grid's column count,
@@ -168,23 +228,31 @@ new #[Title('Hoy')] class extends Component
     @endif
 
     @if ($this->graceGoals->isNotEmpty())
-        <flux:callout variant="warning" icon="clock" class="mt-3" data-test="grace-banner">
-            {{-- Everything goes in the default slot: passing an x-slot:content
-                 to flux:callout replaces the default slot rather than adding
-                 to it, and the heading would disappear. --}}
-            <flux:callout.heading>Ayer sigue abierto hasta las {{ $graceEndsAt }}</flux:callout.heading>
+        <section
+            class="mt-3 overflow-hidden rounded-2xl border border-zinc-200 bg-white shadow-xs [&:not(:has([data-grace-row]))]:hidden dark:border-white/10 dark:bg-white/5"
+            aria-label="Objetivos de ayer"
+            data-test="grace-reminders"
+        >
+            <header class="px-4 pt-4 pb-2">
+                <p class="text-sm leading-5 font-semibold text-zinc-900 dark:text-white">
+                    ¿Te quedó algo por registrar de ayer?
+                </p>
+                <p class="mt-0.5 text-xs leading-5 text-zinc-500 dark:text-zinc-400">
+                    Podés {{ $this->graceGoals->count() === 1 ? 'completarlo' : 'completarlos' }} hasta las {{ $this->clock->closesAt($yesterday)->format('H:i') }}.
+                </p>
+            </header>
 
-            <div class="mt-2 flex flex-wrap gap-2">
+            <div class="divide-y divide-zinc-100 dark:divide-white/10">
                 @foreach ($this->graceGoals as $goal)
                     <livewire:goal-card
                         :goal="$goal"
                         :date="$yesterday->toDateString()"
-                        variant="chip"
+                        variant="reminder"
                         :wire:key="'grace-' . $goal->id"
                     />
                 @endforeach
             </div>
-        </flux:callout>
+        </section>
     @endif
 
     <section class="mt-4" aria-label="Tus objetivos de hoy">
