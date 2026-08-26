@@ -106,6 +106,24 @@ it('marks yesterday from the reminder and offers a short undo', function (): voi
     expect(Mark::query()->where('goal_id', $goal->id)->count())->toBe(0);
 });
 
+it('keeps the add-photo action after reloading a grace confirmation', function (): void {
+    $this->travelTo(CarbonImmutable::parse('2026-08-11 09:00', 'America/Montevideo')->utc());
+
+    $user = User::factory()->create();
+    $goal = Goal::factory()->for($user)->create(['name' => 'Correr']);
+
+    $this->actingAs($user);
+
+    visit('/')->on()->iPhone15Pro()
+        ->click('@grace-complete-'.$goal->id)
+        ->wait(1)
+        ->assertVisible('@grace-add-photo-'.$goal->id)
+        ->refresh()
+        ->assertVisible('@grace-add-photo-'.$goal->id)
+        ->assertSee('Si querés, todavía podés sumar una foto.')
+        ->assertNoJavaScriptErrors();
+});
+
 it('dismisses yesterday without marking it', function (): void {
     $this->travelTo(CarbonImmutable::parse('2026-08-11 09:00', 'America/Montevideo')->utc());
 

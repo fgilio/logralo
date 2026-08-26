@@ -249,7 +249,7 @@ it('turns the reminder into a quiet confirmation', function (): void {
     expect(Mark::query()->sole()->marked_on->toDateString())->toBe('2026-08-10');
 });
 
-it('dismisses and restores a reminder without changing the goal', function (): void {
+it('dismisses and restores a reminder during the undo window', function (): void {
     $user = User::factory()->create();
     $goal = Goal::factory()->for($user)->create(['name' => 'Gimnasio']);
 
@@ -259,14 +259,43 @@ it('dismisses and restores a reminder without changing the goal', function (): v
         ->assertSet('dismissed', true)
         ->assertSee('Recordatorio ocultado')
         ->assertSee('Deshacer')
-        ->call('finishDismissal')
-        ->assertSet('showDismissUndo', false)
-        ->assertDontSee('Recordatorio ocultado')
         ->call('restoreReminder')
         ->assertSet('dismissed', false)
         ->assertSee('Sí, lo hice');
 
     expect(Mark::query()->count())->toBe(0);
+});
+
+it('does not restore a reminder after the undo window', function (): void {
+    $user = User::factory()->create();
+    $goal = Goal::factory()->for($user)->create(['name' => 'Gimnasio']);
+
+    $component = Livewire::actingAs($user)
+        ->test('goal-card', ['goal' => $goal, 'date' => '2026-08-10', 'variant' => 'reminder'])
+        ->call('dismissReminder');
+
+    $this->travel(8)->seconds();
+
+    $component
+        ->call('restoreReminder')
+        ->assertSet('dismissed', true)
+        ->assertSet('showDismissUndo', false)
+        ->assertDontSee('Sí, lo hice');
+});
+
+it('closes the reminder undo window on schedule', function (): void {
+    $user = User::factory()->create();
+    $goal = Goal::factory()->for($user)->create(['name' => 'Gimnasio']);
+
+    Livewire::actingAs($user)
+        ->test('goal-card', ['goal' => $goal, 'date' => '2026-08-10', 'variant' => 'reminder'])
+        ->call('dismissReminder')
+        ->call('finishDismissal')
+        ->assertSet('showDismissUndo', false)
+        ->assertDontSee('Recordatorio ocultado')
+        ->call('restoreReminder')
+        ->assertSet('dismissed', true)
+        ->assertDontSee('Sí, lo hice');
 });
 
 it('remembers a dismissed reminder across page loads', function (): void {

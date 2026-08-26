@@ -118,6 +118,22 @@ it('only reminds the member about goals that are not registered', function (): v
         ->assertSeeHtml('data-test="grace-reminder-'.$pending->id.'"');
 });
 
+it('keeps a new grace confirmation available after a page reload', function (): void {
+    $user = User::factory()->create();
+    $goal = Goal::factory()->for($user)->create(['name' => 'Natacion']);
+    Mark::factory()->for($goal)->on('2026-08-10')->create();
+
+    Livewire::actingAs($user)
+        ->test('pages::today')
+        ->dispatch('grace-mark-updated', goalId: $goal->id)
+        ->assertSeeHtml('data-test="grace-add-photo-'.$goal->id.'"');
+
+    Livewire::actingAs($user)
+        ->test('pages::today')
+        ->assertSeeHtml('data-test="grace-add-photo-'.$goal->id.'"')
+        ->assertSee('Si querés, todavía podés sumar una foto.');
+});
+
 it('removes the reminder area when every goal is registered', function (): void {
     $user = User::factory()->create();
     $goal = Goal::factory()->for($user)->create();

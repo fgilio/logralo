@@ -181,6 +181,7 @@ new class extends Component
         abort_unless($this->variant === 'reminder', 404);
 
         session()->put($this->dismissalKey(), true);
+        session()->put($this->dismissalUndoKey(), now()->addSeconds(8)->timestamp);
 
         $this->dismissed = true;
         $this->showDismissUndo = true;
@@ -190,7 +191,16 @@ new class extends Component
     {
         abort_unless($this->variant === 'reminder', 404);
 
-        session()->forget($this->dismissalKey());
+        $undoUntil = session()->get($this->dismissalUndoKey());
+
+        if (! is_int($undoUntil) || $undoUntil <= now()->timestamp) {
+            session()->forget($this->dismissalUndoKey());
+            $this->showDismissUndo = false;
+
+            return;
+        }
+
+        session()->forget([$this->dismissalKey(), $this->dismissalUndoKey()]);
 
         $this->dismissed = false;
         $this->showDismissUndo = false;
@@ -199,6 +209,8 @@ new class extends Component
     public function finishDismissal(): void
     {
         abort_unless($this->variant === 'reminder', 404);
+
+        session()->forget($this->dismissalUndoKey());
 
         $this->showDismissUndo = false;
     }
@@ -316,6 +328,11 @@ new class extends Component
     private function dismissalKey(): string
     {
         return "grace-reminders.{$this->goal->user_id}.{$this->date}.{$this->goal->id}";
+    }
+
+    private function dismissalUndoKey(): string
+    {
+        return "grace-reminder-undo.{$this->goal->user_id}.{$this->date}.{$this->goal->id}";
     }
 };
 

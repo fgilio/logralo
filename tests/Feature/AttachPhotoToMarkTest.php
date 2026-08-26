@@ -35,6 +35,20 @@ it('adds proof to an open ghost mark', function (): void {
         ->and(Storage::disk('photos')->files((string) $updated->photo_key))->toHaveCount(4);
 });
 
+it('forgets rendered share cards after adding proof', function (): void {
+    $mark = Mark::factory()->for($this->goal)->on('2026-08-10')->create();
+    $directory = $mark->shareCardDirectory();
+
+    Storage::disk('photos')->put("{$directory}/og.jpg", 'cached without proof');
+
+    $this->attach->handle(
+        $mark,
+        UploadedFile::fake()->image('proof.jpg', 400, 500),
+    );
+
+    expect(Storage::disk('photos')->directoryMissing($directory))->toBeTrue();
+});
+
 it('does not replace proof that is already present', function (): void {
     $mark = Mark::factory()->for($this->goal)->withPhoto()->on('2026-08-10')->create();
     $originalKey = $mark->photo_key;

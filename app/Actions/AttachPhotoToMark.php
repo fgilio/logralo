@@ -11,6 +11,7 @@ use App\Exceptions\UserFacingException;
 use App\Models\Mark;
 use App\Models\MonthlyRecap;
 use App\Services\PhotoProcessor;
+use App\Services\ShareCardRenderer;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Context;
 use Illuminate\Support\Facades\Log;
@@ -19,7 +20,10 @@ use Throwable;
 /** Adds proof to an existing ghost mark while its day is still open. */
 final readonly class AttachPhotoToMark
 {
-    public function __construct(private PhotoProcessor $photos) {}
+    public function __construct(
+        private PhotoProcessor $photos,
+        private ShareCardRenderer $cards,
+    ) {}
 
     public function handle(Mark $mark, UploadedFile $photo): Mark
     {
@@ -54,9 +58,15 @@ final readonly class AttachPhotoToMark
                 throw PhotoAlreadyAddedException::forMark($mark);
             }
 
+            $mark->refresh();
+
+            if ($mark->isShareable()) {
+                $this->cards->forget($mark->shareCardDirectory());
+            }
+
             Context::add('logralo.outcome', 'completed');
 
-            return $mark->refresh();
+            return $mark;
         } catch (UserFacingException $exception) {
             Context::add('logralo.outcome', 'rejected');
             Context::add('logralo.reject_reason', $exception->reason());

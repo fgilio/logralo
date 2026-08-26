@@ -33,6 +33,28 @@ new #[Title('Hoy')] class extends Component
     #[Locked]
     public array $confirmedGraceGoalIds = [];
 
+    public function mount(): void
+    {
+        $confirmation = session()->get($this->graceConfirmationKey());
+        $yesterday = $this->clock->yesterday()->toDateString();
+
+        if (
+            ! is_array($confirmation)
+            || ($confirmation['date'] ?? null) !== $yesterday
+            || ! is_array($confirmation['goal_ids'] ?? null)
+        ) {
+            session()->forget($this->graceConfirmationKey());
+
+            return;
+        }
+
+        $this->confirmedGraceGoalIds = array_values(
+            collect($confirmation['goal_ids'])
+                ->filter(fn (mixed $goalId): bool => is_string($goalId))
+                ->all(),
+        );
+    }
+
     #[Computed]
     public function clock(): UserClock
     {
@@ -97,7 +119,17 @@ new #[Title('Hoy')] class extends Component
             $this->confirmedGraceGoalIds[] = $goalId;
         }
 
+        session()->put($this->graceConfirmationKey(), [
+            'date' => $this->clock->yesterday()->toDateString(),
+            'goal_ids' => $this->confirmedGraceGoalIds,
+        ]);
+
         unset($this->goals, $this->graceGoals, $this->pulse, $this->standings);
+    }
+
+    private function graceConfirmationKey(): string
+    {
+        return "grace-confirmations.{$this->member()->id}";
     }
 };
 
