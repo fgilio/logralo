@@ -63,7 +63,7 @@ it('offers the add-goal link until the member is out of slots', function (): voi
     Livewire::actingAs($user)->test('pages::today')->assertDontSeeHtml('data-test="add-goal"');
 });
 
-it('shows the grace banner while yesterday is still open', function (): void {
+it('offers a quiet reminder while yesterday is still open', function (): void {
     $user = User::factory()->create();
     $goal = Goal::factory()->for($user)->create(['name' => 'Natacion']);
 
@@ -72,8 +72,11 @@ it('shows the grace banner while yesterday is still open', function (): void {
     expect($component->get('graceGoals')->pluck('id')->all())->toBe([$goal->id]);
 
     $component
-        ->assertSeeHtml('data-test="grace-banner"')
-        ->assertSeeHtml('data-test="grace-goal-'.$goal->id.'"');
+        ->assertSeeHtml('data-test="grace-reminders"')
+        ->assertSeeHtml('data-test="grace-reminder-'.$goal->id.'"')
+        ->assertSee('¿Te quedó algo por registrar de ayer?')
+        ->assertSee('Natacion')
+        ->assertSee('Sí, lo hice');
 });
 
 it('tells the member what time the grace window closes', function (): void {
@@ -82,10 +85,10 @@ it('tells the member what time the grace window closes', function (): void {
 
     Livewire::actingAs($user)
         ->test('pages::today')
-        ->assertSee('Ayer sigue abierto hasta las 12:00');
+        ->assertSee('Podés completarlo hasta las 12:00.');
 });
 
-it('hides the grace banner once the cutoff has passed', function (): void {
+it('hides the grace reminders once the cutoff has passed', function (): void {
     // 12:00 sharp is the cutoff, so yesterday is gone.
     $this->travelTo(CarbonImmutable::parse('2026-08-11 12:00', 'America/Montevideo')->utc());
 
@@ -96,10 +99,10 @@ it('hides the grace banner once the cutoff has passed', function (): void {
 
     expect($component->get('graceGoals'))->toHaveCount(0);
 
-    $component->assertDontSeeHtml('data-test="grace-banner"');
+    $component->assertDontSeeHtml('data-test="grace-reminders"');
 });
 
-it('keeps every goal in the grace banner after one is marked', function (): void {
+it('only reminds the member about goals that are not registered', function (): void {
     $user = User::factory()->create();
     $done = Goal::factory()->for($user)->create(['name' => 'Natacion', 'position' => 1]);
     $pending = Goal::factory()->for($user)->create(['name' => 'Guitarra', 'position' => 2]);
@@ -108,26 +111,21 @@ it('keeps every goal in the grace banner after one is marked', function (): void
 
     $component = Livewire::actingAs($user)->test('pages::today');
 
-    expect($component->get('graceGoals')->pluck('id')->all())->toBe([$done->id, $pending->id]);
+    expect($component->get('graceGoals')->pluck('id')->all())->toBe([$pending->id]);
 
-    $component->assertSeeHtmlInOrder([
-        'aria-pressed="true"',
-        'data-test="grace-goal-'.$done->id.'"',
-        'aria-pressed="false"',
-        'data-test="grace-goal-'.$pending->id.'"',
-    ]);
+    $component
+        ->assertDontSeeHtml('data-test="grace-reminder-'.$done->id.'"')
+        ->assertSeeHtml('data-test="grace-reminder-'.$pending->id.'"');
 });
 
-it('keeps the grace banner after every goal is caught up', function (): void {
+it('removes the reminder area when every goal is registered', function (): void {
     $user = User::factory()->create();
     $goal = Goal::factory()->for($user)->create();
     Mark::factory()->for($goal)->on('2026-08-10')->create();
 
     Livewire::actingAs($user)
         ->test('pages::today')
-        ->assertSeeHtml('data-test="grace-banner"')
-        ->assertSeeHtml('data-test="grace-goal-'.$goal->id.'"')
-        ->assertSeeHtml('aria-pressed="true"');
+        ->assertDontSeeHtml('data-test="grace-reminders"');
 });
 
 it("reads the grace window off the member's own clock", function (): void {
@@ -135,7 +133,7 @@ it("reads the grace window off the member's own clock", function (): void {
     $user = User::factory()->inTimezone('Europe/Madrid')->create();
     Goal::factory()->for($user)->create();
 
-    Livewire::actingAs($user)->test('pages::today')->assertDontSeeHtml('data-test="grace-banner"');
+    Livewire::actingAs($user)->test('pages::today')->assertDontSeeHtml('data-test="grace-reminders"');
 });
 
 it('lists every member in the pulse', function (): void {
@@ -255,6 +253,6 @@ it('recomputes everything when a mark lands anywhere on the page', function (): 
     $component->dispatch('mark-updated');
 
     expect($component->get('pulse')->first()->markedToday)->toBe(1)
-        ->and($component->get('graceGoals'))->toHaveCount(1)
+        ->and($component->get('graceGoals'))->toHaveCount(0)
         ->and($component->get('standings')->first()->ghostMarks)->toBe(2);
 });

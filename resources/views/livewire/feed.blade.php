@@ -108,7 +108,8 @@ new class extends Component
 
     /** A mark anywhere on the page changes what the feed should be showing. */
     #[On('mark-updated')]
-    public function reload(): void
+    #[On('grace-mark-updated')]
+    public function reload(?string $goalId = null): void
     {
         $this->refresh();
     }
