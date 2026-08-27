@@ -69,6 +69,12 @@ new class extends Component
             @php
                 $count = $this->counts->get($emoji->value, 0);
                 $mine = $this->mine === $emoji;
+
+                // The name the enum gives, then the number — the same shape the
+                // feed's tally reads out. Without it the button announced as
+                // whatever the browser calls the character in its own language,
+                // and 🫵 has no useful name at all.
+                $label = $count > 0 ? "{$emoji->label()} {$count}" : $emoji->label();
             @endphp
 
             <button
@@ -81,12 +87,13 @@ new class extends Component
                     'border-white/10' => ! $mine,
                     'opacity-45' => $count === 0 && ! $mine,
                 ])
+                aria-label="{{ $label }}"
                 aria-pressed="{{ $mine ? 'true' : 'false' }}"
                 data-test="share-react-{{ $emoji->value }}"
             >
-                <span class="leading-none">{{ $emoji->character() }}</span>
+                <span aria-hidden="true" class="leading-none">{{ $emoji->character() }}</span>
                 @if ($count > 0)
-                    <span class="text-xs tabular-nums">{{ $count }}</span>
+                    <span aria-hidden="true" class="text-xs tabular-nums">{{ $count }}</span>
                 @endif
             </button>
         @endforeach

@@ -2,10 +2,12 @@
 
 declare(strict_types=1);
 
+use App\Enums\ReactionEmoji;
 use App\Enums\ShareCardFormat;
 use App\Models\Goal;
 use App\Models\Mark;
 use App\Models\MonthlyRecap;
+use App\Models\Reaction;
 use App\Models\User;
 use App\Services\ShareCardRenderer;
 use Illuminate\Support\Facades\Storage;
@@ -195,6 +197,19 @@ it('refuses a card format it does not draw', function (): void {
     $mark = sharedMark();
 
     $this->get("/l/{$mark->share_token}/banner.jpg")->assertNotFound();
+});
+
+it('names the reactions a stranger can only look at', function (): void {
+    $mark = sharedMark();
+
+    Reaction::factory()->count(2)->for($mark)->create(['emoji' => ReactionEmoji::Point]);
+
+    // The feed's bar and the viewer's both say the enum's name out loud; this
+    // one showed the bare character, which a screen reader reads in whatever
+    // language it knows the codepoint by — and 🫵 it does not know at all.
+    $this->get("/l/{$mark->share_token}")
+        ->assertSee('aria-label="Sos vos 2"', escape: false)
+        ->assertSee('aria-label="Fuego"', escape: false);
 });
 
 it('unfurls a bare link to the app as Logralo rather than the login page', function (): void {
