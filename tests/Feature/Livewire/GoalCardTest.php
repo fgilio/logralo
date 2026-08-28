@@ -204,6 +204,20 @@ it('saves a bare note with no photo at all', function (): void {
         ->and($mark->note)->toBe('sin cámara');
 });
 
+it('reads the note back on a mark that is still waiting for its photo', function (): void {
+    $user = User::factory()->create();
+    $goal = Goal::factory()->for($user)->create();
+
+    Livewire::actingAs($user)
+        ->test('goal-card', ['goal' => $goal])
+        ->set('note', 'sin cámara')
+        ->call('save')
+        // The field is gone once the day is marked, so the words it took have
+        // to be on the sheet somewhere — the same way a mark with a photo
+        // shows them.
+        ->assertSee('sin cámara');
+});
+
 it('rejects a note longer than the limit', function (): void {
     $user = User::factory()->create();
     $goal = Goal::factory()->for($user)->create();
