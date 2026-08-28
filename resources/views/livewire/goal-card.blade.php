@@ -715,6 +715,13 @@ new class extends Component
                         maxlength="{{ config('logralo.goals.note_max_length') }}"
                         data-test="note"
                     />
+                @elseif ($mark->note !== null)
+                    {{-- The line is written once, when the day is marked, and
+                         read back in the slot it was typed in. The sheet on a
+                         mark that already has its photo has always shown it;
+                         without this the same note went missing for the whole
+                         time a mark was waiting for one. --}}
+                    <flux:text>{{ $mark->note }}</flux:text>
                 @endif
 
                 {{-- Saving mid-upload would mark the day without the photo the
