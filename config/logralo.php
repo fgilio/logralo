@@ -151,6 +151,29 @@ return [
 
     /*
     |---------------------------------------------------------------------------
+    | Push notifications
+    |---------------------------------------------------------------------------
+    |
+    | Web Push, so there is no provider and no native app: the browser hands us
+    | an endpoint and we sign a request to it with the VAPID keys, which live in
+    | the environment and are read by `config/webpush.php` from the package. On
+    | iOS a subscription is only possible once the app is on the home screen.
+    |
+    | Three events are worth a buzz, and the list is meant to stay this short.
+    | A notification on every mark or every reaction is what makes somebody
+    | turn the whole thing off.
+    |
+    */
+
+    'push' => [
+        // How close to a day's grace cutoff the "your streak is about to
+        // break" nudge goes out. The scheduler runs hourly, so a window
+        // rather than an hour means a missed tick still catches the member.
+        'reminder_lead_hours' => (int) env('LOGRALO_PUSH_REMINDER_LEAD_HOURS', 3),
+    ],
+
+    /*
+    |---------------------------------------------------------------------------
     | Magic links
     |---------------------------------------------------------------------------
     |

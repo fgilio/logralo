@@ -35,8 +35,9 @@ The layering is the thing to keep. It is enforced by `tests/Arch/`.
 
 ### `app/Actions/` — the write side, one unit of work each
 
-- `MarkGoal`, `UnmarkGoal`, `ToggleReaction`, `AddComment`, `CreateGoal`, `RenameGoal`, `ArchiveGoal`, `RestoreGoal`, `CloseMonth`, `IssueMagicLink`, `RecordShareVisit`, `RevokeSharing`, `ResumeSharing`, `UpdateAvatar`, `RemoveAvatar`, `SendFeedback`
+- `MarkGoal`, `UnmarkGoal`, `ToggleReaction`, `AddComment`, `CreateGoal`, `RenameGoal`, `ArchiveGoal`, `RestoreGoal`, `CloseMonth`, `IssueMagicLink`, `RecordShareVisit`, `RevokeSharing`, `ResumeSharing`, `UpdateAvatar`, `RemoveAvatar`, `SendFeedback`, `SubscribeToPush`, `UnsubscribeFromPush`, `SendStreakReminder`
 - `SendFeedback` is the only one that mails: the row in `feedback` is the deliverable and `App\Mail\FeedbackReceived` is a best-effort nudge to `LOGRALO_FEEDBACK_EMAIL`, wrapped in `rescue` so a mail provider cannot swallow what a member typed
+- Three of them buzz a phone, through `app/Notifications/` and Web Push. `MarkGoal` announces a milestone streak to the rest of the group and `CloseMonth` announces the recap, both wrapped in `rescue`: the mark and the recap row are the deliverables, and a queue that will not take the job cannot be allowed to fail them. `SendStreakReminder` warns one member that their grace window is about to shut on a live run, and is deliberately not wrapped, because there the notification is the whole deliverable — `docs/architecture/push-notifications.md`
 
 ### `app/ValueObjects/` — final readonly
 
@@ -61,6 +62,8 @@ composer lint                # rector + pint + prettier, writing fixes
 
 php artisan logralo:seed-member "Nombre" email@example.com America/Montevideo
 php artisan logralo:close-months            # normally hourly on the scheduler
+php artisan logralo:push-reminders          # hourly too; the Action decides who hears anything
+php artisan webpush:vapid                   # once per environment, then never again
 php artisan migrate:fresh --seed            # local demo data (DemoSeeder)
 bash scripts/branding.sh                    # regenerate PWA icons and splashes
 ```
@@ -87,6 +90,8 @@ See `.env.example`. The ones that are not self-explanatory:
 - `IMAGE_DRIVER` — GD by default; only the Imagick driver can read HEIC, and only where ImageMagick has libheif.
 - `LOGRALO_FEEDBACK_EMAIL` — where "¿Qué pasó?" is mailed as it lands. Empty is a valid setting: every message is stored in the `feedback` table either way, and this only decides whether an inbox is told.
 - `LOGRALO_GRAVATAR` — whether an avatar with no upload behind it tries the member's Gravatar before falling back to initials. The URL is built from a hash of the email and fetched by the browser, so this never puts the server on the network — `docs/architecture/photos-and-onboarding.md`.
+- `VAPID_PUBLIC_KEY` / `VAPID_PRIVATE_KEY` — the keypair every push request is signed with. Generated once per environment and then stored, because rotating them invalidates every subscription the group has. Empty is a valid setting and switches push off: the profile toggle says so instead of offering a button that cannot work.
+- `LOGRALO_PUSH_REMINDER_LEAD_HOURS` — how close to a member's grace cutoff the streak-about-to-break nudge goes out. The sweep is hourly and this is a window rather than an hour, so a tick that runs late still catches the member.
 
 ## Laravel-First Conventions
 
@@ -101,9 +106,11 @@ Prefer Laravel utilities over native PHP equivalents:
 
 One canonical `Log::info()` per unit of work, emitted in `finally`, with no manual context array. Data goes through `Context::add('logralo.*', …)`. Warnings always carry a `reason`. No `Log::debug()`. Event names are lowercase and dot-separated: `mark.create.handled`, `month.close.handled`.
 
-A unit of work is an **Action** — plus the two entry points that own one without an Action behind them, `CloseMonthsCommand` and `MagicLinkController`. Queries and Services do not log: a read runs on every render and every anonymous crawler fetch, and logging those buries the events that carry an outcome. Review bots read the rule above and ask for a log in `SharedEntry` or `ShareCardRenderer` — that is the rule applied a layer too wide.
+A unit of work is an **Action** — plus the three entry points that own one without an Action behind them, `CloseMonthsCommand`, `PushRemindersCommand` and `MagicLinkController`. The two commands log their sweep and the Action they drive logs each member it looked at. Queries and Services do not log: a read runs on every render and every anonymous crawler fetch, and logging those buries the events that carry an outcome. Review bots read the rule above and ask for a log in `SharedEntry` or `ShareCardRenderer` — that is the rule applied a layer too wide.
 
 Key context keys: `logralo.user_id`, `logralo.goal_id`, `logralo.mark_id`, `logralo.marked_on`, `logralo.comment_id`, `logralo.feedback_id`, `logralo.outcome`, `logralo.reject_reason`.
+
+A push endpoint never reaches a log line. Whoever holds one can push to that browser, so `SubscribeToPush` records `logralo.push_service`, the host, and nothing else.
 
 ## Pull Request Review Comments
 

@@ -14,3 +14,14 @@ Schedule::command('logralo:close-months')
     ->hourly()
     ->withoutOverlapping()
     ->onOneServer();
+
+/*
+ * Hourly too, and for the same reason: the last hours before a member's grace
+ * window shuts fall at a different instant for each of them. The command holds
+ * the sweep and the Action holds the once-a-day rule, so a tick that runs late
+ * still catches the window instead of missing it.
+ */
+Schedule::command('logralo:push-reminders')
+    ->hourly()
+    ->withoutOverlapping()
+    ->onOneServer();

@@ -13,14 +13,20 @@ use App\Exceptions\UserFacingException;
 use App\Models\Goal;
 use App\Models\Mark;
 use App\Models\MonthlyRecap;
+use App\Models\User;
+use App\Notifications\StreakMilestoneReached;
 use App\Queries\GoalHistory;
+use App\Queries\Members;
 use App\Services\PhotoProcessor;
 use App\Services\PhotoRule;
+use App\Services\StreakCalculator;
+use App\Services\StreakMilestone;
 use Carbon\CarbonImmutable;
 use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Context;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Notification;
 use Illuminate\Support\Str;
 use Throwable;
 
@@ -34,6 +40,9 @@ final readonly class MarkGoal
         private PhotoProcessor $photos,
         private PhotoRule $photoRule,
         private GoalHistory $history,
+        private StreakCalculator $streaks,
+        private StreakMilestone $milestones,
+        private Members $members,
     ) {}
 
     public function handle(
@@ -67,8 +76,12 @@ final readonly class MarkGoal
                 throw DuplicateMarkException::make($goal, $day);
             }
 
+            $streak = $this->streakEndingOn($goal, $day);
+
             Context::add('logralo.mark_id', $mark->id);
             Context::add('logralo.mark_kind', $mark->kind()->value);
+            Context::add('logralo.streak', $streak);
+            Context::add('logralo.announced_to', $this->announce($goal, $streak));
             Context::add('logralo.outcome', 'completed');
 
             return $mark;
@@ -97,6 +110,51 @@ final readonly class MarkGoal
         return $this->photoRule->requiresPhoto(
             $this->history->for($goal)->recentFullnessBefore($day->toDateString())
         );
+    }
+
+    /**
+     * The streak the marked day ends on.
+     *
+     * Counted back from that day rather than from today, because inside the
+     * grace window those are different numbers: marking yesterday while today
+     * is still unmarked would otherwise report today's run.
+     */
+    public function streakEndingOn(Goal $goal, CarbonImmutable $day): int
+    {
+        $history = $this->history->for($goal);
+
+        return $this->streaks->endingOn($history->dates(), $day, $history->pauses);
+    }
+
+    /**
+     * How many of the others were told, which is nobody unless the streak
+     * landed on one of the round numbers the app celebrates.
+     *
+     * A private goal never announces: the flame is real, but the group cannot
+     * see the goal it belongs to, and the notification names it.
+     *
+     * Wrapped so a queue that will not take the job cannot fail the tap that
+     * earned it. The mark is the deliverable, the buzz is a courtesy.
+     */
+    private function announce(Goal $goal, int $streak): int
+    {
+        if ($goal->isPrivate() || ! $this->milestones->isMilestone($streak)) {
+            return 0;
+        }
+
+        $others = $this->members->roster()
+            ->reject(fn (User $member): bool => $member->is($goal->user));
+
+        return rescue(function () use ($goal, $others, $streak): int {
+            Notification::send($others, new StreakMilestoneReached(
+                memberName: $goal->user->name,
+                goalEmoji: $goal->emoji,
+                goalName: $goal->name,
+                streak: $streak,
+            ));
+
+            return $others->count();
+        }, 0);
     }
 
     private function guard(Goal $goal, CarbonImmutable $day, ?UploadedFile $photo): void

@@ -7,6 +7,8 @@ use App\Actions\CreateGoal;
 use App\Actions\RemoveAvatar;
 use App\Actions\RenameGoal;
 use App\Actions\RestoreGoal;
+use App\Actions\SubscribeToPush;
+use App\Actions\UnsubscribeFromPush;
 use App\Actions\UpdateAvatar;
 use App\Concerns\InteractsWithMember;
 use App\Concerns\PasswordValidationRules;
@@ -81,6 +83,16 @@ new #[Title('Perfil')] class extends Component
     public function archivedGoals(): EloquentCollection
     {
         return $this->member()->goals()->whereNotNull('archived_at')->get();
+    }
+
+    /**
+     * Empty whenever the environment carries no VAPID keys, which is what the
+     * toggle shows instead of a button that could not work.
+     */
+    #[Computed]
+    public function pushPublicKey(): string
+    {
+        return (string) config('webpush.vapid.public_key');
     }
 
     /** @return list<string> */
@@ -245,6 +257,35 @@ new #[Title('Perfil')] class extends Component
         $this->reset('current_password', 'password', 'password_confirmation');
 
         Flux::toast(text: 'Contraseña actualizada', variant: 'success');
+    }
+
+    /**
+     * The endpoint this browser handed over when the member said yes.
+     *
+     * Checked rather than trusted. It arrives as a Livewire argument like any
+     * other, and what it names is a URL this app will later sign requests to.
+     *
+     * @param  array<string, mixed>  $subscription
+     */
+    public function subscribeToPush(array $subscription): void
+    {
+        $validated = validator($subscription, [
+            'endpoint' => ['required', 'string', 'url:https', 'max:1024'],
+            'keys.p256dh' => ['required', 'string', 'max:255'],
+            'keys.auth' => ['required', 'string', 'max:255'],
+        ])->validate();
+
+        resolve(SubscribeToPush::class)->handle(
+            user: $this->member(),
+            endpoint: $validated['endpoint'],
+            key: $validated['keys']['p256dh'],
+            token: $validated['keys']['auth'],
+        );
+    }
+
+    public function unsubscribeFromPush(string $endpoint): void
+    {
+        resolve(UnsubscribeFromPush::class)->handle($this->member(), $endpoint);
     }
 
     private function ownedGoal(string $goalId): Goal
@@ -490,6 +531,53 @@ new #[Title('Perfil')] class extends Component
                 <flux:radio value="dark" icon="moon">Oscuro</flux:radio>
                 <flux:radio value="system" icon="computer-desktop">Sistema</flux:radio>
             </flux:radio.group>
+        </section>
+
+        {{-- Push. Off until asked for, and asked for per browser: the same
+             member on a phone and a laptop subscribes twice. `status` starts
+             at loading, so nothing below is drawn until the browser has been
+             read and no branch flashes on the way there. --}}
+        <section x-data="pushToggle(@js($this->pushPublicKey))" data-test="push">
+            <flux:heading>Notificaciones</flux:heading>
+
+            <flux:text size="sm" class="mt-1">
+                Tres cosas y nada más: una racha redonda de alguien del grupo, el cierre del mes, y un aviso cuando se te está por cortar una racha. Nunca por cada marca ni por cada reacción.
+            </flux:text>
+
+            <div class="mt-3">
+                <flux:button x-show="status === 'off'" x-on:click="enable()" x-bind:disabled="busy" icon="bell" data-test="push-enable">
+                    Activar en este dispositivo
+                </flux:button>
+
+                <div x-show="status === 'on'" class="flex items-center justify-between gap-3">
+                    <flux:text size="sm">Activadas en este dispositivo.</flux:text>
+
+                    <flux:button x-on:click="disable()" x-bind:disabled="busy" variant="subtle" size="sm" data-test="push-disable">
+                        Desactivar
+                    </flux:button>
+                </div>
+
+                {{-- iOS hands Notification and PushManager to a home-screen app
+                     and to nothing else, so this is the real answer on an
+                     iPhone rather than a consolation. --}}
+                <flux:text size="sm" x-show="status === 'needs-install'" data-test="push-needs-install">
+                    Agregá Logralo a tu pantalla de inicio y volvé acá. En iPhone las notificaciones solo funcionan con la app instalada.
+                </flux:text>
+
+                <flux:text size="sm" x-show="status === 'denied'">
+                    Están bloqueadas para este sitio. Se vuelven a permitir desde los ajustes del navegador.
+                </flux:text>
+
+                <flux:text size="sm" x-show="status === 'unsupported'">
+                    Este navegador no las soporta.
+                </flux:text>
+
+                <flux:text size="sm" x-show="status === 'unconfigured'">
+                    Todavía no están configuradas en el servidor.
+                </flux:text>
+
+                <flux:text size="sm" color="red" class="mt-2" x-show="error !== ''" x-text="error"></flux:text>
+            </div>
         </section>
 
         {{-- Password --}}

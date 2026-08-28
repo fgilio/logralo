@@ -53,6 +53,7 @@
         <env name="SESSION_DRIVER" value="array"/>
         <env name="LOGRALO_PHOTO_DISK" value="photos"/>
         <env name="LOGRALO_GRACE_CUTOFF_HOUR" value="12"/>
+        <env name="LOGRALO_PUSH_REMINDER_LEAD_HOURS" value="3"/>
         <!-- Off by default so no test reaches gravatar.com. The PHP suite
              forbids stray requests outright; the browser suite has a real
              Chromium in it, which would happily fetch one avatar per member
