@@ -23,9 +23,15 @@
 
         <div class="min-w-0 flex-1 leading-tight">
             {{-- Two truncations rather than one: sharing it lets the goal, which
-                 is the content, disappear before the name. --}}
+                 is the content, disappear before the name. Neither of them is
+                 pinned, so a line too narrow for both takes the shortfall out
+                 of each in proportion. `shrink-0` on the name spent all of it
+                 on the goal instead, and a row carrying a reaction pill was
+                 left reading "Martín Rodríguez · 🥗…" — the goal gone from the
+                 line that exists to name it. The cap stays: it is what stops a
+                 long name from being the reason there is a shortfall. --}}
             <p class="flex min-w-0 items-baseline gap-1 text-sm">
-                <span class="max-w-24 shrink-0 truncate font-semibold">{{ $mark->user->name }}</span>
+                <span class="max-w-24 truncate font-semibold">{{ $mark->user->name }}</span>
                 <span aria-hidden="true" class="shrink-0 text-zinc-400">·</span>
                 <span class="min-w-0 truncate text-zinc-500 dark:text-zinc-400">
                     {{ $mark->goal->emoji }} {{ $mark->goal->name }}
