@@ -12,6 +12,7 @@ use App\Queries\GoalHistory;
 use App\Queries\Members;
 use App\Queries\MonthlyStandings;
 use App\Services\StreakCalculator;
+use App\ValueObjects\RecapEntry;
 use App\ValueObjects\Standing;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Collection;
@@ -120,11 +121,13 @@ final readonly class CloseMonth
     private function announce(MonthlyRecap $recap): int
     {
         $roster = $this->members->roster();
+        $entry = new RecapEntry($recap);
 
-        return rescue(function () use ($recap, $roster): int {
+        return rescue(function () use ($recap, $roster, $entry): int {
             Notification::send($roster, new MonthClosed(
                 month: $recap->month->format('Y-m'),
-                winnerName: $this->members->find($recap->winner_user_id)?->name,
+                winnerNames: $entry->winnerNames(),
+                winnerCount: $entry->winners()->count(),
             ));
 
             return $roster->count();

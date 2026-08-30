@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace App\Actions;
 
-use App\Models\Goal;
 use App\Models\User;
 use App\Notifications\StreakAboutToBreak;
 use App\Queries\GoalHistory;
@@ -64,8 +63,19 @@ final readonly class SendStreakReminder
 
         Context::add('logralo.closing_on', $closing->toDateString());
 
-        if ($clock->now()->lessThan($closesAt->subHours($lead))) {
+        if (! $clock->isClosingWithin($closing, $lead)) {
             Context::add('logralo.reject_reason', 'outside_window');
+
+            return false;
+        }
+
+        // The sweep runs hourly and the window spans several hours, so the key
+        // rather than the schedule is what makes this once a day. It is read
+        // here to keep the history queries below off the ticks that follow a
+        // nudge already sent, and claimed further down once there is something
+        // to say, so it expires with the window it belongs to.
+        if (Cache::has($this->onceKey($member, $closing))) {
+            Context::add('logralo.reject_reason', 'already_sent');
 
             return false;
         }
@@ -78,10 +88,8 @@ final readonly class SendStreakReminder
             return false;
         }
 
-        // The sweep runs hourly and the window spans several hours, so the
-        // key rather than the schedule is what makes this once a day. Claimed
-        // only once there is something to say, and it expires with the window
-        // it belongs to.
+        // The referee, where the check above was only a shortcut: two ticks
+        // that overlap both read an empty key, and one of them has to lose.
         if (! Cache::add($this->onceKey($member, $closing), true, $closesAt)) {
             Context::add('logralo.reject_reason', 'already_sent');
 
@@ -90,11 +98,17 @@ final readonly class SendStreakReminder
 
         Context::add('logralo.goals_at_risk', $atRisk->count());
 
-        $member->notify(new StreakAboutToBreak(
-            goalsAtRisk: $atRisk->count(),
-            longestStreak: (int) $atRisk->max(),
-            closesAt: $closesAt->format('H:i'),
-        ));
+        try {
+            $member->notify(new StreakAboutToBreak(
+                goalsAtRisk: $atRisk->count(),
+                longestStreak: (int) $atRisk->max(),
+                closesAt: $closesAt->format('H:i'),
+            ));
+        } catch (Throwable $throwable) {
+            Cache::forget($this->onceKey($member, $closing));
+
+            throw $throwable;
+        }
 
         return true;
     }
@@ -109,11 +123,8 @@ final readonly class SendStreakReminder
      */
     private function streaksAtRisk(User $member, CarbonImmutable $closing): Collection
     {
-        $goals = $member->activeGoals()->get();
-        $histories = $this->history->forGoals($goals);
-
-        return $goals
-            ->map(fn (Goal $goal): MarkHistory => $histories->get($goal->id, MarkHistory::empty()))
+        return $this->history
+            ->forGoals($member->activeGoals()->get())
             ->map(fn (MarkHistory $history): int => $this->streaks->atRiskOn(
                 $history->dates(),
                 $closing,

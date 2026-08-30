@@ -45,8 +45,6 @@ export default (publicKey) => ({
     },
 
     async refresh() {
-        this.error = "";
-
         if (this.publicKey === "") {
             this.status = "unconfigured";
 

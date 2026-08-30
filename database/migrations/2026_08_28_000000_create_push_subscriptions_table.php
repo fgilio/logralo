@@ -8,8 +8,6 @@ use Illuminate\Support\Facades\Schema;
 use NotificationChannels\WebPush\PushSubscription;
 
 /**
- * A browser's push endpoint, one row per device a member said yes on.
- *
  * The package ships this migration too, but its version keys the subscribable
  * by an auto-incrementing integer and every model here is keyed by ULID.
  */
@@ -19,9 +17,7 @@ return new class extends Migration
     {
         Schema::create('push_subscriptions', function (Blueprint $table): void {
             // The vendor model has no ULID trait, so this table keeps the
-            // integer key it generates. Nothing points at a subscription:
-            // it is found by endpoint and deleted when the push service
-            // reports it gone.
+            // integer key it generates.
             $table->id();
             $table->ulidMorphs('subscribable');
             // The URL of the push service that will deliver to this browser,

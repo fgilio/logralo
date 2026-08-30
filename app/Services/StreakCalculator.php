@@ -77,7 +77,7 @@ final readonly class StreakCalculator
      */
     public function atRiskOn(array $markedDates, CarbonImmutable $day, array $pauses = []): int
     {
-        $date = $day->startOfDay()->toDateString();
+        $date = $day->toDateString();
 
         if (in_array($date, $markedDates, true) || $this->wasPaused($day, $pauses)) {
             return 0;

@@ -67,11 +67,6 @@ self.addEventListener("push", (event) => {
 self.addEventListener("notificationclick", (event) => {
     event.notification.close();
 
-    const target = new URL(
-        event.notification.data?.url ?? "/",
-        self.location.origin,
-    );
-
     event.waitUntil(
         (async () => {
             const windows = await self.clients.matchAll({
@@ -91,6 +86,11 @@ self.addEventListener("notificationclick", (event) => {
 
                 return;
             }
+
+            const target = new URL(
+                event.notification.data?.url ?? "/",
+                self.location.origin,
+            );
 
             await self.clients.openWindow(target.href);
         })(),

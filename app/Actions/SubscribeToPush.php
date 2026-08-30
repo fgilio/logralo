@@ -7,7 +7,7 @@ namespace App\Actions;
 use App\Models\User;
 use Illuminate\Support\Facades\Context;
 use Illuminate\Support\Facades\Log;
-use Illuminate\Support\Str;
+use Illuminate\Support\Uri;
 use NotificationChannels\WebPush\PushSubscription;
 use Throwable;
 
@@ -23,9 +23,8 @@ final readonly class SubscribeToPush
     public function handle(
         User $user,
         string $endpoint,
-        ?string $key = null,
-        ?string $token = null,
-        ?string $contentEncoding = null,
+        string $key,
+        string $token,
     ): PushSubscription {
         Context::add('logralo.user_id', $user->id);
         // Never the endpoint itself. Anyone holding it can push to that
@@ -33,7 +32,7 @@ final readonly class SubscribeToPush
         Context::add('logralo.push_service', $this->serviceHost($endpoint));
 
         try {
-            $subscription = $user->updatePushSubscription($endpoint, $key, $token, $contentEncoding);
+            $subscription = $user->updatePushSubscription($endpoint, $key, $token);
 
             Context::add('logralo.outcome', 'completed');
 
@@ -51,6 +50,6 @@ final readonly class SubscribeToPush
 
     private function serviceHost(string $endpoint): string
     {
-        return Str::of($endpoint)->after('://')->before('/')->toString();
+        return Uri::of($endpoint)->host() ?? 'unknown';
     }
 }

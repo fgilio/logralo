@@ -28,6 +28,7 @@ use Livewire\Attributes\Title;
 use Livewire\Component;
 use Livewire\Features\SupportFileUploads\TemporaryUploadedFile;
 use Livewire\WithFileUploads;
+use NotificationChannels\WebPush\PushSubscription;
 
 /**
  * Everything that is not "Hoy": goals, timezone, password, logout.
@@ -270,7 +271,7 @@ new #[Title('Perfil')] class extends Component
     public function subscribeToPush(array $subscription): void
     {
         $validated = validator($subscription, [
-            'endpoint' => ['required', 'string', 'url:https', 'max:1024'],
+            'endpoint' => ['required', 'string', 'url:https', 'max:'.PushSubscription::ENDPOINT_MAX_LENGTH],
             'keys.p256dh' => ['required', 'string', 'max:255'],
             'keys.auth' => ['required', 'string', 'max:255'],
         ])->validate();
@@ -533,10 +534,7 @@ new #[Title('Perfil')] class extends Component
             </flux:radio.group>
         </section>
 
-        {{-- Push. Off until asked for, and asked for per browser: the same
-             member on a phone and a laptop subscribes twice. `status` starts
-             at loading, so nothing below is drawn until the browser has been
-             read and no branch flashes on the way there. --}}
+        {{-- Push --}}
         <section x-data="pushToggle(@js($this->pushPublicKey))" data-test="push">
             <flux:heading>Notificaciones</flux:heading>
 
@@ -557,9 +555,6 @@ new #[Title('Perfil')] class extends Component
                     </flux:button>
                 </div>
 
-                {{-- iOS hands Notification and PushManager to a home-screen app
-                     and to nothing else, so this is the real answer on an
-                     iPhone rather than a consolation. --}}
                 <flux:text size="sm" x-show="status === 'needs-install'" data-test="push-needs-install">
                     Agregá Logralo a tu pantalla de inicio y volvé acá. En iPhone las notificaciones solo funcionan con la app instalada.
                 </flux:text>

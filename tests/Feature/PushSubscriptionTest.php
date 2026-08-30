@@ -97,7 +97,7 @@ it('drops only the endpoint it was handed', function (): void {
         ->toBe(['https://fcm.googleapis.com/fcm/send/laptop']);
 });
 
-it('leaves somebody else rows alone when an endpoint is not theirs', function (): void {
+it("leaves somebody else's rows alone when an endpoint is not theirs", function (): void {
     $owner = User::factory()->create();
     $other = User::factory()->create();
 

@@ -22,10 +22,14 @@ final class MonthClosed extends Notification implements ShouldQueue
 {
     use Queueable;
 
-    /** @param  string  $month  Y-m */
+    /**
+     * @param  string  $month  Y-m
+     * @param  string  $winnerNames  as RecapEntry spells them: "Franco y Guido" on a tie
+     */
     public function __construct(
         private readonly string $month,
-        private readonly ?string $winnerName,
+        private readonly string $winnerNames,
+        private readonly int $winnerCount,
     ) {}
 
     /** @return list<class-string> */
@@ -40,9 +44,11 @@ final class MonthClosed extends Notification implements ShouldQueue
 
         return (new WebPushMessage)
             ->title("Se cerró {$name}")
-            ->body($this->winnerName === null
-                ? 'Mirá cómo quedó la tabla.'
-                : "Ganó {$this->winnerName}. Mirá cómo quedó la tabla.")
+            ->body(match ($this->winnerCount) {
+                0 => 'Mirá cómo quedó la tabla.',
+                1 => "Ganó {$this->winnerNames}. Mirá cómo quedó la tabla.",
+                default => "Ganaron {$this->winnerNames}. Mirá cómo quedó la tabla.",
+            })
             ->icon('/icons/icon-192.png')
             ->tag("recap:{$this->month}")
             ->data(['url' => '/']);

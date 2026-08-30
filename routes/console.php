@@ -17,9 +17,7 @@ Schedule::command('logralo:close-months')
 
 /*
  * Hourly too, and for the same reason: the last hours before a member's grace
- * window shuts fall at a different instant for each of them. The command holds
- * the sweep and the Action holds the once-a-day rule, so a tick that runs late
- * still catches the window instead of missing it.
+ * window shuts fall at a different instant for each of them.
  */
 Schedule::command('logralo:push-reminders')
     ->hourly()

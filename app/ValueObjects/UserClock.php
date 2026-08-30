@@ -102,6 +102,12 @@ final readonly class UserClock
         return $this->now()->lessThan($this->closesAt($day));
     }
 
+    /** True once $day is inside its last $hours of accepting marks. */
+    public function isClosingWithin(CarbonImmutable $day, int $hours): bool
+    {
+        return $this->now()->greaterThanOrEqualTo($this->closesAt($day)->subHours($hours));
+    }
+
     /**
      * True while yesterday can still be marked, which is exactly when the
      * grace banner shows.

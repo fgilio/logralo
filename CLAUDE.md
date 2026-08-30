@@ -62,7 +62,7 @@ composer lint                # rector + pint + prettier, writing fixes
 
 php artisan logralo:seed-member "Nombre" email@example.com America/Montevideo
 php artisan logralo:close-months            # normally hourly on the scheduler
-php artisan logralo:push-reminders          # hourly too; the Action decides who hears anything
+php artisan logralo:push-reminders          # hourly too, and the Action decides who hears anything
 php artisan webpush:vapid                   # once per environment, then never again
 php artisan migrate:fresh --seed            # local demo data (DemoSeeder)
 bash scripts/branding.sh                    # regenerate PWA icons and splashes

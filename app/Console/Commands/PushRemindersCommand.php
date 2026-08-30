@@ -32,7 +32,10 @@ final class PushRemindersCommand extends Command
 
         try {
             foreach ($members->roster() as $member) {
-                $sent += $reminder->handle($member) ? 1 : 0;
+                // Scoped: Context is process-global, so without this the
+                // reject_reason of a member who was skipped stays set on the
+                // log line of whoever is looked at next.
+                $sent += Context::scope(fn (): bool => $reminder->handle($member)) ? 1 : 0;
             }
 
             Context::add('logralo.reminders_sent', $sent);

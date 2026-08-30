@@ -34,10 +34,7 @@ beforeEach(function (): void {
 function markedOn(Goal $goal, string ...$days): void
 {
     foreach ($days as $day) {
-        Mark::factory()->for($goal)->withPhoto()->create([
-            'user_id' => $goal->user_id,
-            'marked_on' => $day,
-        ]);
+        Mark::factory()->for($goal)->on($day)->withPhoto()->create();
     }
 }
 
@@ -181,14 +178,20 @@ it('draws the group buzz as a headline over the goal it belongs to', function ()
 });
 
 it('names the month and the winner in the recap buzz', function (): void {
-    $message = new MonthClosed('2026-08', 'Beto')->toWebPush($this->ana)->toArray();
+    $message = new MonthClosed('2026-08', 'Beto', 1)->toWebPush($this->ana)->toArray();
 
     expect($message['title'])->toBe('Se cerró agosto')
         ->and($message['body'])->toBe('Ganó Beto. Mirá cómo quedó la tabla.');
 });
 
+it('puts the verb in the plural when the podium is shared', function (): void {
+    $message = new MonthClosed('2026-08', 'Beto y Caro', 2)->toWebPush($this->ana)->toArray();
+
+    expect($message['body'])->toBe('Ganaron Beto y Caro. Mirá cómo quedó la tabla.');
+});
+
 it('closes a month nobody won without naming one', function (): void {
-    $message = new MonthClosed('2026-08', null)->toWebPush($this->ana)->toArray();
+    $message = new MonthClosed('2026-08', '', 0)->toWebPush($this->ana)->toArray();
 
     expect($message['body'])->toBe('Mirá cómo quedó la tabla.');
 });

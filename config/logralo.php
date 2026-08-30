@@ -159,16 +159,12 @@ return [
     | the environment and are read by `config/webpush.php` from the package. On
     | iOS a subscription is only possible once the app is on the home screen.
     |
-    | Three events are worth a buzz, and the list is meant to stay this short.
-    | A notification on every mark or every reaction is what makes somebody
-    | turn the whole thing off.
+    | Which events are worth a buzz, and why the list stays this short, is in
+    | `docs/architecture/push-notifications.md`.
     |
     */
 
     'push' => [
-        // How close to a day's grace cutoff the "your streak is about to
-        // break" nudge goes out. The scheduler runs hourly, so a window
-        // rather than an hour means a missed tick still catches the member.
         'reminder_lead_hours' => (int) env('LOGRALO_PUSH_REMINDER_LEAD_HOURS', 3),
     ],
 

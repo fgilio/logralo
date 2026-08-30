@@ -288,7 +288,11 @@ new class extends Component
      */
     private function celebrate(Mark $mark): void
     {
-        $streak = resolve(MarkGoal::class)->streakEndingOn($this->goal, $mark->marked_on);
+        $streak = resolve(StreakCalculator::class)->endingOn(
+            $this->history->dates(),
+            $mark->marked_on,
+            $this->history->pauses,
+        );
 
         if (! resolve(StreakMilestone::class)->isMilestone($streak)) {
             return;

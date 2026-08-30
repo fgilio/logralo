@@ -119,7 +119,7 @@ final readonly class MarkGoal
      * grace window those are different numbers: marking yesterday while today
      * is still unmarked would otherwise report today's run.
      */
-    public function streakEndingOn(Goal $goal, CarbonImmutable $day): int
+    private function streakEndingOn(Goal $goal, CarbonImmutable $day): int
     {
         $history = $this->history->for($goal);
 
