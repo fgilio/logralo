@@ -77,7 +77,10 @@ final readonly class CloseMonth
             ]);
 
             Context::add('logralo.recap_id', $recap->id);
-            Context::add('logralo.announced_to', $this->announce($recap));
+
+            $announced = $this->announce($recap);
+
+            Context::add('logralo.announced_to', $announced);
             Context::add('logralo.outcome', 'closed');
 
             return $recap;

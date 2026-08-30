@@ -29,11 +29,16 @@ const installed = () =>
  */
 const READY_TIMEOUT_MS = 5000;
 
-const activeWorker = () =>
-    Promise.race([
+const activeWorker = () => {
+    let timer;
+
+    return Promise.race([
         navigator.serviceWorker.ready,
-        new Promise((resolve) => setTimeout(resolve, READY_TIMEOUT_MS, null)),
-    ]);
+        new Promise((resolve) => {
+            timer = setTimeout(resolve, READY_TIMEOUT_MS, null);
+        }),
+    ]).finally(() => clearTimeout(timer));
+};
 
 /**
  * `applicationServerKey` wants the raw bytes of the VAPID public key, and what

@@ -16,10 +16,10 @@ use App\Models\MonthlyRecap;
 use App\Models\User;
 use App\Notifications\StreakMilestoneReached;
 use App\Queries\GoalHistory;
+use App\Queries\MarkEntries;
 use App\Queries\Members;
 use App\Services\PhotoProcessor;
 use App\Services\PhotoRule;
-use App\Services\StreakCalculator;
 use App\Services\StreakMilestone;
 use Carbon\CarbonImmutable;
 use Illuminate\Database\UniqueConstraintViolationException;
@@ -40,7 +40,7 @@ final readonly class MarkGoal
         private PhotoProcessor $photos,
         private PhotoRule $photoRule,
         private GoalHistory $history,
-        private StreakCalculator $streaks,
+        private MarkEntries $entries,
         private StreakMilestone $milestones,
         private Members $members,
     ) {}
@@ -76,12 +76,15 @@ final readonly class MarkGoal
                 throw DuplicateMarkException::make($goal, $day);
             }
 
-            $streak = $this->streakEndingOn($goal, $day);
+            $streak = $this->entries->streakOn($day, $this->history->for($goal));
 
             Context::add('logralo.mark_id', $mark->id);
             Context::add('logralo.mark_kind', $mark->kind()->value);
             Context::add('logralo.streak', $streak);
-            Context::add('logralo.announced_to', $this->announce($goal, $streak));
+
+            $announced = $this->announce($goal, $streak);
+
+            Context::add('logralo.announced_to', $announced);
             Context::add('logralo.outcome', 'completed');
 
             return $mark;
@@ -110,20 +113,6 @@ final readonly class MarkGoal
         return $this->photoRule->requiresPhoto(
             $this->history->for($goal)->recentFullnessBefore($day->toDateString())
         );
-    }
-
-    /**
-     * The streak the marked day ends on.
-     *
-     * Counted back from that day rather than from today, because inside the
-     * grace window those are different numbers: marking yesterday while today
-     * is still unmarked would otherwise report today's run.
-     */
-    private function streakEndingOn(Goal $goal, CarbonImmutable $day): int
-    {
-        $history = $this->history->for($goal);
-
-        return $this->streaks->endingOn($history->dates(), $day, $history->pauses);
     }
 
     /**

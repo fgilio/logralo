@@ -87,12 +87,7 @@ self.addEventListener("notificationclick", (event) => {
                 return;
             }
 
-            const target = new URL(
-                event.notification.data?.url ?? "/",
-                self.location.origin,
-            );
-
-            await self.clients.openWindow(target.href);
+            await self.clients.openWindow(event.notification.data?.url ?? "/");
         })(),
     );
 });

@@ -10,6 +10,7 @@ use App\Exceptions\UserFacingException;
 use App\Models\Goal;
 use App\Models\Mark;
 use App\Queries\GoalHistory;
+use App\Queries\MarkEntries;
 use App\Services\PhotoRule;
 use App\Services\StreakCalculator;
 use App\Services\StreakMilestone;
@@ -288,11 +289,7 @@ new class extends Component
      */
     private function celebrate(Mark $mark): void
     {
-        $streak = resolve(StreakCalculator::class)->endingOn(
-            $this->history->dates(),
-            $mark->marked_on,
-            $this->history->pauses,
-        );
+        $streak = resolve(MarkEntries::class)->streakOn($mark->marked_on, $this->history);
 
         if (! resolve(StreakMilestone::class)->isMilestone($streak)) {
             return;

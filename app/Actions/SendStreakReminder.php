@@ -58,7 +58,6 @@ final readonly class SendStreakReminder
     {
         $clock = $member->clock();
         $closing = $clock->oldestOpenDayAt($clock->now());
-        $closesAt = $clock->closesAt($closing);
         $lead = config()->integer('logralo.push.reminder_lead_hours');
 
         Context::add('logralo.closing_on', $closing->toDateString());
@@ -69,12 +68,16 @@ final readonly class SendStreakReminder
             return false;
         }
 
+        $closesAt = $clock->closesAt($closing);
+
         // The sweep runs hourly and the window spans several hours, so the key
         // rather than the schedule is what makes this once a day. It is read
         // here to keep the history queries below off the ticks that follow a
         // nudge already sent, and claimed further down once there is something
         // to say, so it expires with the window it belongs to.
-        if (Cache::has($this->onceKey($member, $closing))) {
+        $key = "push-reminders.{$member->id}.{$closing->toDateString()}";
+
+        if (Cache::has($key)) {
             Context::add('logralo.reject_reason', 'already_sent');
 
             return false;
@@ -90,7 +93,7 @@ final readonly class SendStreakReminder
 
         // The referee, where the check above was only a shortcut: two ticks
         // that overlap both read an empty key, and one of them has to lose.
-        if (! Cache::add($this->onceKey($member, $closing), true, $closesAt)) {
+        if (! Cache::add($key, true, $closesAt)) {
             Context::add('logralo.reject_reason', 'already_sent');
 
             return false;
@@ -105,7 +108,7 @@ final readonly class SendStreakReminder
                 closesAt: $closesAt->format('H:i'),
             ));
         } catch (Throwable $throwable) {
-            Cache::forget($this->onceKey($member, $closing));
+            Cache::forget($key);
 
             throw $throwable;
         }
@@ -132,10 +135,5 @@ final readonly class SendStreakReminder
             ))
             ->filter(fn (int $days): bool => $days > 0)
             ->values();
-    }
-
-    private function onceKey(User $member, CarbonImmutable $closing): string
-    {
-        return "push-reminders.{$member->id}.{$closing->toDateString()}";
     }
 }

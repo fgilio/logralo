@@ -10,8 +10,10 @@ use Illuminate\Support\Facades\Log;
 use Livewire\Livewire;
 use NotificationChannels\WebPush\PushSubscription;
 
+const PUSH_ENDPOINT = 'https://fcm.googleapis.com/fcm/send/abc';
+
 /** What `PushSubscription.toJSON()` hands back in a browser. */
-function browserSubscription(string $endpoint = 'https://fcm.googleapis.com/fcm/send/abc'): array
+function browserSubscription(string $endpoint = PUSH_ENDPOINT): array
 {
     return [
         'endpoint' => $endpoint,
@@ -20,7 +22,7 @@ function browserSubscription(string $endpoint = 'https://fcm.googleapis.com/fcm/
     ];
 }
 
-function subscribe(User $user, string $endpoint = 'https://fcm.googleapis.com/fcm/send/abc'): PushSubscription
+function subscribe(User $user, string $endpoint = PUSH_ENDPOINT): PushSubscription
 {
     $subscription = browserSubscription($endpoint);
 
@@ -37,7 +39,7 @@ it('stores the endpoint a browser handed over', function (): void {
 
     $subscription = subscribe($user);
 
-    expect($subscription->endpoint)->toBe('https://fcm.googleapis.com/fcm/send/abc')
+    expect($subscription->endpoint)->toBe(PUSH_ENDPOINT)
         ->and($subscription->subscribable_id)->toBe($user->id)
         ->and($user->pushSubscriptions()->count())->toBe(1);
 });
@@ -82,7 +84,7 @@ it('logs the push service without ever logging the endpoint', function (): void 
 
     // The endpoint is a capability: whoever holds it can push to that browser.
     expect(Context::get('logralo.push_service'))->toBe('fcm.googleapis.com')
-        ->and(Context::all())->not->toContain('https://fcm.googleapis.com/fcm/send/abc');
+        ->and(Context::all())->not->toContain(PUSH_ENDPOINT);
 });
 
 it('drops only the endpoint it was handed', function (): void {
@@ -103,7 +105,7 @@ it("leaves somebody else's rows alone when an endpoint is not theirs", function 
 
     subscribe($owner);
 
-    resolve(UnsubscribeFromPush::class)->handle($other, 'https://fcm.googleapis.com/fcm/send/abc');
+    resolve(UnsubscribeFromPush::class)->handle($other, PUSH_ENDPOINT);
 
     expect($owner->pushSubscriptions()->count())->toBe(1);
 });
@@ -117,7 +119,7 @@ it('subscribes and unsubscribes from the profile toggle', function (): void {
 
     expect($user->pushSubscriptions()->count())->toBe(1);
 
-    $component->call('unsubscribeFromPush', 'https://fcm.googleapis.com/fcm/send/abc');
+    $component->call('unsubscribeFromPush', PUSH_ENDPOINT);
 
     expect($user->pushSubscriptions()->count())->toBe(0);
 });
@@ -138,7 +140,7 @@ it('refuses a subscription with no encryption keys behind it', function (): void
 
     Livewire::actingAs($user)
         ->test('pages::profile')
-        ->call('subscribeToPush', ['endpoint' => 'https://fcm.googleapis.com/fcm/send/abc'])
+        ->call('subscribeToPush', ['endpoint' => PUSH_ENDPOINT])
         ->assertHasErrors('keys.p256dh');
 
     expect($user->pushSubscriptions()->count())->toBe(0);

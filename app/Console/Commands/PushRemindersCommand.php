@@ -35,7 +35,9 @@ final class PushRemindersCommand extends Command
                 // Scoped: Context is process-global, so without this the
                 // reject_reason of a member who was skipped stays set on the
                 // log line of whoever is looked at next.
-                $sent += Context::scope(fn (): bool => $reminder->handle($member)) ? 1 : 0;
+                if (Context::scope(fn (): bool => $reminder->handle($member))) {
+                    $sent++;
+                }
             }
 
             Context::add('logralo.reminders_sent', $sent);
