@@ -9,6 +9,7 @@ use App\Models\Goal;
 use App\Models\Mark;
 use App\Models\User;
 use App\Notifications\MonthClosed;
+use App\Notifications\PushNotification;
 use App\Notifications\StreakAboutToBreak;
 use App\Notifications\StreakMilestoneReached;
 use Carbon\CarbonImmutable;
@@ -168,14 +169,24 @@ it('draws the group buzz as a headline over the goal it belongs to', function ()
         ->toWebPush($this->beto)
         ->toArray();
 
-    // The keys sw.js reads off the payload. Anything renamed here draws
-    // nothing on the lock screen.
     expect($message['title'])->toBe('Ana: Una semana entera')
         ->and($message['body'])->toBe('🏋️ Gimnasio')
-        ->and($message['icon'])->toBe('/icons/icon-192.png')
-        ->and($message['tag'])->toBe('milestone:Ana:Gimnasio:7')
-        ->and($message['data'])->toBe(['url' => '/']);
+        ->and($message['tag'])->toBe('milestone:Ana:Gimnasio:7');
 });
+
+it('gives every buzz the envelope sw.js reads', function (PushNotification $notification): void {
+    // The half of the payload no message decides for itself. Renamed here and
+    // the lock screen draws a notification with no icon, or one that opens
+    // nothing when it is tapped.
+    $message = $notification->toWebPush($this->ana)->toArray();
+
+    expect($message['icon'])->toBe('/icons/icon-192.png')
+        ->and($message['data'])->toBe(['url' => '/']);
+})->with([
+    'milestone' => fn (): PushNotification => new StreakMilestoneReached('Ana', '🏋️', 'Gimnasio', 7),
+    'recap' => fn (): PushNotification => new MonthClosed('2026-08', 'Beto', 1),
+    'grace' => fn (): PushNotification => new StreakAboutToBreak(1, 12, '12:00'),
+]);
 
 it('names the month and the winner in the recap buzz', function (): void {
     $message = new MonthClosed('2026-08', 'Beto', 1)->toWebPush($this->ana)->toArray();

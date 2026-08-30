@@ -21,6 +21,21 @@ const installed = () =>
     window.navigator.standalone === true;
 
 /**
+ * `serviceWorker.ready` never rejects: where a registration was refused it just
+ * never settles, and the section would sit at `loading` forever showing nothing
+ * at all. head.blade.php swallows its own registration failure, so this is the
+ * only place that can notice. A worker that has not arrived in five seconds is
+ * not arriving.
+ */
+const READY_TIMEOUT_MS = 5000;
+
+const activeWorker = () =>
+    Promise.race([
+        navigator.serviceWorker.ready,
+        new Promise((resolve) => setTimeout(resolve, READY_TIMEOUT_MS, null)),
+    ]);
+
+/**
  * `applicationServerKey` wants the raw bytes of the VAPID public key, and what
  * we hold is the base64url the generator printed.
  */
@@ -63,7 +78,14 @@ export default (publicKey) => ({
             return;
         }
 
-        const registration = await navigator.serviceWorker.ready;
+        const registration = await activeWorker();
+
+        if (!registration) {
+            this.status = "unsupported";
+
+            return;
+        }
+
         const subscription = await registration.pushManager.getSubscription();
 
         this.status = subscription ? "on" : "off";
@@ -84,7 +106,12 @@ export default (publicKey) => ({
                 return;
             }
 
-            const registration = await navigator.serviceWorker.ready;
+            const registration = await activeWorker();
+
+            if (!registration) {
+                throw new Error("No service worker");
+            }
+
             const subscription = await registration.pushManager.subscribe({
                 userVisibleOnly: true,
                 applicationServerKey: decodeKey(this.publicKey),
@@ -105,9 +132,9 @@ export default (publicKey) => ({
         this.error = "";
 
         try {
-            const registration = await navigator.serviceWorker.ready;
+            const registration = await activeWorker();
             const subscription =
-                await registration.pushManager.getSubscription();
+                await registration?.pushManager.getSubscription();
 
             if (subscription) {
                 // Told before it is dropped: once the browser has forgotten
