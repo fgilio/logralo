@@ -100,7 +100,18 @@ export default (publicKey) => ({
             // they would keep getting buzzed here, and the member reading this
             // screen would see "on" and never receive anything. Storing it
             // again is what makes the toggle tell the truth.
-            await this.$wire.subscribeToPush(subscription.toJSON());
+            try {
+                await this.$wire.subscribeToPush(subscription.toJSON());
+            } catch {
+                // The browser holds a subscription the server did not take.
+                // Saying "on" would promise buzzes that never arrive, and
+                // nothing renders at "loading", so offer the button that
+                // stores it again.
+                this.error = "No pudimos sincronizarlas. Probá de nuevo.";
+                this.status = "off";
+
+                return;
+            }
         }
 
         this.status = subscription ? "on" : "off";
