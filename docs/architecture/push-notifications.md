@@ -40,7 +40,9 @@ A subscription endpoint is a URL that anyone holding it can push to. It is a bea
 
 So it is never logged. `SubscribeToPush` records `logralo.push_service` — the host, `fcm.googleapis.com` or `updates.push.services.mozilla.com` — and stops there. A test asserts the endpoint is absent from the context the Action leaves behind.
 
-It arrives from the client like any other Livewire argument and is validated as an https URL before it reaches a column.
+It arrives from the client like any other Livewire argument, so it is checked rather than trusted: an https URL, inside the package's length limit, on a named host and the default port. The last two matter because the app later signs a request to whatever it stored, and `url:https` on its own is happy with `https://10.0.0.5:8080/x`.
+
+That is deliberately less than a review asked for. The full ask was an allowlist of push-service origins, or resolving the host and refusing private, loopback and link-local addresses, with a re-check at connection time against DNS rebinding. Neither shipped. An allowlist goes stale in silence — a browser ships a new push host, the member who upgraded stops receiving anything, and nothing in the logs says why — and resolve-then-connect is a guarantee only the HTTP client can make, which here is Guzzle inside the package. What remains is a blind request to an https host on behalf of somebody who is already an invited member of a group of twelve. If Logralo ever admits people who are not, this is the first thing to revisit.
 
 ## The reminder sweep
 
