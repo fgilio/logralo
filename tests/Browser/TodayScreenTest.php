@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use App\Enums\ReactionEmoji;
 use App\Models\Comment;
 use App\Models\Goal;
 use App\Models\Mark;
@@ -1005,6 +1006,57 @@ it('refuses the gestures that would save a photo', function (): void {
         'select' => 'none',
         'draggedText' => true,
     ]);
+
+    $page->assertNoJavaScriptErrors();
+});
+
+/**
+ * The row is the feed's tightest line: name, goal, reactions, flame and the
+ * chevron all on one 390px row, and the goal is the thing the row exists to
+ * name. `shrink-0` on the name meant the name kept its full width and the
+ * goal paid the whole shortfall — on a row with a reaction pill it was down
+ * to its emoji and an ellipsis.
+ *
+ * Asserted as a rule rather than as a pixel count, because the widths depend
+ * on the font: whenever the goal has to truncate, the name has truncated too.
+ * That is only true when both give up room together.
+ */
+it('never truncates the goal on a feed row while the name keeps its full width', function (): void {
+    $ana = User::factory()->create(['name' => 'Ana Pérez']);
+    // Short enough to fit the name's own cap, so the only thing that can
+    // truncate it is the room it hands back to the goal beside it.
+    $franco = User::factory()->create(['name' => 'Franco Gilio']);
+    $goal = Goal::factory()->for($franco)->create(['emoji' => '📚', 'name' => 'Leer 20 páginas']);
+
+    // Oldest of the day, which is the rung the feed draws as a row. The two
+    // below it are what push it down there.
+    $mark = Mark::factory()->for($goal)->for($franco)->create();
+
+    // The pill is the rest of the crowd: a row without one has room to spare.
+    Reaction::factory()->for($mark)->create(['emoji' => ReactionEmoji::Fire]);
+    Reaction::factory()->for($mark)->create(['emoji' => ReactionEmoji::Clap]);
+
+    Mark::factory()->count(2)->create();
+
+    $this->actingAs($ana);
+
+    $page = visit('/')->on()->iPhone15Pro()->assertVisible('#mark-'.$mark->id);
+
+    $line = $page->script(<<<'LINE'
+        (() => {
+            const row = document.querySelector('article[data-rung="1"] p.flex');
+            const [name, , goal] = row.children;
+            const cut = (span) => span.scrollWidth > span.clientWidth;
+
+            return JSON.stringify({ nameCut: cut(name), goalCut: cut(goal) });
+        })()
+    LINE);
+
+    $measured = json_decode((string) $line, true);
+
+    // The line is too narrow for both — which is the case worth pinning — and
+    // the name gave up its share of it rather than none.
+    expect($measured)->toBe(['nameCut' => true, 'goalCut' => true]);
 
     $page->assertNoJavaScriptErrors();
 });
