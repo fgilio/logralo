@@ -13,6 +13,8 @@ use App\Notifications\PushNotification;
 use App\Notifications\StreakAboutToBreak;
 use App\Notifications\StreakMilestoneReached;
 use Carbon\CarbonImmutable;
+use Illuminate\Contracts\Notifications\Dispatcher;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Notification;
 
 beforeEach(function (): void {
@@ -211,4 +213,33 @@ it('says a single streak in the singular', function (): void {
     $message = new StreakAboutToBreak(1, 12, '12:00')->toWebPush($this->ana)->toArray();
 
     expect($message['title'])->toBe('Se te va una racha de 12 días');
+});
+
+it('keeps sweeping the roster after a member cannot be reached', function (): void {
+    // No mocking library in this suite, so a dispatcher that refuses every send
+    // stands in for a queue that will not take the job.
+    $this->app->bind(Dispatcher::class, fn (): Dispatcher => new class implements Dispatcher
+    {
+        public function send($notifiables, $notification): void
+        {
+            throw new RuntimeException('the queue is down');
+        }
+
+        public function sendNow($notifiables, $notification, ?array $channels = null): void
+        {
+            throw new RuntimeException('the queue is down');
+        }
+    });
+
+    foreach ([$this->ana, $this->beto, $this->caro] as $member) {
+        markedOn(Goal::factory()->for($member)->create(), '2026-08-09', '2026-08-10');
+    }
+
+    Log::spy();
+
+    $this->artisan('logralo:push-reminders')->assertFailed();
+
+    // Three lines, so the first failure did not end the loop: everybody whose
+    // window is closing tonight still got their look.
+    Log::shouldHaveReceived('info')->with('push.reminder.handled')->times(3);
 });

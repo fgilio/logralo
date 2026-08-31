@@ -28,7 +28,9 @@ final readonly class UnsubscribeFromPush
             Context::add('logralo.outcome', 'completed');
         } catch (Throwable $throwable) {
             Context::add('logralo.outcome', 'error');
-            Context::add('logralo.error', $throwable->getMessage());
+            // Fixed, for the reason SubscribeToPush gives: the endpoint is a
+            // binding of this query and a query exception quotes its bindings.
+            Context::add('logralo.error', 'subscription_delete_failed');
             Context::add('logralo.error_class', $throwable::class);
 
             throw $throwable;

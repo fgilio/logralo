@@ -5,8 +5,10 @@ declare(strict_types=1);
 use App\Actions\SubscribeToPush;
 use App\Actions\UnsubscribeFromPush;
 use App\Models\User;
+use Illuminate\Database\QueryException;
 use Illuminate\Support\Facades\Context;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Schema;
 use Livewire\Livewire;
 use NotificationChannels\WebPush\PushSubscription;
 
@@ -144,4 +146,35 @@ it('refuses a subscription with no encryption keys behind it', function (): void
         ->assertHasErrors('keys.p256dh');
 
     expect($user->pushSubscriptions()->count())->toBe(0);
+});
+
+it('refuses an endpoint aimed at an address rather than a push service', function (string $endpoint): void {
+    $user = User::factory()->create();
+
+    Livewire::actingAs($user)
+        ->test('pages::profile')
+        ->call('subscribeToPush', [...browserSubscription(), 'endpoint' => $endpoint])
+        ->assertHasErrors('endpoint');
+
+    expect($user->pushSubscriptions()->count())->toBe(0);
+})->with([
+    'a private address' => 'https://10.0.0.5/wpush/v2/abc',
+    'the loopback' => 'https://127.0.0.1/wpush/v2/abc',
+    'link-local' => 'https://169.254.169.254/wpush/v2/abc',
+    'a port of its own' => 'https://fcm.googleapis.com:8080/fcm/send/abc',
+]);
+
+it('keeps the endpoint out of the log when the write itself fails', function (): void {
+    // A real query exception rather than a stand-in, because what is being
+    // checked is what the driver puts in the message: its own bindings.
+    Schema::drop('push_subscriptions');
+
+    $user = User::factory()->create();
+
+    expect(fn (): PushSubscription => subscribe($user))->toThrow(QueryException::class);
+
+    expect(Context::get('logralo.error'))->toBe('subscription_update_failed')
+        ->and(collect(Context::all())->filter(
+            fn (mixed $value): bool => is_string($value) && str_contains($value, PUSH_ENDPOINT)
+        ))->toBeEmpty();
 });

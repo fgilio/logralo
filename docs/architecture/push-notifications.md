@@ -6,7 +6,7 @@ What this is not is Laravel Cloud's WebSockets, which is a managed Reverb cluste
 
 ## The three events, and why the list is this short
 
-```
+```text
 somebody's streak hits a round number  → the rest of the group
 a month closes and the recap posts     → everybody
 a live run is about to break at cutoff → that one member

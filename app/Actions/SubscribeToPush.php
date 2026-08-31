@@ -39,7 +39,10 @@ final readonly class SubscribeToPush
             return $subscription;
         } catch (Throwable $throwable) {
             Context::add('logralo.outcome', 'error');
-            Context::add('logralo.error', $throwable->getMessage());
+            // A fixed reason where every other Action logs the message: a query
+            // exception quotes its own bindings, and the binding here is the
+            // endpoint. The class still says what went wrong.
+            Context::add('logralo.error', 'subscription_update_failed');
             Context::add('logralo.error_class', $throwable::class);
 
             throw $throwable;

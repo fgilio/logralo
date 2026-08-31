@@ -93,6 +93,16 @@ export default (publicKey) => ({
 
         const subscription = await registration.pushManager.getSubscription();
 
+        if (subscription) {
+            // Handed back every time, not only when the member taps enable.
+            // The browser keeps its subscription across a logout, so on a
+            // shared phone the row would still name whoever subscribed first:
+            // they would keep getting buzzed here, and the member reading this
+            // screen would see "on" and never receive anything. Storing it
+            // again is what makes the toggle tell the truth.
+            await this.$wire.subscribeToPush(subscription.toJSON());
+        }
+
         this.status = subscription ? "on" : "off";
     },
 
@@ -138,8 +148,16 @@ export default (publicKey) => ({
 
         try {
             const registration = await activeWorker();
+
+            // Without the worker there is no endpoint to name the row with, so
+            // the server would keep sending while this said "off". An error the
+            // member can retry is the honest answer.
+            if (!registration) {
+                throw new Error("No service worker");
+            }
+
             const subscription =
-                await registration?.pushManager.getSubscription();
+                await registration.pushManager.getSubscription();
 
             if (subscription) {
                 // Told before it is dropped: once the browser has forgotten

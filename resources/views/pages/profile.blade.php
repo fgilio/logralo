@@ -21,6 +21,7 @@ use Flux\Flux;
 use Illuminate\Database\Eloquent\Collection as EloquentCollection;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Str;
+use Illuminate\Support\Uri;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
 use Livewire\Attributes\Computed;
@@ -271,7 +272,13 @@ new #[Title('Perfil')] class extends Component
     public function subscribeToPush(array $subscription): void
     {
         $validated = validator($subscription, [
-            'endpoint' => ['required', 'string', 'url:https', 'max:'.PushSubscription::ENDPOINT_MAX_LENGTH],
+            'endpoint' => [
+                'required',
+                'string',
+                'url:https',
+                'max:'.PushSubscription::ENDPOINT_MAX_LENGTH,
+                $this->addressablePushService(...),
+            ],
             'keys.p256dh' => ['required', 'string', 'max:255'],
             'keys.auth' => ['required', 'string', 'max:255'],
         ])->validate();
@@ -287,6 +294,26 @@ new #[Title('Perfil')] class extends Component
     public function unsubscribeFromPush(string $endpoint): void
     {
         resolve(UnsubscribeFromPush::class)->handle($this->member(), $endpoint);
+    }
+
+    /**
+     * A push service is a named host on the default port.
+     *
+     * `url:https` is happy with `https://10.0.0.5:8080/x`, and this app signs
+     * a request to whatever it stores. Every real endpoint any browser hands
+     * over is a hostname on 443, so refusing literals and explicit ports costs
+     * nothing and takes the obvious aim off anything on the private network
+     * behind this one. It is not a full answer to that — see the note in
+     * docs/architecture/push-notifications.md.
+     */
+    private function addressablePushService(string $attribute, mixed $value, Closure $fail): void
+    {
+        $uri = Uri::of((string) $value);
+        $host = $uri->host();
+
+        if ($host === '' || filter_var($host, FILTER_VALIDATE_IP) !== false || $uri->port() !== null) {
+            $fail('El navegador no entregó un endpoint válido.');
+        }
     }
 
     private function ownedGoal(string $goalId): Goal
