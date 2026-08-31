@@ -111,8 +111,13 @@ final readonly class UserClock
      */
     public function isClosingWithin(CarbonImmutable $day, int $hours): bool
     {
-        return $this->isOpen($day)
-            && $this->now()->greaterThanOrEqualTo($this->closesAt($day)->subHours($hours));
+        // One instant for both bounds, so a tick that lands on the cutoff
+        // cannot read as open against one and closed against the other.
+        $now = $this->now();
+        $closesAt = $this->closesAt($day);
+
+        return $now->lessThan($closesAt)
+            && $now->greaterThanOrEqualTo($closesAt->subHours($hours));
     }
 
     /**
