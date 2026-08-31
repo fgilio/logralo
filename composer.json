@@ -21,6 +21,7 @@
         "php": "^8.5",
         "aws/aws-sdk-php": "^3.392",
         "intervention/image-laravel": "^4.1",
+        "laravel-notification-channels/webpush": "^12.1",
         "laravel/ai": "^0.10.3",
         "laravel/framework": "^13.8",
         "laravel/nightwatch": "^1.28",

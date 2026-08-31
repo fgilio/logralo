@@ -49,6 +49,16 @@ final readonly class RecapEntry implements FeedEntry
         return $this->winners()->pluck('name')->join(', ', ' y ');
     }
 
+    /**
+     * The verb that agrees with them. A shared podium puts two or three names
+     * on the top step, and the singular reads as a mistake next to the names
+     * it introduces — the same reason runnerUpLabel() below spells its own out.
+     */
+    public function winnerLabel(): string
+    {
+        return $this->winners()->count() > 1 ? 'Ganaron' : 'Ganó';
+    }
+
     /** "Guido", or "Franco y Guido" on a tie. Empty when nobody came second. */
     public function runnerUpNames(): string
     {
@@ -101,7 +111,7 @@ final readonly class RecapEntry implements FeedEntry
         return new ShareCard(
             title: $this->monthName(),
             badge: 'Cerró el mes',
-            byline: $champion === '' ? 'Sin ganador' : "Ganó {$champion}",
+            byline: $champion === '' ? 'Sin ganador' : "{$this->winnerLabel()} {$champion}",
             // array_filter drops the empty champion along with the nulls, so a
             // month nobody marked shows no podium rather than a blank one.
             stats: array_filter([
@@ -119,7 +129,7 @@ final readonly class RecapEntry implements FeedEntry
 
         return $champion === ''
             ? "Cerró {$this->monthName()}"
-            : "Ganó {$champion} en {$this->monthName()}";
+            : "{$this->winnerLabel()} {$champion} en {$this->monthName()}";
     }
 
     /** A month has no row in the feed to scroll to. */
@@ -134,7 +144,7 @@ final readonly class RecapEntry implements FeedEntry
 
         return $champion === ''
             ? "🏆 Cerró {$this->monthName()} en Logralo"
-            : "🏆 Ganó {$champion} en {$this->monthName()}";
+            : "🏆 {$this->winnerLabel()} {$champion} en {$this->monthName()}";
     }
 
     public function shareUrl(): ?string

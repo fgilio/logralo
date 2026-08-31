@@ -103,6 +103,24 @@ final readonly class UserClock
     }
 
     /**
+     * True while $day is inside its last $hours of accepting marks.
+     *
+     * Both edges, so a day that closed long ago answers no. The only caller
+     * feeds it an open day, but every other predicate here is complete on its
+     * own and a caller that reaches for this one should not have to know.
+     */
+    public function isClosingWithin(CarbonImmutable $day, int $hours): bool
+    {
+        // One instant for both bounds, so a tick that lands on the cutoff
+        // cannot read as open against one and closed against the other.
+        $now = $this->now();
+        $closesAt = $this->closesAt($day);
+
+        return $now->lessThan($closesAt)
+            && $now->greaterThanOrEqualTo($closesAt->subHours($hours));
+    }
+
+    /**
      * True while yesterday can still be marked, which is exactly when the
      * grace banner shows.
      */

@@ -8,6 +8,7 @@ use App\Models\Mark;
 use App\Services\StreakCalculator;
 use App\ValueObjects\MarkEntry;
 use App\ValueObjects\MarkHistory;
+use Carbon\CarbonImmutable;
 
 /**
  * One mark, plus its goal's history, turned into the entry every screen shows.
@@ -25,11 +26,25 @@ final readonly class MarkEntries
     {
         return new MarkEntry(
             mark: $mark,
-            streak: $this->streaks->endingOn($history->dates(), $mark->marked_on, $history->pauses),
+            streak: $this->streakOn($mark->marked_on, $history),
             ghostRun: $mark->isGhost()
                 ? $history->ghostRunEndingOn($mark->marked_on->toDateString())
                 : 0,
             photo: $mark->photoLinks(),
         );
+    }
+
+    /**
+     * The run a marked day ends on.
+     *
+     * Counted back from that day rather than from today, because inside the
+     * grace window those are different numbers: marking yesterday while today
+     * is still unmarked would otherwise report today's run. Separate from
+     * from() because marking a goal and celebrating it both want this number
+     * and neither wants the photo links that come with a whole entry.
+     */
+    public function streakOn(CarbonImmutable $day, MarkHistory $history): int
+    {
+        return $this->streaks->endingOn($history->dates(), $day, $history->pauses);
     }
 }

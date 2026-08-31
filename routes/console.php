@@ -14,3 +14,11 @@ Schedule::command('logralo:close-months')
     ->hourly()
     ->withoutOverlapping()
     ->onOneServer();
+
+/*
+ * Hourly too, and for the same reason as the close above.
+ */
+Schedule::command('logralo:push-reminders')
+    ->hourly()
+    ->withoutOverlapping()
+    ->onOneServer();

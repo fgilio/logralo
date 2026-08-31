@@ -7,14 +7,18 @@ namespace App\Actions;
 use App\Models\Goal;
 use App\Models\MonthlyRecap;
 use App\Models\User;
+use App\Notifications\MonthClosed;
 use App\Queries\GoalHistory;
+use App\Queries\Members;
 use App\Queries\MonthlyStandings;
 use App\Services\StreakCalculator;
+use App\ValueObjects\RecapEntry;
 use App\ValueObjects\Standing;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Context;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Notification;
 use Throwable;
 
 /**
@@ -31,6 +35,7 @@ final readonly class CloseMonth
         private MonthlyStandings $standings,
         private GoalHistory $history,
         private StreakCalculator $streaks,
+        private Members $members,
     ) {}
 
     /**
@@ -72,6 +77,10 @@ final readonly class CloseMonth
             ]);
 
             Context::add('logralo.recap_id', $recap->id);
+
+            $announced = $this->announce($recap);
+
+            Context::add('logralo.announced_to', $announced);
             Context::add('logralo.outcome', 'closed');
 
             return $recap;
@@ -94,13 +103,38 @@ final readonly class CloseMonth
     {
         $lastDay = $month->startOfMonth()->endOfMonth()->startOfDay();
 
-        return User::query()
-            ->get()
+        return $this->members->roster()
             ->every(function (User $user) use ($lastDay): bool {
                 $clock = $user->clock();
 
                 return ! $clock->isOpen(CarbonImmutable::parse($lastDay->toDateString(), $clock->timezone));
             });
+    }
+
+    /**
+     * How many members were told the month is over.
+     *
+     * Everybody, the winner included. A month closes at an hour chosen by the
+     * last member's cutoff rather than by anyone's attention, so the recap
+     * lands in the feed while nobody is looking at it.
+     *
+     * Wrapped so a queue that will not take the job cannot fail the close.
+     * The recap row is the deliverable and it is already written.
+     */
+    private function announce(MonthlyRecap $recap): int
+    {
+        $roster = $this->members->roster();
+        $entry = new RecapEntry($recap);
+
+        return rescue(function () use ($recap, $roster, $entry): int {
+            Notification::send($roster, new MonthClosed(
+                month: $recap->month->format('Y-m'),
+                winnerNames: $entry->winnerNames(),
+                winnerLabel: $entry->winnerLabel(),
+            ));
+
+            return $roster->count();
+        }, 0);
     }
 
     /**

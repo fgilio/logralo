@@ -10,6 +10,7 @@ use App\Exceptions\UserFacingException;
 use App\Models\Goal;
 use App\Models\Mark;
 use App\Queries\GoalHistory;
+use App\Queries\MarkEntries;
 use App\Services\PhotoRule;
 use App\Services\StreakCalculator;
 use App\Services\StreakMilestone;
@@ -279,25 +280,20 @@ new class extends Component
      * A streak that lands on a round number is the one moment somebody wants
      * to tell the group, so the app offers there and nowhere else.
      *
-     * The streak counted is the one ending on the day that was just marked,
-     * not `$this->streak`, which counts back from today. Inside the grace
-     * window those are different numbers: marking yesterday at 11am while
-     * today is still unmarked would otherwise test today's run and celebrate
-     * the wrong day, or miss it.
+     * The number asked for is the marked day's, not `$this->streak`, which
+     * counts back from today and is a different run inside the grace window.
      *
      * Only the streak is checked, deliberately: taking the lead in the month
      * would be worth celebrating too, but it costs a standings query on the
      * hottest tap in the app.
+     *
+     * MarkGoal asks the same question before it buzzes the group, and gets a
+     * different answer on a private goal on purpose: the group cannot be told
+     * what the goal is, but whoever marked it still earned the confetti.
      */
     private function celebrate(Mark $mark): void
     {
-        $history = resolve(GoalHistory::class)->for($this->goal);
-
-        $streak = resolve(StreakCalculator::class)->endingOn(
-            $history->dates(),
-            $mark->marked_on,
-            $history->pauses,
-        );
+        $streak = resolve(MarkEntries::class)->streakOn($mark->marked_on, $this->history);
 
         if (! resolve(StreakMilestone::class)->isMilestone($streak)) {
             return;

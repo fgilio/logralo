@@ -32,7 +32,10 @@ final class CloseMonthsCommand extends Command
 
         try {
             foreach ($this->months() as $month) {
-                $recap = $closeMonth->handle($month);
+                // Scoped: Context is process-global, so without this the recap
+                // id of a month that closed stays set on the log line of the
+                // next month, which did nothing.
+                $recap = Context::scope(fn (): ?MonthlyRecap => $closeMonth->handle($month));
 
                 if ($recap instanceof MonthlyRecap && $recap->wasRecentlyCreated) {
                     $closed++;

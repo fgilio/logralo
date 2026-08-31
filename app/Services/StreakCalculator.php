@@ -66,6 +66,27 @@ final readonly class StreakCalculator
     }
 
     /**
+     * What a day takes down with it if it closes unmarked.
+     *
+     * Zero when the day is already marked, when it was paused, or when no run
+     * reaches it, so a member is only ever told about a streak that is really
+     * about to end.
+     *
+     * @param  list<string>  $markedDates  Y-m-d, any order
+     * @param  list<array{from: string, through: string|null}>  $pauses
+     */
+    public function atRiskOn(array $markedDates, CarbonImmutable $day, array $pauses = []): int
+    {
+        $date = $day->toDateString();
+
+        if (in_array($date, $markedDates, true) || $this->wasPaused($day, $pauses)) {
+            return 0;
+        }
+
+        return $this->endingOn($markedDates, $day->subDay(), $pauses);
+    }
+
+    /**
      * The highest flame count reached inside a window — the "best streak of
      * the month" on a recap card. Runs that started before the window still
      * count, because the flame the member saw included them.

@@ -18,6 +18,8 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use Illuminate\Support\Str;
+use NotificationChannels\WebPush\HasPushSubscriptions;
+use NotificationChannels\WebPush\PushSubscription;
 
 /**
  * @property string $id
@@ -38,6 +40,7 @@ use Illuminate\Support\Str;
  * @property-read Collection<int, Mark> $marks
  * @property-read Collection<int, Reaction> $reactions
  * @property-read Collection<int, Feedback> $feedback
+ * @property-read Collection<int, PushSubscription> $pushSubscriptions
  */
 #[Fillable(['name', 'email', 'avatar_key', 'password', 'timezone'])]
 #[Hidden(['password', 'remember_token', 'magic_link_token'])]
@@ -46,6 +49,7 @@ final class User extends Authenticatable
     /** @use HasFactory<UserFactory> */
     use HasFactory;
 
+    use HasPushSubscriptions;
     use HasUlids;
     use Notifiable;
 

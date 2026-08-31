@@ -19,10 +19,9 @@ use Throwable;
  * "¿Qué pasó?" — a member telling us the app broke, or could be better.
  *
  * The row is the deliverable and the mail is the nudge, in that order. Sending
- * it inline matches the rest of the app, where the queue exists but nothing
- * dispatches to it, and it is wrapped in a `rescue` so that a mail provider
- * having a bad afternoon cannot swallow what somebody just typed. A failed
- * notification is reported, and the feedback is still on disk.
+ * it inline rather than queueing it, and wrapped in a `rescue`, so that a mail
+ * provider having a bad afternoon cannot swallow what somebody just typed. A
+ * failed notification is reported, and the feedback is still on disk.
  */
 final readonly class SendFeedback
 {

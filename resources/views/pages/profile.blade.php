@@ -7,6 +7,8 @@ use App\Actions\CreateGoal;
 use App\Actions\RemoveAvatar;
 use App\Actions\RenameGoal;
 use App\Actions\RestoreGoal;
+use App\Actions\SubscribeToPush;
+use App\Actions\UnsubscribeFromPush;
 use App\Actions\UpdateAvatar;
 use App\Concerns\InteractsWithMember;
 use App\Concerns\PasswordValidationRules;
@@ -19,6 +21,7 @@ use Flux\Flux;
 use Illuminate\Database\Eloquent\Collection as EloquentCollection;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Str;
+use Illuminate\Support\Uri;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
 use Livewire\Attributes\Computed;
@@ -26,6 +29,7 @@ use Livewire\Attributes\Title;
 use Livewire\Component;
 use Livewire\Features\SupportFileUploads\TemporaryUploadedFile;
 use Livewire\WithFileUploads;
+use NotificationChannels\WebPush\PushSubscription;
 
 /**
  * Everything that is not "Hoy": goals, timezone, password, logout.
@@ -81,6 +85,16 @@ new #[Title('Perfil')] class extends Component
     public function archivedGoals(): EloquentCollection
     {
         return $this->member()->goals()->whereNotNull('archived_at')->get();
+    }
+
+    /**
+     * Empty whenever the environment carries no VAPID keys, which is what the
+     * toggle shows instead of a button that could not work.
+     */
+    #[Computed]
+    public function pushPublicKey(): string
+    {
+        return (string) config('webpush.vapid.public_key');
     }
 
     /** @return list<string> */
@@ -245,6 +259,61 @@ new #[Title('Perfil')] class extends Component
         $this->reset('current_password', 'password', 'password_confirmation');
 
         Flux::toast(text: 'Contraseña actualizada', variant: 'success');
+    }
+
+    /**
+     * The endpoint this browser handed over when the member said yes.
+     *
+     * Checked rather than trusted. It arrives as a Livewire argument like any
+     * other, and what it names is a URL this app will later sign requests to.
+     *
+     * @param  array<string, mixed>  $subscription
+     */
+    public function subscribeToPush(array $subscription): void
+    {
+        $validated = validator($subscription, [
+            'endpoint' => [
+                'required',
+                'string',
+                'url:https',
+                'max:'.PushSubscription::ENDPOINT_MAX_LENGTH,
+                $this->addressablePushService(...),
+            ],
+            'keys.p256dh' => ['required', 'string', 'max:255'],
+            'keys.auth' => ['required', 'string', 'max:255'],
+        ])->validate();
+
+        resolve(SubscribeToPush::class)->handle(
+            user: $this->member(),
+            endpoint: $validated['endpoint'],
+            key: $validated['keys']['p256dh'],
+            token: $validated['keys']['auth'],
+        );
+    }
+
+    public function unsubscribeFromPush(string $endpoint): void
+    {
+        resolve(UnsubscribeFromPush::class)->handle($this->member(), $endpoint);
+    }
+
+    /**
+     * A push service is a named host on the default port.
+     *
+     * `url:https` is happy with `https://10.0.0.5:8080/x`, and this app signs
+     * a request to whatever it stores. Every real endpoint any browser hands
+     * over is a hostname on 443, so refusing literals and explicit ports costs
+     * nothing and takes the obvious aim off anything on the private network
+     * behind this one. It is not a full answer to that — see the note in
+     * docs/architecture/push-notifications.md.
+     */
+    private function addressablePushService(string $attribute, mixed $value, Closure $fail): void
+    {
+        $uri = Uri::of((string) $value);
+        $host = $uri->host();
+
+        if ($host === '' || filter_var($host, FILTER_VALIDATE_IP) !== false || $uri->port() !== null) {
+            $fail('El navegador no entregó un endpoint válido.');
+        }
     }
 
     private function ownedGoal(string $goalId): Goal
@@ -490,6 +559,47 @@ new #[Title('Perfil')] class extends Component
                 <flux:radio value="dark" icon="moon">Oscuro</flux:radio>
                 <flux:radio value="system" icon="computer-desktop">Sistema</flux:radio>
             </flux:radio.group>
+        </section>
+
+        {{-- Push --}}
+        <section x-data="pushToggle(@js($this->pushPublicKey))" data-test="push">
+            <flux:heading>Notificaciones</flux:heading>
+
+            <flux:text size="sm" class="mt-1">
+                Tres cosas y nada más: una racha redonda de alguien del grupo, el cierre del mes, y un aviso cuando se te está por cortar una racha. Nunca por cada marca ni por cada reacción.
+            </flux:text>
+
+            <div class="mt-3">
+                <flux:button x-show="status === 'off'" x-on:click="enable()" x-bind:disabled="busy" icon="bell" data-test="push-enable">
+                    Activar en este dispositivo
+                </flux:button>
+
+                <div x-show="status === 'on'" class="flex items-center justify-between gap-3">
+                    <flux:text size="sm">Activadas en este dispositivo.</flux:text>
+
+                    <flux:button x-on:click="disable()" x-bind:disabled="busy" variant="subtle" size="sm" data-test="push-disable">
+                        Desactivar
+                    </flux:button>
+                </div>
+
+                <flux:text size="sm" x-show="status === 'needs-install'" data-test="push-needs-install">
+                    Agregá Logralo a tu pantalla de inicio y volvé acá. En iPhone las notificaciones solo funcionan con la app instalada.
+                </flux:text>
+
+                <flux:text size="sm" x-show="status === 'denied'">
+                    Están bloqueadas para este sitio. Se vuelven a permitir desde los ajustes del navegador.
+                </flux:text>
+
+                <flux:text size="sm" x-show="status === 'unsupported'">
+                    Este navegador no las soporta.
+                </flux:text>
+
+                <flux:text size="sm" x-show="status === 'unconfigured'">
+                    Todavía no están configuradas en el servidor.
+                </flux:text>
+
+                <flux:text size="sm" color="red" class="mt-2" x-show="error !== ''" x-text="error"></flux:text>
+            </div>
         </section>
 
         {{-- Password --}}

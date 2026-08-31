@@ -15,6 +15,7 @@ import goalCard from "./alpine/goal-card";
 import photoPicker from "./alpine/photo-picker";
 import photoViewer from "./alpine/photo-viewer";
 import pressGesture from "./alpine/press-gesture";
+import pushToggle from "./alpine/push-toggle";
 import protectMedia from "./protect-media";
 import pullToRefresh from "./alpine/pull-to-refresh";
 import reactionPicker from "./alpine/reaction-picker";
@@ -48,4 +49,5 @@ document.addEventListener("alpine:init", () => {
     Alpine.data("pullToRefresh", pullToRefresh);
     Alpine.data("dictation", dictation);
     Alpine.data("commentComposer", commentComposer);
+    Alpine.data("pushToggle", pushToggle);
 });

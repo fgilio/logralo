@@ -151,6 +151,25 @@ return [
 
     /*
     |---------------------------------------------------------------------------
+    | Push notifications
+    |---------------------------------------------------------------------------
+    |
+    | Web Push, so there is no provider and no native app: the browser hands us
+    | an endpoint and we sign a request to it with the VAPID keys, which live in
+    | the environment and are read by `config/webpush.php` from the package. On
+    | iOS a subscription is only possible once the app is on the home screen.
+    |
+    | Which events are worth a buzz, and why the list stays this short, is in
+    | `docs/architecture/push-notifications.md`.
+    |
+    */
+
+    'push' => [
+        'reminder_lead_hours' => (int) env('LOGRALO_PUSH_REMINDER_LEAD_HOURS', 3),
+    ],
+
+    /*
+    |---------------------------------------------------------------------------
     | Magic links
     |---------------------------------------------------------------------------
     |

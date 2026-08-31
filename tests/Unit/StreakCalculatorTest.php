@@ -219,3 +219,40 @@ it('reads an empty window history as no best streak', function (): void {
             CarbonImmutable::parse('2026-08-31'),
         ))->toBe(0);
 });
+
+it('counts the run a day takes down with it when it closes unmarked', function (): void {
+    $atRisk = new StreakCalculator()->atRiskOn(
+        ['2026-08-10', '2026-08-11', '2026-08-12'],
+        CarbonImmutable::parse('2026-08-13'),
+    );
+
+    expect($atRisk)->toBe(3);
+});
+
+it('puts nothing at risk on a day that is already marked', function (): void {
+    $atRisk = new StreakCalculator()->atRiskOn(
+        ['2026-08-10', '2026-08-11', '2026-08-12', '2026-08-13'],
+        CarbonImmutable::parse('2026-08-13'),
+    );
+
+    expect($atRisk)->toBe(0);
+});
+
+it('puts nothing at risk when no run reaches the closing day', function (): void {
+    $atRisk = new StreakCalculator()->atRiskOn(
+        ['2026-08-01', '2026-08-02'],
+        CarbonImmutable::parse('2026-08-13'),
+    );
+
+    expect($atRisk)->toBe(0);
+});
+
+it('puts nothing at risk on a paused day, which cannot break a run', function (): void {
+    $atRisk = new StreakCalculator()->atRiskOn(
+        ['2026-08-10', '2026-08-11', '2026-08-12'],
+        CarbonImmutable::parse('2026-08-13'),
+        [['from' => '2026-08-13', 'through' => null]],
+    );
+
+    expect($atRisk)->toBe(0);
+});

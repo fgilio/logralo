@@ -92,9 +92,13 @@ It prints a link that logs that person in. Treat the output as a credential: it 
 
 ## What is provisioned but not yet earning its keep
 
-**The managed queue.** `QUEUE_CONNECTION=cloud`, and nothing in the application dispatches a job. Photo derivatives are built in the request, and the password-reset mail is sent in the request. The worker scales to zero, so it costs almost nothing, and it is the right thing to have ready the day photo processing moves off the request. It is not, today, load-bearing.
-
 **Sleep.** The App instance sleeps after two hours of quiet, and the environment wakes on its own to run scheduled tasks. `logralo:close-months` runs **hourly**, so the environment is woken every hour and never reaches a two-hour idle window. In practice the app runs continuously. Either accept that as the price of an hourly month-close, or shorten the sleep timeout to something under an hour in the dashboard and let it sleep between ticks.
+
+## The managed queue
+
+`QUEUE_CONNECTION=cloud`, and the three push notifications are what dispatch to it. Photo derivatives are still built in the request, and the password-reset mail is still sent in the request, so the worker stays almost idle and scales to zero.
+
+It is load-bearing now, in one direction: a queue that will not take a job costs a buzz. Two of the three senders are wrapped in `rescue` because the mark and the recap row are the real deliverables, but `logralo:push-reminders` is not — there the notification is the whole point, so a refused job raises. See `docs/architecture/push-notifications.md`.
 
 ## Errors
 

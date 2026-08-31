@@ -89,7 +89,8 @@
 
 {{-- Identical inline head scripts are deduped across wire:navigate, so this
      registers exactly once per tab. The worker caches nothing; it exists so
-     Chrome on Android offers the install prompt. --}}
+     Chrome on Android offers the install prompt, and so a Web Push message has
+     somewhere to be drawn. Stop registering it and push stops arriving. --}}
 <script>
     if ("serviceWorker" in navigator) {
         window.addEventListener("load", () => {
