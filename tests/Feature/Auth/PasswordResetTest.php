@@ -107,6 +107,21 @@ it('refuses a token that is not the one that was issued', function (): void {
         ->and(Hash::check('rachalarga1', (string) $user->fresh()->password))->toBeFalse();
 });
 
+it('answers an email nobody has with the same words as a dead token', function (): void {
+    $user = User::factory()->create(['email' => 'ana@logralo.test']);
+    $token = Password::createToken($user);
+
+    $component = Livewire::test('pages::auth.reset-password', ['token' => $token])
+        ->set('email', 'nadie@logralo.test')
+        ->set('password', 'rachalarga1')
+        ->set('password_confirmation', 'rachalarga1')
+        ->call('resetPassword')
+        ->assertHasErrors('email')
+        ->assertNoRedirect();
+
+    expect($component->errors()->first('email'))->toBe(__(Password::InvalidToken));
+});
+
 it('burns the token so the same link cannot be replayed', function (): void {
     $user = User::factory()->create(['email' => 'ana@logralo.test']);
     $token = Password::createToken($user);

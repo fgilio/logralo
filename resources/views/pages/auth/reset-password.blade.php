@@ -72,7 +72,9 @@ new #[Layout('layouts::auth')] #[Title('Nueva contraseña')] class extends Compo
         $this->reset('password', 'password_confirmation');
 
         if ($status !== Password::PasswordReset) {
-            $this->addError('email', __($status));
+            // One answer for both rejections. `passwords.user` would say
+            // whether an address belongs to the group, and no screen here does.
+            $this->addError('email', __(Password::InvalidToken));
 
             return;
         }
