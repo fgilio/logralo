@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace App\Notifications;
 
-use App\Services\StreakMilestone;
 use NotificationChannels\WebPush\WebPushMessage;
 
 /**
@@ -25,14 +24,13 @@ final class StreakMilestoneReached extends PushNotification
         private readonly string $goalEmoji,
         private readonly string $goalName,
         private readonly int $streak,
+        private readonly string $headline,
     ) {}
 
     public function toWebPush(object $notifiable): WebPushMessage
     {
-        $headline = resolve(StreakMilestone::class)->headline($this->streak);
-
         return $this->message()
-            ->title("{$this->memberName}: {$headline}")
+            ->title("{$this->memberName}: {$this->headline}")
             ->body("{$this->goalEmoji} {$this->goalName}")
             // Names the event rather than the person, so a redelivery
             // replaces its own line and two goals reaching a milestone on

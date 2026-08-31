@@ -165,7 +165,7 @@ it('counts every goal whose run ends at the same cutoff', function (): void {
 it('draws the group buzz as a headline over the goal it belongs to', function (): void {
     $goal = Goal::factory()->for($this->ana)->create(['name' => 'Gimnasio', 'emoji' => '🏋️']);
 
-    $message = new StreakMilestoneReached('Ana', $goal->emoji, $goal->name, 7)
+    $message = new StreakMilestoneReached('Ana', $goal->emoji, $goal->name, 7, 'Una semana entera')
         ->toWebPush($this->beto)
         ->toArray();
 
@@ -183,26 +183,26 @@ it('gives every buzz the envelope sw.js reads', function (PushNotification $noti
     expect($message['icon'])->toBe('/icons/icon-192.png')
         ->and($message['data'])->toBe(['url' => '/']);
 })->with([
-    'milestone' => fn (): PushNotification => new StreakMilestoneReached('Ana', '🏋️', 'Gimnasio', 7),
-    'recap' => fn (): PushNotification => new MonthClosed('2026-08', 'Beto', 1),
+    'milestone' => fn (): PushNotification => new StreakMilestoneReached('Ana', '🏋️', 'Gimnasio', 7, 'Una semana entera'),
+    'recap' => fn (): PushNotification => new MonthClosed('2026-08', 'Beto', 'Ganó'),
     'grace' => fn (): PushNotification => new StreakAboutToBreak(1, 12, '12:00'),
 ]);
 
 it('names the month and the winner in the recap buzz', function (): void {
-    $message = new MonthClosed('2026-08', 'Beto', 1)->toWebPush($this->ana)->toArray();
+    $message = new MonthClosed('2026-08', 'Beto', 'Ganó')->toWebPush($this->ana)->toArray();
 
     expect($message['title'])->toBe('Se cerró agosto')
         ->and($message['body'])->toBe('Ganó Beto. Mirá cómo quedó la tabla.');
 });
 
 it('puts the verb in the plural when the podium is shared', function (): void {
-    $message = new MonthClosed('2026-08', 'Beto y Caro', 2)->toWebPush($this->ana)->toArray();
+    $message = new MonthClosed('2026-08', 'Beto y Caro', 'Ganaron')->toWebPush($this->ana)->toArray();
 
     expect($message['body'])->toBe('Ganaron Beto y Caro. Mirá cómo quedó la tabla.');
 });
 
 it('closes a month nobody won without naming one', function (): void {
-    $message = new MonthClosed('2026-08', '', 0)->toWebPush($this->ana)->toArray();
+    $message = new MonthClosed('2026-08', '', 'Ganó')->toWebPush($this->ana)->toArray();
 
     expect($message['body'])->toBe('Mirá cómo quedó la tabla.');
 });

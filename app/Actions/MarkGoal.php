@@ -140,6 +140,7 @@ final readonly class MarkGoal
                 goalEmoji: $goal->emoji,
                 goalName: $goal->name,
                 streak: $streak,
+                headline: $this->milestones->headline($streak),
             ));
 
             return $others->count();

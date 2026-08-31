@@ -130,7 +130,7 @@ final readonly class CloseMonth
             Notification::send($roster, new MonthClosed(
                 month: $recap->month->format('Y-m'),
                 winnerNames: $entry->winnerNames(),
-                winnerCount: $entry->winners()->count(),
+                winnerLabel: $entry->winnerLabel(),
             ));
 
             return $roster->count();

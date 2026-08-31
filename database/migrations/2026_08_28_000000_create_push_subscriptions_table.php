@@ -22,7 +22,13 @@ return new class extends Migration
             $table->ulidMorphs('subscribable');
             // The URL of the push service that will deliver to this browser,
             // which is also the identity of the subscription.
-            $table->string('endpoint', PushSubscription::ENDPOINT_MAX_LENGTH)->unique();
+            // ascii as the package ships it: this column is unique and long
+            // enough that a utf8mb4 index over it overflows MySQL's key limit.
+            // A no-op on the Postgres this actually runs on, kept so the two
+            // migrations do not quietly disagree.
+            $table->string('endpoint', PushSubscription::ENDPOINT_MAX_LENGTH)
+                ->charset('ascii')
+                ->unique();
             $table->string('public_key')->nullable();
             $table->string('auth_token')->nullable();
             $table->string('content_encoding')->nullable();

@@ -102,10 +102,17 @@ final readonly class UserClock
         return $this->now()->lessThan($this->closesAt($day));
     }
 
-    /** True once $day is inside its last $hours of accepting marks. */
+    /**
+     * True while $day is inside its last $hours of accepting marks.
+     *
+     * Both edges, so a day that closed long ago answers no. The only caller
+     * feeds it an open day, but every other predicate here is complete on its
+     * own and a caller that reaches for this one should not have to know.
+     */
     public function isClosingWithin(CarbonImmutable $day, int $hours): bool
     {
-        return $this->now()->greaterThanOrEqualTo($this->closesAt($day)->subHours($hours));
+        return $this->isOpen($day)
+            && $this->now()->greaterThanOrEqualTo($this->closesAt($day)->subHours($hours));
     }
 
     /**

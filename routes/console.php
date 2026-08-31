@@ -16,8 +16,7 @@ Schedule::command('logralo:close-months')
     ->onOneServer();
 
 /*
- * Hourly too, and for the same reason: the last hours before a member's grace
- * window shuts fall at a different instant for each of them.
+ * Hourly too, and for the same reason as the close above.
  */
 Schedule::command('logralo:push-reminders')
     ->hourly()

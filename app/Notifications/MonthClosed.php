@@ -19,11 +19,12 @@ final class MonthClosed extends PushNotification
     /**
      * @param  string  $month  Y-m
      * @param  string  $winnerNames  as RecapEntry spells them: "Franco y Guido" on a tie
+     * @param  string  $winnerLabel  the verb that agrees with them, from the same class
      */
     public function __construct(
         private readonly string $month,
         private readonly string $winnerNames,
-        private readonly int $winnerCount,
+        private readonly string $winnerLabel,
     ) {}
 
     public function toWebPush(object $notifiable): WebPushMessage
@@ -32,11 +33,9 @@ final class MonthClosed extends PushNotification
 
         return $this->message()
             ->title("Se cerró {$name}")
-            ->body(match ($this->winnerCount) {
-                0 => 'Mirá cómo quedó la tabla.',
-                1 => "Ganó {$this->winnerNames}. Mirá cómo quedó la tabla.",
-                default => "Ganaron {$this->winnerNames}. Mirá cómo quedó la tabla.",
-            })
+            ->body($this->winnerNames === ''
+                ? 'Mirá cómo quedó la tabla.'
+                : "{$this->winnerLabel} {$this->winnerNames}. Mirá cómo quedó la tabla.")
             ->tag("recap:{$this->month}");
     }
 }

@@ -286,6 +286,10 @@ new class extends Component
      * Only the streak is checked, deliberately: taking the lead in the month
      * would be worth celebrating too, but it costs a standings query on the
      * hottest tap in the app.
+     *
+     * MarkGoal asks the same question before it buzzes the group, and gets a
+     * different answer on a private goal on purpose: the group cannot be told
+     * what the goal is, but whoever marked it still earned the confetti.
      */
     private function celebrate(Mark $mark): void
     {

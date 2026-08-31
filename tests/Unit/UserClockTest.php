@@ -164,3 +164,21 @@ it('reads the grace hour from configuration', function (): void {
         ->and($clock->closesAt(CarbonImmutable::parse('2026-08-10', 'America/Montevideo'))->format('Y-m-d H:i'))
         ->toBe('2026-08-11 09:00');
 });
+
+it('opens the closing window and shuts it again when the day is gone', function (string $localTime, bool $expected): void {
+    $this->travelTo(instantInZone('America/Montevideo', $localTime));
+
+    $clock = UserClock::in('America/Montevideo');
+    $day = CarbonImmutable::parse('2026-08-10', 'America/Montevideo');
+
+    // The 10th closes on the 11th at 12:00, so a three-hour lead opens at 09:00.
+    expect($clock->isClosingWithin($day, 3))->toBe($expected);
+})->with([
+    'before the window' => ['2026-08-11 08:59:59', false],
+    'as it opens' => ['2026-08-11 09:00:00', true],
+    'inside it' => ['2026-08-11 11:59:59', true],
+    // Both edges: without the upper one this stays true forever, and a member
+    // gets nudged about a day that stopped accepting marks long ago.
+    'once the day has closed' => ['2026-08-11 12:00:00', false],
+    'a week later' => ['2026-08-18 10:00:00', false],
+]);

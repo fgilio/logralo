@@ -29,7 +29,7 @@ final readonly class SubscribeToPush
         Context::add('logralo.user_id', $user->id);
         // Never the endpoint itself. Anyone holding it can push to that
         // browser, so the host is all that belongs in a log line.
-        Context::add('logralo.push_service', $this->serviceHost($endpoint));
+        Context::add('logralo.push_service', Uri::of($endpoint)->host() ?? 'unknown');
 
         try {
             $subscription = $user->updatePushSubscription($endpoint, $key, $token);
@@ -46,10 +46,5 @@ final readonly class SubscribeToPush
         } finally {
             Log::info('push.subscribe.handled');
         }
-    }
-
-    private function serviceHost(string $endpoint): string
-    {
-        return Uri::of($endpoint)->host() ?? 'unknown';
     }
 }
