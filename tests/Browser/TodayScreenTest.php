@@ -619,6 +619,23 @@ it('leaves the goal name the wide half of the new-goal sheet', function (): void
     expect($user->goals()->sole()->name)->toBe('Gimnasio');
 });
 
+it('shows the new-goal error above the Privado switch', function (): void {
+    $this->actingAs(User::factory()->create());
+
+    // The error belongs to the name box, and at the foot of the sheet it read
+    // as a complaint about the switch it sat under.
+    visit('/perfil')->on()->iPhone15Pro()
+        ->click('@new-goal')
+        ->wait(1)
+        ->click('@save-goal')
+        ->wait(1)
+        // The shown one: Flux renders every `flux:error` on the page and hides
+        // the ones with nothing to say, and a hidden box measures at the top of
+        // the document, which would pass this on any markup at all.
+        ->assertScript("document.querySelector('[data-flux-error]:not(.hidden)').getBoundingClientRect().top < document.querySelector('[data-test=goal-private]').getBoundingClientRect().top")
+        ->assertNoJavaScriptErrors();
+});
+
 it('renders the login screen and refuses the wrong password', function (): void {
     User::factory()->create(['email' => 'ana@logralo.test']);
 
