@@ -672,6 +672,14 @@ new #[Title('Perfil')] class extends Component
                 </div>
             </div>
 
+            {{-- Under the fields they are about, the way every other form here
+                 places them. At the foot of the sheet they landed against the
+                 Privado switch's own description, and "Falta completar esto."
+                 read as a complaint about the switch rather than about the
+                 name box two rows up. --}}
+            <flux:error name="goalEmoji" />
+            <flux:error name="goalName" />
+
             <div class="flex flex-wrap gap-1.5">
                 @foreach ($this::EMOJI_SUGGESTIONS as $suggestion)
                     {{-- Client-side: it fills a field the member is about to
@@ -693,9 +701,6 @@ new #[Title('Perfil')] class extends Component
                 description="Solo lo ves vos. No aparece en el feed del grupo ni cuenta para el anillo o la tabla del mes."
                 data-test="goal-private"
             />
-
-            <flux:error name="goalName" />
-            <flux:error name="goalEmoji" />
 
             <flux:button type="submit" variant="primary" class="w-full" data-test="save-goal">
                 Guardar
