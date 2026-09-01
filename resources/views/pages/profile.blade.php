@@ -669,16 +669,20 @@ new #[Title('Perfil')] class extends Component
                         aria-label="Nombre"
                         data-test="goal-name"
                     />
+
+                    {{-- Inside the column, so it starts where the name box
+                         does. "Falta completar esto." names no field, so the
+                         only thing saying which box it is about is where it
+                         sits — and at the foot of the form it sat against the
+                         Privado switch's description instead. --}}
+                    <flux:error name="goalName" />
                 </div>
             </div>
 
-            {{-- Under the fields they are about, the way every other form here
-                 places them. At the foot of the sheet they landed against the
-                 Privado switch's own description, and "Falta completar esto."
-                 read as a complaint about the switch rather than about the
-                 name box two rows up. --}}
+            {{-- Same idea, one column over: full width, so it lines up under
+                 the emoji box it belongs to rather than wrapping to four lines
+                 inside 5rem. --}}
             <flux:error name="goalEmoji" />
-            <flux:error name="goalName" />
 
             <div class="flex flex-wrap gap-1.5">
                 @foreach ($this::EMOJI_SUGGESTIONS as $suggestion)
