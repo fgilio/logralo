@@ -619,20 +619,28 @@ it('leaves the goal name the wide half of the new-goal sheet', function (): void
     expect($user->goals()->sole()->name)->toBe('Gimnasio');
 });
 
-it('shows the new-goal error above the Privado switch', function (): void {
+it('puts the new-goal error where the field it is about is', function (): void {
     $this->actingAs(User::factory()->create());
 
-    // The error belongs to the name box, and at the foot of the sheet it read
-    // as a complaint about the switch it sat under.
+    // "Falta completar esto." names no field, so its position is the whole
+    // message: at the foot of the sheet it read as a complaint about the
+    // Privado switch it sat under, and at the form's left edge it would read
+    // as one about the emoji box.
+    //
+    // Shown errors only, and at least one of them: Flux renders a hidden box
+    // for every `flux:error` on the page, and a hidden box measures at the top
+    // of the document, so counting those in would pass on any markup at all.
+    $shown = "[...document.querySelectorAll('[data-flux-error]:not(.hidden)')]";
+
     visit('/perfil')->on()->iPhone15Pro()
         ->click('@new-goal')
         ->wait(1)
         ->click('@save-goal')
         ->wait(1)
-        // The shown one: Flux renders every `flux:error` on the page and hides
-        // the ones with nothing to say, and a hidden box measures at the top of
-        // the document, which would pass this on any markup at all.
-        ->assertScript("document.querySelector('[data-flux-error]:not(.hidden)').getBoundingClientRect().top < document.querySelector('[data-test=goal-private]').getBoundingClientRect().top")
+        ->assertScript("{$shown}.length > 0 && {$shown}.every((error) => error.getBoundingClientRect().top < document.querySelector('[data-test=goal-private]').getBoundingClientRect().top)")
+        // The empty box is the name, so the message lines up with the name box
+        // rather than with the emoji one to its left.
+        ->assertScript("{$shown}.every((error) => error.getBoundingClientRect().left >= document.querySelector('[data-test=goal-name]').getBoundingClientRect().left)")
         ->assertNoJavaScriptErrors();
 });
 
