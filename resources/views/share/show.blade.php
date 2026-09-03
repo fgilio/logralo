@@ -37,7 +37,14 @@
     <body class="min-h-dvh bg-zinc-950 font-sans text-zinc-100 antialiased">
         <div class="mx-auto flex min-h-dvh w-full max-w-md flex-col px-4 pt-safe-t pb-safe-b">
             <header class="flex items-center justify-between py-4">
-                <a href="{{ url('/') }}" class="flex items-center gap-2">
+                {{-- The wordmark leads home only for a member. `/` is behind
+                     the gate, so on a stranger's screen it answered the photo
+                     they came for with a password box — the one thing the
+                     footer below is written to avoid, one tap away in the
+                     most obvious place on the page. Whoever is in the group
+                     still has the way in down there, under a label that says
+                     so. --}}
+                <a @if ($member !== null) href="{{ url('/') }}" @endif class="flex items-center gap-2">
                     <x-brand-mark class="size-6" />
                     <span class="font-display text-xl tracking-wide">Logralo</span>
                 </a>
