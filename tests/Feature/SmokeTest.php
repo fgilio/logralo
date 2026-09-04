@@ -44,3 +44,22 @@ it('holds a member without a password on the password screen', function (): void
     $this->actingAs($user)->get(route('today'))->assertRedirect(route('password.create'));
     $this->actingAs($user)->get(route('password.create'))->assertOk()->assertSee('Elegí una contraseña');
 });
+
+/*
+ * Flux writes the labels on its own controls, and `lang/es.json` is where the
+ * ones this app renders are said in Spanish. The eye on a password box is the
+ * only control the group ever meets that the app does not label itself, and it
+ * is on both sides of the gate — the login screen and the profile.
+ */
+it('says the password reveal in Spanish on both sides of the gate', function (): void {
+    $this->get(route('login'))
+        ->assertOk()
+        ->assertSee('Mostrar u ocultar la contraseña')
+        ->assertDontSee('Toggle password visibility');
+
+    $this->actingAs(User::factory()->create())
+        ->get(route('profile'))
+        ->assertOk()
+        ->assertSee('Mostrar u ocultar la contraseña')
+        ->assertDontSee('Toggle password visibility');
+});
