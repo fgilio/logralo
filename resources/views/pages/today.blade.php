@@ -139,7 +139,10 @@ new #[Title('Hoy')] class extends Component
     $user = $this->member();
     $today = $this->clock->today();
     $yesterday = $this->clock->yesterday();
-    $month = Str::ucfirst($today->translatedFormat('F'));
+    // Lowercase, because it lands mid-sentence in "Tabla de …": Spanish keeps
+    // month names in minuscule, and the day dividers and the recap's push
+    // ("Se cerró septiembre") already write them that way.
+    $month = $today->translatedFormat('F');
 
     // How today's goals are drawn. The threshold is the grid's column count,
     // not a taste setting: at two or fewer the tiles cannot fill even one row,
