@@ -120,6 +120,7 @@ it("refuses a token that never existed, in the app's own voice", function (): vo
     $this->get('/l/'.str_repeat('a', 24))
         ->assertNotFound()
         ->assertSee('Acá no hay nada')
+        ->assertSee('quien lo compartió puede haberlo dado de baja')
         ->assertSee('Ir a Logralo');
 });
 

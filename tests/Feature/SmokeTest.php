@@ -38,6 +38,14 @@ it('sends guests to the login screen', function (): void {
     $this->get(route('today'))->assertRedirect(route('login'));
 });
 
+it('answers an address that does not exist without blaming a share', function (): void {
+    $this->get('/no-existe')
+        ->assertNotFound()
+        ->assertSee('Acá no hay nada')
+        ->assertSee('la dirección ya no existe')
+        ->assertDontSee('quien lo compartió');
+});
+
 it('holds a member without a password on the password screen', function (): void {
     $user = User::factory()->withoutPassword()->create();
 
