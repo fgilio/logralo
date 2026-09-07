@@ -25,7 +25,9 @@ it('lists every class of a documented layer on the list that layer keeps', funct
         ->after("### `app/{$layer}/`")
         ->before("\n### ");
 
-    $unlisted = collect(File::files(app_path($layer)))
+    // `allFiles`, so a layer that ever grows a subdirectory does not quietly
+    // stop being policed from the day it does.
+    $unlisted = collect(File::allFiles(app_path($layer)))
         ->map(fn (SplFileInfo $file): string => $file->getBasename('.php'))
         // An item of a list, not a word in a sentence. The prose under each
         // list names classes too — `MarkGoal` explained two bullets below the
