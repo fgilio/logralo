@@ -17,12 +17,24 @@ use Illuminate\Support\Str;
  * `app/ValueObjects/` is deliberately not policed here: that section calls out
  * `UserClock` as the one that matters and never claims to name the rest.
  */
-it('names every class of a listed layer somewhere in CLAUDE.md', function (string $layer): void {
-    $map = File::get(base_path('CLAUDE.md'));
+it('lists every class of a documented layer on the list that layer keeps', function (string $layer): void {
+    // The section that documents this layer rather than the whole file:
+    // `ShareCardRenderer` is named under Observability as well, and a name that
+    // survives over there is not a name still on the list.
+    $section = Str::of(File::get(base_path('CLAUDE.md')))
+        ->after("### `app/{$layer}/`")
+        ->before("\n### ");
 
     $unlisted = collect(File::files(app_path($layer)))
         ->map(fn (SplFileInfo $file): string => $file->getBasename('.php'))
-        ->reject(fn (string $class): bool => Str::contains($map, "`{$class}`"))
+        // An item of a list, not a word in a sentence. The prose under each
+        // list names classes too — `MarkGoal` explained two bullets below the
+        // list is not `MarkGoal` on it — so a name only counts where a list
+        // puts one: after the bullet, after a comma, or after the slash that
+        // pairs the share card's two halves.
+        ->reject(fn (string $class): bool => $section
+            ->match('/(?:^- |, | \/ )`'.preg_quote($class, '/').'`/m')
+            ->isNotEmpty())
         ->values()
         ->all();
 
