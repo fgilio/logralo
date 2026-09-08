@@ -127,6 +127,33 @@ it('does not mark when the photo rule wants proof', function (): void {
     expect(Mark::query()->where('marked_on', '2026-08-11')->exists())->toBeFalse();
 });
 
+it('names the two badges that are nothing but an emoji', function (string $variant): void {
+    $user = User::factory()->create();
+
+    // A `title` never opens on a phone, so the label is the only place these
+    // two ever say what they are — the way the flame and the lock beside them
+    // already do. The role goes with it: a label on a bare span names nothing,
+    // and Chromium exposes these as `generic` with an empty name without it.
+    //
+    // Both variants that draw a badge, because the camera is written out once
+    // per variant and a label added to only one of them is the drift this is
+    // here to catch. The chip draws neither.
+    $owesPhoto = Goal::factory()->for($user)->create();
+    Mark::factory()->for($owesPhoto)->on('2026-08-09')->create();
+    Mark::factory()->for($owesPhoto)->on('2026-08-10')->create();
+
+    $markedWithout = Goal::factory()->for($user)->create();
+    Mark::factory()->for($markedWithout)->on('2026-08-11')->create();
+
+    Livewire::actingAs($user)
+        ->test('goal-card', ['goal' => $owesPhoto, 'variant' => $variant])
+        ->assertSeeHtml('role="img" aria-label="Esta va con foto"');
+
+    Livewire::actingAs($user)
+        ->test('goal-card', ['goal' => $markedWithout, 'variant' => $variant])
+        ->assertSeeHtml('role="img" aria-label="Marcado sin foto"');
+})->with(['tile', 'row']);
+
 it('refuses a save with no photo when the photo rule wants proof', function (): void {
     $user = User::factory()->create();
     $goal = Goal::factory()->for($user)->create();
