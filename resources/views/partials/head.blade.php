@@ -55,8 +55,15 @@
 <meta name="twitter:image" content="{{ $og['image'] }}">
 
 <link rel="manifest" href="/manifest.webmanifest">
-<meta name="theme-color" media="(prefers-color-scheme: light)" content="#f7f4ef">
-<meta name="theme-color" media="(prefers-color-scheme: dark)" content="#1a1714">
+{{-- The browser's own toolbar, above the page. It follows the phone the way
+     the page under it does — except on a page that draws itself in one
+     palette, where asking the phone leaves a cream bar around the charcoal. --}}
+@if ($darkOnly ?? false)
+    <meta name="theme-color" content="#1a1714">
+@else
+    <meta name="theme-color" media="(prefers-color-scheme: light)" content="#f7f4ef">
+    <meta name="theme-color" media="(prefers-color-scheme: dark)" content="#1a1714">
+@endif
 
 {{-- iOS reads none of the manifest's install hints, so these still matter. --}}
 <meta name="apple-mobile-web-app-capable" content="yes">
@@ -86,13 +93,13 @@
 
 {{-- Must run before first paint, or the app flashes light before going dark.
 
-     Skipped by a page that has already picked its palette. The script asks the
+     Skipped by a page that draws itself in one palette. The script asks the
      visitor's phone and then adds or *removes* `dark` on the html element, so
      on the share page — which writes `dark` itself and has no switcher — it
      took the class straight back off for every visitor whose phone is in light
      mode. It carries the `color-scheme` rule too, which is why a page opting
      out says that for itself. --}}
-@unless ($fixedAppearance ?? false)
+@unless ($darkOnly ?? false)
     @fluxAppearance
 @endunless
 

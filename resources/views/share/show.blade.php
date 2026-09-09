@@ -41,8 +41,10 @@
             'og' => $og,
             'title' => $entry->shareTitle(),
             // No appearance switcher on this page, and nothing here follows
-            // the visitor's phone: the palette is decided above.
-            'fixedAppearance' => true,
+            // the visitor's phone: the palette is decided above, and the head
+            // stops asking — the class it would take off, and the toolbar
+            // colour it would pick to sit above the charcoal.
+            'darkOnly' => true,
         ])
     </head>
 
