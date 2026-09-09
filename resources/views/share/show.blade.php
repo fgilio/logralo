@@ -26,12 +26,26 @@
      two internal ones rather than a Blade component directory. --}}
 <!DOCTYPE html>
 {{-- Always dark. The share page is a shop window, not a screen anyone lives
-     in, and the photos blaze out of the charcoal. --}}
-<html lang="es" class="dark scroll-smooth">
+     in, and the photos blaze out of the charcoal.
+
+     Said twice, because the two are read by different things: `dark` is what
+     the `dark:` utilities inside the components below answer to, and
+     `scheme-dark` is what the browser paints its own chrome and the canvas
+     behind the page from — the rule `@fluxAppearance` would have carried, and
+     this page turns that off in the head. --}}
+<html lang="es" class="dark scheme-dark scroll-smooth">
     <head>
         {{-- The tab still names what the reader is looking at; only the unfurl
              goes quiet. --}}
-        @include('partials.head', ['og' => $og, 'title' => $entry->shareTitle()])
+        @include('partials.head', [
+            'og' => $og,
+            'title' => $entry->shareTitle(),
+            // No appearance switcher on this page, and nothing here follows
+            // the visitor's phone: the palette is decided above, and the head
+            // stops asking — the class it would take off, and the toolbar
+            // colour it would pick to sit above the charcoal.
+            'darkOnly' => true,
+        ])
     </head>
 
     <body class="min-h-dvh bg-zinc-950 font-sans text-zinc-100 antialiased">
