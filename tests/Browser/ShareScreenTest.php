@@ -24,7 +24,21 @@ it('keeps the share page dark on a phone that is set to light', function (): voi
     // A stranger out of WhatsApp, on the phone they already had. Nothing here
     // is their choice: the page is written for one palette, over a body that
     // is `bg-zinc-950` whatever the html element ends up saying.
+    //
+    // The toolbar above it is the same question one layer out. `theme-color`
+    // is declared twice and keyed on the phone, so the browser drew a cream
+    // bar over the charcoal; the applicable one is read here the way the
+    // browser reads it, rather than by counting the tags.
     visit("/l/{$mark->share_token}")->on()->iPhone15Pro()->inLightMode()
         ->assertScript('document.documentElement.classList.contains("dark")')
+        ->assertScript(
+            'function () {
+                return [...document.querySelectorAll(\'meta[name="theme-color"]\')]
+                    .filter((meta) => ! meta.media || window.matchMedia(meta.media).matches)
+                    .map((meta) => meta.content)
+                    .join();
+            }',
+            '#1a1714',
+        )
         ->assertNoJavaScriptErrors();
 });
