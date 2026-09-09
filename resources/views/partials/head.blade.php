@@ -84,8 +84,17 @@
 @fonts
 @vite(['resources/css/app.css', 'resources/js/app.js'])
 
-{{-- Must run before first paint, or the app flashes light before going dark. --}}
-@fluxAppearance
+{{-- Must run before first paint, or the app flashes light before going dark.
+
+     Skipped by a page that has already picked its palette. The script asks the
+     visitor's phone and then adds or *removes* `dark` on the html element, so
+     on the share page — which writes `dark` itself and has no switcher — it
+     took the class straight back off for every visitor whose phone is in light
+     mode. It carries the `color-scheme` rule too, which is why a page opting
+     out says that for itself. --}}
+@unless ($fixedAppearance ?? false)
+    @fluxAppearance
+@endunless
 
 {{-- Identical inline head scripts are deduped across wire:navigate, so this
      registers exactly once per tab. The worker caches nothing; it exists so
