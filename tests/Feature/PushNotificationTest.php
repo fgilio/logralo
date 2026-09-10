@@ -215,6 +215,25 @@ it('says a single streak in the singular', function (): void {
     expect($message['title'])->toBe('Se te va una racha de 12 días');
 });
 
+it('agrees with a run of exactly one day', function (): void {
+    // Marked once and then missed, which is where a first nudge usually lands:
+    // the run about to go is a single day, and the noun has to follow it.
+    $goal = Goal::factory()->for($this->ana)->create();
+    markedOn($goal, '2026-08-10');
+
+    $this->artisan('logralo:push-reminders')->assertSuccessful();
+
+    Notification::assertSentTo(
+        $this->ana,
+        StreakAboutToBreak::class,
+        function (StreakAboutToBreak $notification): bool {
+            $message = $notification->toWebPush($this->ana)->toArray();
+
+            return $message['title'] === 'Se te va una racha de 1 día';
+        },
+    );
+});
+
 it('keeps sweeping the roster after a member cannot be reached', function (): void {
     // No mocking library in this suite, so a dispatcher that refuses every send
     // stands in for a queue that will not take the job.
