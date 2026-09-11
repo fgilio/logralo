@@ -30,9 +30,12 @@
 # composer.json requires ^8.5, so the static build CI itself ran travels as a
 # second asset on the same release: linked against nothing but glibc, it drops
 # into a sandbox and runs, which is what makes a session CI's binary rather
-# than merely CI's version. It rides on top of vendor/ rather than beside it —
-# vendor/ is what everything after this waits on, so a restore that misses only
-# the binary leaves the session degraded rather than broken.
+# than merely CI's version. It rides on top of vendor/ rather than beside it:
+# vendor/ is what everything after this waits on, so only a vendor miss fails
+# the restore. A miss on the binary alone is still not harmless — the session
+# stays on the image's 8.4, where composer install fails its platform check and
+# setup.sh goes on to skip the asset build and the database — which is why that
+# leg warns rather than reporting a restore the session never got.
 
 # Derive "owner/repo" from the git remote. In sandboxes the proxy rewrites
 # remotes to http://127.0.0.1:<port>/git/<owner>/<repo>, so match the last two
