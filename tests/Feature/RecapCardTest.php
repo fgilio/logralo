@@ -81,6 +81,33 @@ it('keeps the best streak off a month that has none', function (): void {
     expect(recapEntryWith(0)->shareCard()->stats)->not->toHaveKey('Mejor racha');
 });
 
+it('calls a single winner el campeón', function (): void {
+    $entry = recapEntryRanking([['Ana', 1], ['Guido', 2]]);
+
+    expect($entry->championLabel())->toBe('Campeón')
+        ->and($entry->shareCard()->stats)->toHaveKey('Campeón');
+});
+
+it('calls a tied first place los campeones', function (): void {
+    // The same shared step as the escoltas below, on the card that leaves the
+    // app: the byline already says "Ganaron Franco y Guido", and the podium
+    // block under it was still labelling the two of them "Campeón".
+    $entry = recapEntryRanking([['Franco', 1], ['Guido', 1]]);
+
+    expect($entry->championLabel())->toBe('Campeones')
+        ->and($entry->shareCard()->stats)->toHaveKey('Campeones')
+        ->and($entry->shareCard()->stats['Campeones'])->toBe('Franco y Guido');
+});
+
+it('keeps the podium off a month nobody marked', function (): void {
+    // No winners, so the label falls back to the singular and array_filter
+    // drops the empty value it would have sat over.
+    $entry = recapEntryRanking([]);
+
+    expect($entry->championLabel())->toBe('Campeón')
+        ->and($entry->shareCard()->stats)->not->toHaveKey('Campeón');
+});
+
 it('calls one runner-up an escolta', function (): void {
     $entry = recapEntryRanking([['Ana', 1], ['Guido', 2]]);
 

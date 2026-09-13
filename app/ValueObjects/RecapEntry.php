@@ -59,6 +59,22 @@ final readonly class RecapEntry implements FeedEntry
         return $this->winners()->count() > 1 ? 'Ganaron' : 'Ganó';
     }
 
+    /**
+     * What to call whoever is standing on the top step, above their names on
+     * the share card's podium.
+     *
+     * The same shared step the two labels around it already agree with: a tie
+     * put "Ganaron Franco y Guido" in the byline and "Campeón · Franco y
+     * Guido" three lines under it, on the one image the group sends outside
+     * the app. Spelled out rather than inflected for the reason
+     * bestStreakLabel() gives below, and because the accent does not survive
+     * the plural: appending to "campeón" gets "campeónes".
+     */
+    public function championLabel(): string
+    {
+        return $this->winners()->count() > 1 ? 'Campeones' : 'Campeón';
+    }
+
     /** "Guido", or "Franco y Guido" on a tie. Empty when nobody came second. */
     public function runnerUpNames(): string
     {
@@ -115,7 +131,7 @@ final readonly class RecapEntry implements FeedEntry
             // array_filter drops the empty champion along with the nulls, so a
             // month nobody marked shows no podium rather than a blank one.
             stats: array_filter([
-                'Campeón' => $champion,
+                $this->championLabel() => $champion,
                 'Del mes' => $this->winners()->first()?->percentageLabel(),
                 'Mejor racha' => $this->bestStreakLabel(),
             ]),
