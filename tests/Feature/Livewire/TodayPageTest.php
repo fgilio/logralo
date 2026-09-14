@@ -247,6 +247,14 @@ it('leaves a member with no active goals out of the table', function (): void {
     $component->assertSee('Todavía nadie tiene objetivos activos');
 });
 
+it('names the month in the table the way Spanish writes it', function (): void {
+    // Mid-sentence, so it stays lowercase — the same month the recap's push
+    // announces as "Se cerró agosto".
+    Livewire::actingAs(User::factory()->create())
+        ->test('pages::today')
+        ->assertSee('Tabla de agosto');
+});
+
 it('sends a member with no goals to the empty state', function (): void {
     Livewire::actingAs(User::factory()->create())
         ->test('pages::today')
