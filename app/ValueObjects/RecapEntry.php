@@ -32,9 +32,10 @@ final readonly class RecapEntry implements FeedEntry
         return "recap-{$this->recap->id}";
     }
 
+    /** The month where it starts its own line: a card's heading, a card's title. */
     public function monthName(): string
     {
-        return Str::ucfirst($this->recap->month->translatedFormat('F Y'));
+        return Str::ucfirst($this->monthInSentence());
     }
 
     /** @return Collection<int, Standing> */
@@ -144,8 +145,8 @@ final readonly class RecapEntry implements FeedEntry
         $champion = $this->winnerNames();
 
         return $champion === ''
-            ? "Cerró {$this->monthName()}"
-            : "{$this->winnerLabel()} {$champion} en {$this->monthName()}";
+            ? "Cerró {$this->monthInSentence()}"
+            : "{$this->winnerLabel()} {$champion} en {$this->monthInSentence()}";
     }
 
     /** A month has no row in the feed to scroll to. */
@@ -159,8 +160,8 @@ final readonly class RecapEntry implements FeedEntry
         $champion = $this->winnerNames();
 
         return $champion === ''
-            ? "🏆 Cerró {$this->monthName()} en Logralo"
-            : "🏆 {$this->winnerLabel()} {$champion} en {$this->monthName()}";
+            ? "🏆 Cerró {$this->monthInSentence()} en Logralo"
+            : "🏆 {$this->winnerLabel()} {$champion} en {$this->monthInSentence()}";
     }
 
     public function shareUrl(): ?string
@@ -187,6 +188,20 @@ final readonly class RecapEntry implements FeedEntry
     public function sharePhotoKey(): ?string
     {
         return null;
+    }
+
+    /**
+     * The month with a word in front of it, where Spanish leaves it lowercase
+     * — "Ganó Guido en septiembre 2026".
+     *
+     * The app already writes it that way everywhere else it lands mid-phrase:
+     * the feed's day dividers, `MonthClosed`'s "Se cerró septiembre", and
+     * `MarkEntry`'s own share card byline, which takes the same
+     * `translatedFormat` and never capitalises it.
+     */
+    private function monthInSentence(): string
+    {
+        return $this->recap->month->translatedFormat('F Y');
     }
 
     /**
