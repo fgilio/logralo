@@ -499,6 +499,41 @@ it('reacts and comments without leaving the open photo', function (): void {
         ->and(Comment::query()->sole()->body)->toBe('Sos un crack');
 });
 
+it('keeps the viewer tally showing the reaction the member left', function (): void {
+    $ana = User::factory()->create();
+    $bruno = User::factory()->create();
+
+    $mark = Mark::factory()
+        ->for(Goal::factory()->for($bruno)->create(['name' => 'Guitarra']))
+        ->withPhoto()
+        ->create();
+
+    // Three louder kinds, and Ana's fourth on its own. The counts are what
+    // orders the strip, so they are spelled out rather than left to a tie:
+    // the ring has to survive being ranked last, not merely being drawn.
+    foreach ([ReactionEmoji::Muscle, ReactionEmoji::Fire, ReactionEmoji::Clap] as $emoji) {
+        Reaction::factory()->count(2)->for($mark)->create(['emoji' => $emoji]);
+    }
+
+    Reaction::factory()->for($mark)->create(['user_id' => $ana->id, 'emoji' => ReactionEmoji::Laugh]);
+
+    $this->actingAs($ana);
+
+    $page = visit('/')->on()->iPhone15Pro()
+        // The card says it first: three faces, and the member's own is one of
+        // them however quiet it is.
+        ->assertSeeIn('@reactions-'.$mark->id, ReactionEmoji::Laugh->character())
+        ->click('@viewer-open-'.$mark->id)
+        ->wait(1)
+        ->assertVisible('@viewer-tally');
+
+    // And the full-screen viewer has to agree with it: the ring on that face
+    // is how the photo says you already reacted, and a strip that drops it
+    // offers the member a reaction they have in fact already left.
+    $page->assertSeeIn('@viewer-tally', ReactionEmoji::Laugh->character())
+        ->assertNoJavaScriptErrors();
+});
+
 it('opens the month table from the trophy button', function (): void {
     $user = User::factory()->create(['name' => 'Ana Pérez']);
     Goal::factory()->for($user)->create();
