@@ -103,3 +103,35 @@ it('keeps the singular for a month nobody came second in', function (): void {
     expect($entry->runnerUpLabel())->toBe('Escolta')
         ->and($entry->runnerUpNames())->toBe('');
 });
+
+it('writes the month lowercase once a word comes before it', function (): void {
+    // The two strings a recap sends outside the group: the line that lands in
+    // the chat, and the tab title whoever opens the link reads. Both put the
+    // month after a verb, where Spanish does not capitalise it.
+    $this->travelTo('2026-10-15');
+
+    $entry = recapEntryRanking([['Guido', 1]]);
+
+    expect($entry->shareText())->toBe('🏆 Ganó Guido en septiembre 2026')
+        ->and($entry->shareTitle())->toBe('Ganó Guido en septiembre 2026');
+});
+
+it('writes it lowercase on a month nobody won either', function (): void {
+    $this->travelTo('2026-10-15');
+
+    $entry = recapEntryRanking([]);
+
+    expect($entry->shareText())->toBe('🏆 Cerró septiembre 2026 en Logralo')
+        ->and($entry->shareTitle())->toBe('Cerró septiembre 2026');
+});
+
+it('still capitalises the month where it starts the card', function (): void {
+    // The other half of the fix: the heading and the share card's title are
+    // the month on its own, so there it keeps the capital it always had.
+    $this->travelTo('2026-10-15');
+
+    $entry = recapEntryRanking([['Guido', 1]]);
+
+    expect($entry->monthName())->toBe('Septiembre 2026')
+        ->and($entry->shareCard()->title)->toBe('Septiembre 2026');
+});
