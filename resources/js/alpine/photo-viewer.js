@@ -77,17 +77,35 @@ export default (options = {}) => ({
         return `transform: translateY(${this.y}px); opacity: ${faded}; will-change: transform, opacity`;
     },
 
-    /** The emoji shown beside the count, most-used first, mine kept. */
+    /**
+     * The emoji shown beside the count, most-used first, mine kept.
+     *
+     * Kept by taking one slot off the three and spending it on my own, the
+     * way `x-feed.reactions` does on the card: the ring drawn on that face
+     * is how the photo says I already reacted, and three louder kinds
+     * pushing it out offered me a reaction I had in fact already left.
+     *
+     * The guard used to ask whether my emoji was in the ranking rather than
+     * in the three slots cut out of it. Every reaction I can have left is in
+     * the ranking — it is counted there — so it never fired, and my face was
+     * kept only when it was loud enough not to need keeping.
+     */
     get faces() {
-        const shown = Object.entries(this.counts)
+        const ranked = Object.entries(this.counts)
             .sort((a, b) => b[1] - a[1])
             .map(([emoji]) => emoji);
 
-        if (this.reacted && !shown.includes(this.reacted)) {
-            shown.unshift(this.reacted);
+        const shown = ranked.slice(0, 3);
+
+        if (
+            this.reacted &&
+            ranked.includes(this.reacted) &&
+            !shown.includes(this.reacted)
+        ) {
+            return [...shown.slice(0, 2), this.reacted];
         }
 
-        return shown.slice(0, 3);
+        return shown;
     },
 
     get total() {
