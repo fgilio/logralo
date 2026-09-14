@@ -17,7 +17,7 @@
 
 <div wire:loading.remove wire:target="press, save, remove">
     @if ($ghost)
-        <span class="text-lg" title="Marcado sin foto">🌫️</span>
+        <span class="text-lg" title="Marcado sin foto" role="img" aria-label="Marcado sin foto">🌫️</span>
     @elseif ($full)
         <flux:icon name="check-circle" variant="solid" class="{{ $icon }} text-accent" />
     @elseif ($ring)

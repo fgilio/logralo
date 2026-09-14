@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
-# Restore the CI-built vendor snapshot in hosted agent sandboxes.
+# Restore the CI-built snapshot — vendor/ and the PHP runtime — in hosted
+# agent sandboxes.
 #
 # Why this has to exist. The sandbox egress proxy scopes GitHub to the
 # session's own repositories. Packagist metadata answers fine, but the dist
@@ -25,10 +26,16 @@
 # push access — which the session credential has. Guarded to cloud sessions:
 # on a developer machine this must never touch vendor/.
 #
-# The snapshot carries vendor/ only. A PHP binary could travel the same way,
-# but it does not need to: php.sh installs the pinned series from the sury apt
-# repository the image already trusts, which is cheaper to build and to reason
-# about than shipping a runtime through a release asset.
+# The snapshot carries the PHP runtime too. The image ships PHP 8.4 while
+# composer.json requires ^8.5, so the static build CI itself ran travels as a
+# second asset on the same release: linked against nothing but glibc, it drops
+# into a sandbox and runs, which is what makes a session CI's binary rather
+# than merely CI's version. It rides on top of vendor/ rather than beside it:
+# vendor/ is what everything after this waits on, so only a vendor miss fails
+# the restore. A miss on the binary alone is still not harmless — the session
+# stays on the image's 8.4, where composer install fails its platform check and
+# setup.sh goes on to skip the asset build and the database — which is why that
+# leg warns rather than reporting a restore the session never got.
 
 # Derive "owner/repo" from the git remote. In sandboxes the proxy rewrites
 # remotes to http://127.0.0.1:<port>/git/<owner>/<repo>, so match the last two

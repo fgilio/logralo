@@ -32,9 +32,10 @@ final readonly class RecapEntry implements FeedEntry
         return "recap-{$this->recap->id}";
     }
 
+    /** The month where it starts its own line: a card's heading, a card's title. */
     public function monthName(): string
     {
-        return Str::ucfirst($this->recap->month->translatedFormat('F Y'));
+        return Str::ucfirst($this->monthInSentence());
     }
 
     /** @return Collection<int, Standing> */
@@ -57,6 +58,22 @@ final readonly class RecapEntry implements FeedEntry
     public function winnerLabel(): string
     {
         return $this->winners()->count() > 1 ? 'Ganaron' : 'Ganó';
+    }
+
+    /**
+     * What to call whoever is standing on the top step, above their names on
+     * the share card's podium.
+     *
+     * The same shared step the two labels around it already agree with: a tie
+     * put "Ganaron Franco y Guido" in the byline and "Campeón · Franco y
+     * Guido" three lines under it, on the one image the group sends outside
+     * the app. Spelled out rather than inflected for the reason
+     * bestStreakLabel() gives below, and because the accent does not survive
+     * the plural: appending to "campeón" gets "campeónes".
+     */
+    public function championLabel(): string
+    {
+        return $this->winners()->count() > 1 ? 'Campeones' : 'Campeón';
     }
 
     /** "Guido", or "Franco y Guido" on a tie. Empty when nobody came second. */
@@ -115,7 +132,7 @@ final readonly class RecapEntry implements FeedEntry
             // array_filter drops the empty champion along with the nulls, so a
             // month nobody marked shows no podium rather than a blank one.
             stats: array_filter([
-                'Campeón' => $champion,
+                $this->championLabel() => $champion,
                 'Del mes' => $this->winners()->first()?->percentageLabel(),
                 'Mejor racha' => $this->bestStreakLabel(),
             ]),
@@ -128,8 +145,8 @@ final readonly class RecapEntry implements FeedEntry
         $champion = $this->winnerNames();
 
         return $champion === ''
-            ? "Cerró {$this->monthName()}"
-            : "{$this->winnerLabel()} {$champion} en {$this->monthName()}";
+            ? "Cerró {$this->monthInSentence()}"
+            : "{$this->winnerLabel()} {$champion} en {$this->monthInSentence()}";
     }
 
     /** A month has no row in the feed to scroll to. */
@@ -143,8 +160,8 @@ final readonly class RecapEntry implements FeedEntry
         $champion = $this->winnerNames();
 
         return $champion === ''
-            ? "🏆 Cerró {$this->monthName()} en Logralo"
-            : "🏆 {$this->winnerLabel()} {$champion} en {$this->monthName()}";
+            ? "🏆 Cerró {$this->monthInSentence()} en Logralo"
+            : "🏆 {$this->winnerLabel()} {$champion} en {$this->monthInSentence()}";
     }
 
     public function shareUrl(): ?string
@@ -171,6 +188,20 @@ final readonly class RecapEntry implements FeedEntry
     public function sharePhotoKey(): ?string
     {
         return null;
+    }
+
+    /**
+     * The month with a word in front of it, where Spanish leaves it lowercase
+     * — "Ganó Guido en septiembre 2026".
+     *
+     * The app already writes it that way everywhere else it lands mid-phrase:
+     * the feed's day dividers, `MonthClosed`'s "Se cerró septiembre", and
+     * `MarkEntry`'s own share card byline, which takes the same
+     * `translatedFormat` and never capitalises it.
+     */
+    private function monthInSentence(): string
+    {
+        return $this->recap->month->translatedFormat('F Y');
     }
 
     /**

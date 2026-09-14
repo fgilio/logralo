@@ -25,9 +25,16 @@ final class StreakAboutToBreak extends PushNotification
 
     public function toWebPush(object $notifiable): WebPushMessage
     {
+        // Spelled out rather than inflected, the way the flame and the recap
+        // card already do it: `Str::plural` is an English inflector. A run of
+        // exactly one day is not the edge case it looks like — a goal marked
+        // once and then missed is where most first nudges land, and this read
+        // "una racha de 1 días" on every one of them.
+        $unit = $this->longestStreak === 1 ? 'día' : 'días';
+
         return $this->message()
             ->title($this->goalsAtRisk === 1
-                ? "Se te va una racha de {$this->longestStreak} días"
+                ? "Se te va una racha de {$this->longestStreak} {$unit}"
                 : "Se te van {$this->goalsAtRisk} rachas")
             ->body("Marcá ayer antes de las {$this->closesAt}.")
             // Replaced rather than repeated if a later run ever reaches the

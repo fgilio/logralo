@@ -9,6 +9,7 @@ use App\Models\MonthlyRecap;
 use App\Models\User;
 use App\Services\ShareCardRenderer;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Str;
 
 /**
  * The public half of the app.
@@ -27,6 +28,24 @@ function sharedMark(?User $user = null): Mark
         'user_id' => $user->id,
         'marked_on' => now()->toDateString(),
     ]);
+}
+
+/**
+ * Every href inside the page's `<header>`.
+ *
+ * The footer's way in is deliberate and carries a label that says where it
+ * goes. The header is where a link sits unexplained, so that block is the one
+ * these assertions read. Scoped rather than page-wide on purpose: a stranger
+ * is meant to have the footer's link and no other.
+ *
+ * @return array<int, string>
+ */
+function headerLinks(string $html): array
+{
+    return Str::of($html)
+        ->between('<header', '</header>')
+        ->matchAll('/<a\b[^>]*\bhref="([^"]*)"/')
+        ->all();
 }
 
 it('mints a token for every mark as it is made', function (): void {
@@ -106,6 +125,29 @@ it('shows a stranger the group, not a login form', function (): void {
         ->assertOk()
         ->assertSee('grupo de amigos')
         ->assertDontSee('name="password"', escape: false);
+});
+
+it('leaves a stranger no link out of the page except the labelled one', function (): void {
+    // The test above pins that the page itself has no password box. The header
+    // used to hand one over anyway: the wordmark pointed at `/`, which is
+    // behind `auth`, so the most obvious tap on the page redirected a stranger
+    // to the login screen — greeted, on top of that, by copy written for
+    // somebody who already has an account.
+    $mark = sharedMark();
+
+    $links = headerLinks($this->get("/l/{$mark->share_token}")->content());
+
+    expect($links)->toBe([]);
+});
+
+it('still leads a member home from the wordmark', function (): void {
+    $mark = sharedMark();
+
+    $links = headerLinks(
+        $this->actingAs(User::factory()->create())->get("/l/{$mark->share_token}")->content(),
+    );
+
+    expect($links)->toBe([url('/')]);
 });
 
 it('offers a member the way back into the app, anchored on the mark', function (): void {

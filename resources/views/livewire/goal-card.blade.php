@@ -574,7 +574,7 @@ new class extends Component
                     <x-flame :days="$this->streak" :dim="$dimFlame" size="sm" />
 
                     @if ($owesPhoto)
-                        <span class="text-xs" title="Esta va con foto">📸</span>
+                        <span class="text-xs" title="Esta va con foto" role="img" aria-label="Esta va con foto">📸</span>
                     @endif
 
                     @if ($goal->isPrivate())
@@ -621,7 +621,7 @@ new class extends Component
 
                     <div class="flex items-center gap-1.5">
                         @if ($owesPhoto)
-                            <span class="text-xs" title="Esta va con foto">📸</span>
+                            <span class="text-xs" title="Esta va con foto" role="img" aria-label="Esta va con foto">📸</span>
                         @endif
 
                         @if ($goal->isPrivate())
