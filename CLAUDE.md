@@ -35,7 +35,7 @@ The layering is the thing to keep. It is enforced by `tests/Arch/`.
 
 ### `app/Actions/` — the write side, one unit of work each
 
-- `MarkGoal`, `UnmarkGoal`, `ToggleReaction`, `AddComment`, `CreateGoal`, `RenameGoal`, `ArchiveGoal`, `RestoreGoal`, `CloseMonth`, `IssueMagicLink`, `RecordShareVisit`, `RevokeSharing`, `ResumeSharing`, `UpdateAvatar`, `RemoveAvatar`, `SendFeedback`, `SubscribeToPush`, `UnsubscribeFromPush`, `SendStreakReminder`
+- `MarkGoal`, `UnmarkGoal`, `AttachPhotoToMark`, `ToggleReaction`, `AddComment`, `CreateGoal`, `RenameGoal`, `ArchiveGoal`, `RestoreGoal`, `CloseMonth`, `IssueMagicLink`, `RecordShareVisit`, `RevokeSharing`, `ResumeSharing`, `UpdateAvatar`, `RemoveAvatar`, `SendFeedback`, `SubscribeToPush`, `UnsubscribeFromPush`, `SendStreakReminder`
 - `SendFeedback` is the only one that mails: the row in `feedback` is the deliverable and `App\Mail\FeedbackReceived` is a best-effort nudge to `LOGRALO_FEEDBACK_EMAIL`, wrapped in `rescue` so a mail provider cannot swallow what a member typed
 - Three of them buzz a phone, through `app/Notifications/` and Web Push. `MarkGoal` announces a milestone streak to the rest of the group and `CloseMonth` announces the recap, both wrapped in `rescue`: the mark and the recap row are the deliverables, and a queue that will not take the job cannot be allowed to fail them. `SendStreakReminder` warns one member that their grace window is about to shut on a live run, and is deliberately not wrapped, because there the notification is the whole deliverable — `docs/architecture/push-notifications.md`
 
